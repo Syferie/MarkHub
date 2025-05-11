@@ -1,0 +1,412 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 245, 245, 245;
+  --background-end-rgb: 255, 255, 255;
+  --transition-speed: 0.2s;
+  --accent-color: #3b82f6;
+  --accent-rgb: 59, 130, 246;
+  --accent-light: rgba(59, 130, 246, 0.1);
+  --accent-dark: rgba(59, 130, 246, 0.2);
+}
+
+.dark {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 20, 20, 20;
+  --background-end-rgb: 30, 30, 30;
+  color-scheme: dark;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(to bottom, transparent, rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
+}
+
+/* Dark mode styles */
+.dark body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(to bottom, transparent, rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
+}
+
+.dark .bg-white {
+  background-color: #1e1e1e;
+  color: #e0e0e0;
+}
+
+.dark .text-gray-800 {
+  color: #e0e0e0;
+}
+
+.dark .text-gray-700 {
+  color: #d0d0d0;
+}
+
+.dark .text-gray-500 {
+  color: #a0a0a0;
+}
+
+.dark .text-gray-400 {
+  color: #909090;
+}
+
+.dark .border-gray-100 {
+  border-color: #333333;
+}
+
+.dark .border-gray-200 {
+  border-color: #444444;
+}
+
+.dark .hover\:bg-gray-50:hover {
+  background-color: #2a2a2a;
+}
+
+.dark .bg-gray-50 {
+  background-color: #2a2a2a;
+}
+
+.dark .bg-gray-100 {
+  background-color: #333333;
+}
+
+.dark .bg-blue-50 {
+  background-color: rgba(var(--accent-rgb), 0.2);
+}
+
+.dark .border-blue-200 {
+  border-color: rgba(var(--accent-rgb), 0.4);
+}
+
+.dark .hover\:bg-blue-50:hover {
+  background-color: rgba(var(--accent-rgb), 0.2);
+}
+
+.dark .hover\:bg-green-50:hover {
+  background-color: rgba(16, 185, 129, 0.2);
+}
+
+.dark .hover\:bg-yellow-50:hover {
+  background-color: rgba(245, 158, 11, 0.2);
+}
+
+.dark .hover\:bg-red-50:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+}
+
+.dark .shadow {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Accent color styles */
+.accent-bg {
+  background-color: var(--accent-color);
+}
+
+.accent-text {
+  color: var(--accent-color);
+}
+
+.accent-border {
+  border-color: var(--accent-color);
+}
+
+.hover\:accent-bg:hover {
+  background-color: var(--accent-light);
+}
+
+.active\:accent-bg:active {
+  background-color: var(--accent-dark);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #2a2a2a;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #555555;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #666666;
+}
+
+/* Smooth transitions */
+.folder-item,
+.tag-item,
+.bookmark-item,
+.folder-tree-item,
+.filter-badge {
+  transition: all var(--transition-speed) ease-in-out;
+}
+
+.folder-children {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--transition-speed) ease-in-out;
+}
+
+.folder-children.expanded {
+  max-height: 1000px; /* Large enough to contain content */
+}
+
+/* Fade animations */
+.fade-in {
+  animation: fadeIn var(--transition-speed) ease-in-out;
+}
+
+.fade-out {
+  animation: fadeOut var(--transition-speed) ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Slide animations */
+.slide-in {
+  animation: slideIn var(--transition-speed) ease-in-out;
+}
+
+.slide-out {
+  animation: slideOut var(--transition-speed) ease-in-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+}
+
+/* Tab transitions */
+.tab-content {
+  transition: opacity var(--transition-speed) ease-in-out, transform var(--transition-speed) ease-in-out;
+}
+
+.tab-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.tab-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tab-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tab-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Cursor styles */
+.tag-item,
+.filter-badge,
+.folder-item {
+  cursor: pointer !important;
+}
+
+/* Checkbox animations */
+.mantine-Checkbox-input:checked + .mantine-Checkbox-icon {
+  animation: checkboxPop 0.2s ease-in-out;
+}
+
+@keyframes checkboxPop {
+  0% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Button hover effects */
+button,
+.mantine-Button-root,
+.mantine-ActionIcon-root {
+  transition: all 0.2s ease-in-out !important;
+}
+
+button:hover,
+.mantine-Button-root:hover,
+.mantine-ActionIcon-root:hover {
+  transform: translateY(-1px);
+}
+
+button:active,
+.mantine-Button-root:active,
+.mantine-ActionIcon-root:active {
+  transform: translateY(0);
+}
+
+/* Filter panel animations */
+.filter-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, margin 0.3s ease-in-out;
+  opacity: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.filter-panel.expanded {
+  max-height: 200px;
+  opacity: 1;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Action panel animations */
+.action-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, margin 0.3s ease-in-out;
+  opacity: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.action-panel.expanded {
+  max-height: 200px;
+  opacity: 1;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Mantine dark mode overrides */
+.dark .mantine-Button-root {
+  --button-bg: var(--accent-color);
+}
+
+.dark .mantine-ColorInput-wrapper,
+.dark .mantine-Select-wrapper,
+.dark .mantine-TextInput-wrapper {
+  --input-bg: #2a2a2a;
+  --input-color: #e0e0e0;
+  --input-border-color: #444444;
+}
+
+.dark .mantine-Switch-root {
+  --switch-radius: 1rem;
+  --switch-height: 1.5rem;
+  --switch-width: 2.75rem;
+  --switch-bg: #444444;
+  --switch-color: var(--accent-color);
+}
+
+.dark .mantine-Tabs-tab {
+  --tabs-color: #a0a0a0;
+  --tabs-hover-color: #e0e0e0;
+  --tabs-active-color: var(--accent-color);
+}
+
+/* Apply accent color to Mantine components */
+.mantine-Button-filled {
+  background-color: var(--accent-color) !important;
+}
+
+.mantine-Tabs-tab[data-active="true"] {
+  color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+}
+
+.mantine-Switch-track[data-checked] {
+  background-color: var(--accent-color) !important;
+}
+
+.mantine-Checkbox-input:checked {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+}
+
+.mantine-ActionIcon-root[data-variant="filled"] {
+  background-color: var(--accent-color) !important;
+}
+
+/* 添加以下样式到文件末尾 */
+
+/* 优化虚拟列表样式 */
+.bookmark-list {
+  overflow-x: hidden !important;
+}
+
+/* 防止页面出现滚动条 */
+body {
+  overflow-y: auto;
+  height: 100vh;
+}
+
+.container {
+  height: calc(100vh - 2rem);
+  overflow: hidden;
+}
+
+/* 优化书签项样式 */
+.bookmark-item {
+  margin-bottom: 0 !important;
+  border-width: 1px !important;
+}
+
+/* 调整虚拟列表行间距 */
+.react-window-list > div > div {
+  padding: 0 !important;
+}

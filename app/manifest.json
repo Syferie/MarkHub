@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Modern Bookmark Manager",
+  "version": "1.0",
+  "description": "A modern bookmark manager with powerful organization features",
+  "permissions": ["bookmarks", "storage", "tabs"],
+  "action": {
+    "default_popup": "index.html"
+  },
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
