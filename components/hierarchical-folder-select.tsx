@@ -4,6 +4,19 @@ import { forwardRef } from "react"
 import { Select, type SelectProps } from "@mantine/core"
 import { useBookmarks } from "@/context/bookmark-context"
 
+// 定义内部使用的类型
+interface Folder {
+  id: string
+  name: string
+  parentId: string | null
+}
+
+// 定义选项类型
+interface SelectOption {
+  value: string
+  label: string
+}
+
 interface HierarchicalFolderSelectProps extends Omit<SelectProps, "data"> {
   value: string | null
   onChange: (value: string | null) => void
@@ -14,7 +27,7 @@ export const HierarchicalFolderSelect = forwardRef<HTMLInputElement, Hierarchica
     const { folders } = useBookmarks()
 
     // Create hierarchical data structure
-    const getFolderOptions = () => {
+    const getFolderOptions = (): SelectOption[] => {
       // Ensure folders is an array
       if (!Array.isArray(folders)) {
         return []
@@ -24,12 +37,12 @@ export const HierarchicalFolderSelect = forwardRef<HTMLInputElement, Hierarchica
       const rootFolders = folders.filter((folder) => !folder.parentId)
 
       // Function to build options recursively
-      const buildOptions = (parentFolders: typeof folders, level = 0) => {
+      const buildOptions = (parentFolders: Folder[], level = 0): SelectOption[] => {
         if (!Array.isArray(parentFolders)) {
           return []
         }
 
-        return parentFolders.flatMap((folder) => {
+        return parentFolders.flatMap((folder): SelectOption[] => {
           if (!folder) return []
 
           // Create indentation based on level
@@ -39,7 +52,7 @@ export const HierarchicalFolderSelect = forwardRef<HTMLInputElement, Hierarchica
           const children = folders.filter((f) => f && f.parentId === folder.id)
 
           // Create option for current folder
-          const option = {
+          const option: SelectOption = {
             value: folder.id,
             label: `${prefix}${folder.name}`,
           }
@@ -49,7 +62,7 @@ export const HierarchicalFolderSelect = forwardRef<HTMLInputElement, Hierarchica
             return [option, ...buildOptions(children, level + 1)]
           }
 
-          return option
+          return [option]
         })
       }
 
@@ -70,11 +83,10 @@ export const HierarchicalFolderSelect = forwardRef<HTMLInputElement, Hierarchica
         searchable
         maxDropdownHeight={280}
         nothingFoundMessage="No folders found"
-        transitionProps={{
-          transition: "pop",
-          duration: 200,
-        }}
-        {...props}
+        // 移除transitionProps属性，因为它会导致React错误
+        {...Object.fromEntries(
+          Object.entries(props).filter(([key]) => key !== 'transitionProps')
+        )}
       />
     )
   },

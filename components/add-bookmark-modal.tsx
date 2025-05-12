@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Modal, TextInput, MultiSelect, Button, Group, Tooltip, ActionIcon, Alert, Text } from "@mantine/core"
-import { IconWand, IconAlertCircle } from "@tabler/icons-react"
+import { Modal, TextInput, Button, Group, Tooltip, ActionIcon, Alert, Text, Combobox, PillsInput, Pill, useCombobox } from "@mantine/core"
+import { IconWand, IconAlertCircle, IconCheck } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
 import { HierarchicalFolderSelect } from "./hierarchical-folder-select"
 
@@ -108,6 +108,123 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
   }
 
   const isTagApiConfigured = !!(settings?.tagApiUrl && settings?.tagApiKey)
+  
+  // 新添加的TagSelector组件，使用最新的Mantine API
+  function TagSelector({
+    tagOptions,
+    selectedTags,
+    setSelectedTags,
+    createTag
+  }: {
+    tagOptions: { value: string; label: string }[],
+    selectedTags: string[],
+    setSelectedTags: React.Dispatch<React.SetStateAction<string[]>>,
+    createTag: (query: string) => { value: string; label: string }
+  }) {
+    // 添加一个控制下拉框开关状态的状态变量
+    const [opened, setOpened] = useState(false)
+    const combobox = useCombobox({
+      onDropdownClose: () => combobox.resetSelectedOption(),
+      onDropdownOpen: () => combobox.updateSelectedOptionIndex('active'),
+      opened,
+      onOpenedChange: setOpened
+    })
+  
+    const [search, setSearch] = useState('')
+  
+    const exactOptionMatch = tagOptions.some((item) => item.value === search)
+  
+    const handleValueSelect = (val: string) => {
+      setSearch('')
+  
+      if (val === '$create') {
+        // 创建新标签
+        createTag(search)
+        // 确保下拉框保持打开状态
+        setOpened(true)
+      } else {
+        // 选择或取消选择现有标签
+        setSelectedTags((current) =>
+          current.includes(val) ? current.filter((v) => v !== val) : [...current, val]
+        )
+        // 确保下拉框保持打开状态
+        setOpened(true)
+      }
+    }
+  
+    const handleValueRemove = (val: string) =>
+      setSelectedTags((current) => current.filter((v) => v !== val))
+  
+    // 渲染已选择的标签
+    const values = selectedTags.map((item) => (
+      <Pill key={item} withRemoveButton onRemove={() => handleValueRemove(item)}>
+        {item}
+      </Pill>
+    ))
+  
+    // 渲染选项列表
+    const options = tagOptions
+      .filter((item) => item.value.toLowerCase().includes(search.trim().toLowerCase()))
+      .map((item) => (
+        <Combobox.Option value={item.value} key={item.value} active={selectedTags.includes(item.value)}>
+          <Group gap="sm">
+            {selectedTags.includes(item.value) ? <IconCheck size={12} /> : null}
+            <span>{item.label}</span>
+          </Group>
+        </Combobox.Option>
+      ))
+  
+    return (
+      <Combobox
+        store={combobox}
+        onOptionSubmit={handleValueSelect}
+        withinPortal={false}
+        transitionProps={{ transition: 'pop', duration: 200 }}
+      >
+        <Combobox.DropdownTarget>
+          <PillsInput onClick={() => combobox.openDropdown()}>
+            <Pill.Group>
+              {values}
+  
+              <Combobox.EventsTarget>
+                <PillsInput.Field
+                  onFocus={() => combobox.openDropdown()}
+                  // 移除onBlur事件以防止在选择选项时关闭下拉框
+                  // onBlur={() => combobox.closeDropdown()}
+                  value={search}
+                  placeholder="Select or create tags"
+                  onChange={(event) => {
+                    combobox.updateSelectedOptionIndex()
+                    setSearch(event.currentTarget.value)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Backspace' && search.length === 0) {
+                      event.preventDefault()
+                      handleValueRemove(selectedTags[selectedTags.length - 1])
+                    }
+                  }}
+                />
+              </Combobox.EventsTarget>
+            </Pill.Group>
+          </PillsInput>
+        </Combobox.DropdownTarget>
+  
+        <Combobox.Dropdown>
+          <Combobox.Options>
+            {options}
+  
+            {!exactOptionMatch && search.trim().length > 0 && (
+              <Combobox.Option value="$create">+ Create {search}</Combobox.Option>
+            )}
+  
+            {options.length === 0 && search.trim().length > 0 && (
+              <Combobox.Empty>Nothing found</Combobox.Empty>
+            )}
+          </Combobox.Options>
+        </Combobox.Dropdown>
+      </Combobox>
+    )
+  }
 
   return (
     <Modal opened={isOpen} onClose={onClose} title="Add Bookmark" centered>
@@ -131,10 +248,6 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
         <HierarchicalFolderSelect
           value={selectedFolder}
           onChange={setSelectedFolder}
-          transitionProps={{
-            transition: "pop",
-            duration: 200,
-          }}
         />
 
         <div>
@@ -149,19 +262,12 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
             )}
           </div>
 
-          <MultiSelect
-            placeholder="Select or create tags"
-            data={tagOptions}
-            value={selectedTags}
-            onChange={setSelectedTags}
-            searchable
-            creatable={true}
-            getCreateLabel={(query) => `+ Create ${query}`}
-            onCreate={createTag}
-            transitionProps={{
-              transition: "pop",
-              duration: 200,
-            }}
+          {/* 使用新的Combobox组件替换旧的MultiSelect组件 */}
+          <TagSelector
+            tagOptions={tagOptions}
+            selectedTags={selectedTags}
+            setSelectedTags={setSelectedTags}
+            createTag={createTag}
           />
 
           {tagError && (

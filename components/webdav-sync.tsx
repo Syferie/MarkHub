@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button, Modal, TextInput, PasswordInput, Group, Text, Switch, Alert, Progress } from "@mantine/core"
 import { IconCloud, IconCloudUpload, IconCloudDownload, IconAlertCircle } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
@@ -20,7 +20,7 @@ export default function WebDAVSync() {
   const [syncSuccess, setSyncSuccess] = useState("")
 
   // Load saved WebDAV credentials from localStorage
-  useState(() => {
+  useEffect(() => {
     const savedWebDAV = localStorage.getItem("webdav_config")
     if (savedWebDAV) {
       try {
@@ -33,7 +33,7 @@ export default function WebDAVSync() {
         console.error("Error loading WebDAV config:", e)
       }
     }
-  })
+  }, [])
 
   // Save WebDAV config
   const saveWebDAVConfig = () => {
@@ -285,7 +285,7 @@ export default function WebDAVSync() {
               <Text size="sm" mb={5}>
                 {syncMessage}
               </Text>
-              <Progress value={syncProgress} striped animate />
+              <Progress value={syncProgress} striped animated />
             </div>
           )}
 

@@ -26,20 +26,39 @@ import {
   IconFileCode,
 } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
-import type { Bookmark, Folder } from "@/types"
+// 直接使用 bookmark-context.tsx 中定义的接口，确保类型一致
+interface Bookmark {
+  id: string
+  title: string
+  url: string
+  folderId: string | null
+  tags?: string[]
+  createdAt: string
+  favicon?: string
+  isFavorite?: boolean
+}
+
+interface Folder {
+  id: string
+  name: string
+  parentId: string | null
+}
 
 export default function ImportExport() {
   const { exportBookmarks, importBookmarks, bookmarks: currentBookmarks } = useBookmarks()
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
-  const [previewData, setPreviewData] = useState<{
+  // 明确定义 ImportData 接口，与 importBookmarks 函数接口保持一致
+  interface ImportData {
     bookmarks?: Bookmark[]
     folders?: Folder[]
     tags?: string[]
     favoriteFolders?: string[]
     settings?: any
     exportDate?: string
-  } | null>(null)
+  }
+
+  const [previewData, setPreviewData] = useState<ImportData | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string | null>("upload")
   const [importFormat, setImportFormat] = useState<string>("json")
@@ -168,7 +187,7 @@ export default function ImportExport() {
     if (!previewData) return
 
     try {
-      importBookmarks(previewData)
+      importBookmarks(previewData as ImportData)
       setImportModalOpen(false)
       setFile(null)
       setPreviewData(null)
@@ -221,7 +240,7 @@ export default function ImportExport() {
               </Text>
 
               <div className="mb-4">
-                <Text size="sm" weight={500} className="mb-2">
+                <Text size="sm" fw={500} className="mb-2">
                   Import Format
                 </Text>
                 <SegmentedControl
@@ -276,7 +295,7 @@ export default function ImportExport() {
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="p-3 border rounded-md">
-                    <Text size="sm" weight={500} className="mb-2">
+                    <Text size="sm" fw={500} className="mb-2">
                       Import Summary
                     </Text>
                     <div className="space-y-2">
@@ -300,7 +319,7 @@ export default function ImportExport() {
                   </div>
 
                   <div className="p-3 border rounded-md">
-                    <Text size="sm" weight={500} className="mb-2">
+                    <Text size="sm" fw={500} className="mb-2">
                       Current Data
                     </Text>
                     <div className="space-y-2">
@@ -328,7 +347,7 @@ export default function ImportExport() {
                       <div className="max-h-60 overflow-y-auto">
                         {previewData.bookmarks?.slice(0, 10).map((bookmark, index) => (
                           <div key={index} className="p-2 border-b">
-                            <Text size="sm" weight={500}>
+                            <Text size="sm" fw={500}>
                               {bookmark.title}
                             </Text>
                             <Text size="xs" color="dimmed">
