@@ -12,7 +12,17 @@ export default function TagManager() {
 
   const handleAddTag = () => {
     if (newTag.trim() && addTag) {
-      addTag(newTag.trim())
+      // 使用英文逗号分隔标签
+      const tagArray = newTag.split(',')
+      
+      // 处理每个标签：去除空格并过滤掉空字符串
+      const validTags = tagArray
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0)
+      
+      // 添加每一个有效的标签
+      validTags.forEach(tag => addTag(tag))
+      
       setNewTag("")
       setIsAddingTag(false)
     }
@@ -41,7 +51,7 @@ export default function TagManager() {
       {isAddingTag && (
         <div className="mb-3 space-y-2 slide-in">
           <TextInput
-            placeholder="New tag"
+            placeholder="Enter tags, separated by commas."
             value={newTag}
             onChange={(e) => setNewTag(e.target.value)}
             size="xs"
