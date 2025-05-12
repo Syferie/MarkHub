@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Modal, TextInput, Button, Group, Tooltip, ActionIcon, Alert, Text, Combobox, PillsInput, Pill, useCombobox } from "@mantine/core"
-import { IconWand, IconAlertCircle, IconCheck, IconSparkles } from "@tabler/icons-react"
+import { Modal, TextInput, Button, Group, Tooltip, ActionIcon, Alert, Text, Combobox, PillsInput, Pill, useCombobox, Progress } from "@mantine/core"
+import { IconWand, IconAlertCircle, IconCheck, IconSparkles, IconLoader2 } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
 import type { Bookmark } from "@/types"
 import { HierarchicalFolderSelect } from "./hierarchical-folder-select"
@@ -22,6 +22,11 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
   const [selectedTags, setSelectedTags] = useState<string[]>(bookmark.tags || [])
   const [isLoadingTags, setIsLoadingTags] = useState(false)
   const [tagError, setTagError] = useState<string | null>(null)
+  const [tagGenerationStatus, setTagGenerationStatus] = useState<{
+    status: 'idle' | 'pending' | 'processing' | 'completed' | 'failed';
+    progress?: number;
+    message?: string;
+  }>({ status: 'idle' })
 
   useEffect(() => {
     if (isOpen) {
@@ -30,6 +35,7 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
       setSelectedFolder(bookmark.folderId)
       setSelectedTags(bookmark.tags || [])
       setTagError(null)
+      setTagGenerationStatus({ status: 'idle' })
     }
   }, [isOpen, bookmark])
 
@@ -61,6 +67,7 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
     try {
       setIsLoadingTags(true)
       setTagError(null)
+      setTagGenerationStatus({ status: 'pending', message: '正在初始化...' })
 
       // 确保URL格式正确
       const formattedUrl = url.startsWith("http") ? url : `https://${url}`
@@ -72,6 +79,31 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
       }, {
         onProgressUpdate: (status) => {
           console.log("标签生成进度:", status)
+          // 根据API返回的状态更新进度展示
+          if (status.status === 'pending') {
+            setTagGenerationStatus({
+              status: 'pending',
+              progress: 10,
+              message: '任务已提交，等待处理...'
+            })
+          } else if (status.status === 'processing') {
+            setTagGenerationStatus({
+              status: 'processing',
+              progress: status.progress || 50,
+              message: status.message || '正在分析网页内容...'
+            })
+          } else if (status.status === 'completed') {
+            setTagGenerationStatus({
+              status: 'completed',
+              progress: 100,
+              message: '标签生成完成!'
+            })
+          } else if (status.status === 'failed') {
+            setTagGenerationStatus({
+              status: 'failed',
+              message: status.error || '生成失败'
+            })
+          }
         }
       })
 
@@ -88,8 +120,15 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
     } catch (error) {
       console.error("标签生成错误:", error)
       setTagError(error instanceof Error ? error.message : "获取标签推荐失败")
+      setTagGenerationStatus({ status: 'failed', message: error instanceof Error ? error.message : "获取标签推荐失败" })
     } finally {
       setIsLoadingTags(false)
+      // 延迟将状态重置为idle，让用户有时间看到完成状态
+      setTimeout(() => {
+        if (tagGenerationStatus.status === 'completed') {
+          setTagGenerationStatus({ status: 'idle' })
+        }
+      }, 3000)
     }
   }
 
@@ -252,13 +291,41 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
 
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-sm font-medium">Tags</label>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Tags</label>
+              
+              {/* 标签生成状态指示器 */}
+              {tagGenerationStatus.status !== 'idle' && (
+                <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                  {tagGenerationStatus.status === 'pending' && (
+                    <IconLoader2 size={14} className="animate-spin" />
+                  )}
+                  {tagGenerationStatus.status === 'completed' && (
+                    <IconCheck size={14} className="text-green-600" />
+                  )}
+                  {tagGenerationStatus.message}
+                </div>
+              )}
+            </div>
+            
             <Tooltip label="根据URL内容生成标签">
               <ActionIcon size="sm" color="blue" onClick={handleSuggestTags} loading={isLoadingTags} disabled={!url}>
                 <IconSparkles size={16} />
               </ActionIcon>
             </Tooltip>
           </div>
+          
+          {/* 进度条 */}
+          {(tagGenerationStatus.status === 'pending' || tagGenerationStatus.status === 'processing') && (
+            <Progress
+              value={tagGenerationStatus.progress || 0}
+              size="xs"
+              color={tagGenerationStatus.status === 'pending' ? "blue" : "green"}
+              striped
+              animated
+              mb="xs"
+            />
+          )}
 
           {/* 使用新的TagSelector组件替换旧的MultiSelect组件 */}
           <TagSelector
@@ -287,7 +354,12 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
           <Button variant="light" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>Update Bookmark</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={tagGenerationStatus.status === 'pending' || tagGenerationStatus.status === 'processing'}
+          >
+            Update Bookmark
+          </Button>
         </Group>
       </div>
     </Modal>
