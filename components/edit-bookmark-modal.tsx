@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { Modal, TextInput, Button, Group, Tooltip, ActionIcon, Alert, Text, Combobox, PillsInput, Pill, useCombobox } from "@mantine/core"
-import { IconWand, IconAlertCircle, IconCheck } from "@tabler/icons-react"
+import { IconWand, IconAlertCircle, IconCheck, IconSparkles } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
 import type { Bookmark } from "@/types"
 import { HierarchicalFolderSelect } from "./hierarchical-folder-select"
+import { generateTags } from "@/lib/tag-api"
 
 interface EditBookmarkModalProps {
   bookmark: Bookmark
@@ -53,7 +54,7 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
 
   const handleSuggestTags = async () => {
     if (!url) {
-      setTagError("Please enter a URL first")
+      setTagError("请先输入URL")
       return
     }
 
@@ -61,13 +62,20 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
       setIsLoadingTags(true)
       setTagError(null)
 
-      // Ensure URL is properly formatted
+      // 确保URL格式正确
       const formattedUrl = url.startsWith("http") ? url : `https://${url}`
 
-      // Get tag suggestions
-      const suggestedTags = await suggestTags(formattedUrl)
+      // 调用新的标签生成API
+      const suggestedTags = await generateTags({
+        url: formattedUrl,
+        filter_tags: tags // 传递已存在的标签列表
+      }, {
+        onProgressUpdate: (status) => {
+          console.log("标签生成进度:", status)
+        }
+      })
 
-      // Add suggested tags to selected tags (avoiding duplicates)
+      // 将推荐标签添加到已选标签中（避免重复）
       setSelectedTags((prev) => {
         const newTags = [...prev]
         suggestedTags.forEach((tag) => {
@@ -78,8 +86,8 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
         return newTags
       })
     } catch (error) {
-      console.error("Error suggesting tags:", error)
-      setTagError(error instanceof Error ? error.message : "Failed to get tag suggestions")
+      console.error("标签生成错误:", error)
+      setTagError(error instanceof Error ? error.message : "获取标签推荐失败")
     } finally {
       setIsLoadingTags(false)
     }
@@ -245,13 +253,11 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="text-sm font-medium">Tags</label>
-            {isTagApiConfigured && (
-              <Tooltip label="Get tag suggestions based on URL content">
-                <ActionIcon size="sm" color="blue" onClick={handleSuggestTags} loading={isLoadingTags} disabled={!url}>
-                  <IconWand size={16} />
-                </ActionIcon>
-              </Tooltip>
-            )}
+            <Tooltip label="根据URL内容生成标签">
+              <ActionIcon size="sm" color="blue" onClick={handleSuggestTags} loading={isLoadingTags} disabled={!url}>
+                <IconSparkles size={16} />
+              </ActionIcon>
+            </Tooltip>
           </div>
 
           {/* 使用新的TagSelector组件替换旧的MultiSelect组件 */}
@@ -275,11 +281,6 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
             </Alert>
           )}
 
-          {!isTagApiConfigured && url && (
-            <Text size="xs" color="dimmed" mt="xs">
-              To enable tag suggestions, configure the Tag API in Settings.
-            </Text>
-          )}
         </div>
 
         <Group justify="flex-end" mt="md">

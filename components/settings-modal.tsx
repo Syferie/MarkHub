@@ -151,16 +151,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <Tabs.Panel value="api" pt="md">
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium mb-2">Tag Recommendation API</h3>
+              <h3 className="text-lg font-medium mb-2">Tag Generation API</h3>
               <p className="text-sm text-gray-500 mb-4">
-                Configure an API endpoint that will suggest tags based on bookmark URLs. The API should accept a URL and
-                optionally a list of existing tags, and return a list of recommended tags.
+                Configure API connection information for the automatic tag generation service. This feature can analyze bookmark URLs
+                and generate relevant tags automatically. The system will send requests to the tag generation service based on the
+                following configuration.
               </p>
 
               <div className="space-y-4">
                 <TextInput
-                  label="API Endpoint URL"
-                  placeholder="https://api.example.com/suggest-tags"
+                  label="API Base URL"
+                  placeholder="https://api.tag-service.example.com"
                   value={localSettings.tagApiUrl}
                   onChange={(e) =>
                     setLocalSettings({
@@ -168,6 +169,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       tagApiUrl: e.target.value,
                     })
                   }
+                  description="Enter the base URL of the tag generation service, e.g. https://api.tag-service.example.com"
                 />
 
                 <PasswordInput
@@ -182,24 +184,27 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       tagApiKey: e.target.value,
                     })
                   }
-                  description="This key will be sent in the Authorization header"
+                  description="This key will be used in the Authorization header of API requests as Bearer <API_KEY>"
                 />
               </div>
 
               <Divider my="md" />
 
               <div className="text-sm text-gray-500">
-                <h4 className="font-medium mb-2">API Requirements:</h4>
+                <h4 className="font-medium mb-2">API Specification:</h4>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li>Endpoint must accept POST requests</li>
+                  <li>The system will send a POST request to <code>{"{Your Base URL}/api/v1/tags/generate-from-url"}</code></li>
                   <li>
-                    Request body should include <code>{"{ url: string, existingTags?: string[] }"}</code>
+                    Request body format: <code>{"{ url: string, filter_tags?: string[], fetch_options?: {...} }"}</code>
                   </li>
                   <li>
-                    Response should be <code>{"{ tags: string[] }"}</code>
+                    Upon success, a task ID is returned, and the system will automatically poll the task status until completion
                   </li>
                   <li>
-                    Authorization header will be set as <code>Bearer &lt;YOUR_API_KEY&gt;</code>
+                    Completed response format: <code>{"{ status: 'completed', tags: string[], url: string, ... }"}</code>
+                  </li>
+                  <li>
+                    All requests include the header <code>Authorization: Bearer &lt;Your API Key&gt;</code>
                   </li>
                 </ul>
               </div>
