@@ -33,6 +33,7 @@ interface AppSettings {
   defaultView: string
   tagApiUrl?: string
   tagApiKey?: string
+  tagConcurrencyLimit?: number // 添加标签生成并发限制配置
 }
 
 interface BookmarkContextType {
@@ -132,6 +133,7 @@ const defaultSettings: AppSettings = {
   darkMode: false,
   accentColor: "#3b82f6", // Blue
   defaultView: "all",
+  tagConcurrencyLimit: 5, // 默认并发限制为5
 }
 
 // Create context

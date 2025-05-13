@@ -31,6 +31,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     defaultView: "all",
     tagApiUrl: "",
     tagApiKey: "",
+    tagConcurrencyLimit: 5,
   })
   const [hasChanges, setHasChanges] = useState(false)
   const [isRefreshingFavicons, setIsRefreshingFavicons] = useState(false)
@@ -45,6 +46,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         defaultView: settings.defaultView,
         tagApiUrl: settings.tagApiUrl || "",
         tagApiKey: settings.tagApiKey || "",
+        tagConcurrencyLimit: settings.tagConcurrencyLimit || 5,
       })
       setHasChanges(false)
     }
@@ -58,7 +60,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         localSettings.accentColor !== settings.accentColor ||
         localSettings.defaultView !== settings.defaultView ||
         localSettings.tagApiUrl !== (settings.tagApiUrl || "") ||
-        localSettings.tagApiKey !== (settings.tagApiKey || "")
+        localSettings.tagApiKey !== (settings.tagApiKey || "") ||
+        localSettings.tagConcurrencyLimit !== (settings.tagConcurrencyLimit || 5)
 
       setHasChanges(changed)
     }
@@ -185,6 +188,21 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     })
                   }
                   description="This key will be used in the Authorization header of API requests as Bearer <API_KEY>"
+                />
+
+                <TextInput
+                  label="AI 标签生成并发数"
+                  placeholder="5"
+                  type="number"
+                  value={String(localSettings.tagConcurrencyLimit || 5)}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    setLocalSettings({
+                      ...localSettings,
+                      tagConcurrencyLimit: !isNaN(value) && value > 0 ? value : 5,
+                    });
+                  }}
+                  description="同时处理的书签数量，建议值：3-10 (默认: 5)"
                 />
               </div>
 
