@@ -180,17 +180,17 @@ export default function FolderTree() {
             </div>
           ) : (
             <div
-              className={`flex items-center flex-grow p-1 rounded cursor-pointer transition-colors duration-200 ${
+              className={`flex items-center w-full overflow-hidden p-1 rounded cursor-pointer transition-colors duration-200 ${
                 isSelected ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"
               }`}
               onClick={() => selectFolder(folder.id)}
             >
               <IconFolder size={18} className={isSelected ? "text-blue-600 mr-2" : "text-blue-500 mr-2"} />
-              <span className="text-sm">{folder.name}</span>
+              <span className="text-sm truncate flex-1 min-w-0">{folder.name}</span>
             </div>
           )}
 
-          <div className="hidden group-hover:flex items-center">
+          <div className="hidden group-hover:flex items-center flex-shrink-0">
             <Tooltip label={isFavorite ? "Remove from favorites" : "Add to favorites"} withArrow position="top">
               <ActionIcon
                 variant="subtle"
@@ -304,13 +304,13 @@ export default function FolderTree() {
 
       <div className="mt-2">
         <div
-          className={`flex items-center p-1 rounded mb-2 cursor-pointer transition-colors duration-200 ${
+          className={`flex items-center w-full overflow-hidden p-1 rounded mb-2 cursor-pointer transition-colors duration-200 ${
             selectedFolderId === null ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"
           }`}
           onClick={() => setSelectedFolderId && setSelectedFolderId(null)}
         >
           <IconFolder size={18} className={selectedFolderId === null ? "text-blue-600 mr-2" : "text-gray-500 mr-2"} />
-          <span className="text-sm">All Folders</span>
+          <span className="text-sm truncate flex-1 min-w-0">All Folders</span>
         </div>
         {rootFolders.map((folder) => renderFolder(folder))}
       </div>
