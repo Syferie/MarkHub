@@ -67,26 +67,18 @@ export class ApiError extends Error {
 
 /**
  * 从应用设置中获取API密钥
- * 通过localStorage读取应用的全局设置
+ *
+ * 注意：此函数必须由调用者传入API密钥，因为它无法直接访问React上下文
+ * @param apiKey - 可选的外部传入的API密钥
+ * @returns 返回传入的API密钥或空字符串
  */
-const getApiKey = (): string => {
-  try {
-    const storedSettings = localStorage.getItem("appSettings");
-    if (storedSettings) {
-      const settings = JSON.parse(storedSettings);
-      const apiKey = settings.tagApiKey || '';
-      
-      if (!apiKey) {
-        console.warn('API密钥未在应用设置中配置，API请求可能会失败');
-      }
-      
-      return apiKey;
-    }
-  } catch (error) {
-    console.error("读取API密钥设置时出错:", error);
+const getApiKey = (apiKey?: string): string => {
+  // 如果外部传入了API密钥，直接使用
+  if (apiKey) {
+    return apiKey;
   }
   
-  console.warn('无法获取API密钥设置，API请求将失败');
+  console.warn('未提供API密钥，API请求可能会失败');
   return '';
 };
 
@@ -97,8 +89,12 @@ async function makeApiRequest<T>(
   method: string,
   path: string,
   body?: any,
+  apiSettings?: {
+    apiKey?: string;
+    apiBaseUrl?: string;
+  }
 ): Promise<T> {
-  const apiKey = getApiKey();
+  const apiKey = getApiKey(apiSettings?.apiKey);
   
   const headers: HeadersInit = {
     'Authorization': `Bearer ${apiKey}`,
@@ -115,7 +111,7 @@ async function makeApiRequest<T>(
   };
   
   try {
-    const response = await fetch(`${getApiBaseUrl()}${path}`, options);
+    const response = await fetch(`${getApiBaseUrl(apiSettings?.apiBaseUrl)}${path}`, options);
     
     const data = await response.json();
     
@@ -138,25 +134,19 @@ async function makeApiRequest<T>(
 
 /**
  * 从应用设置中获取API基础URL
- * 通过localStorage读取应用的全局设置
+ *
+ * 注意：此函数必须由调用者传入API基础URL，因为它无法直接访问React上下文
+ * @param apiBaseUrl - 可选的外部传入的API基础URL
+ * @returns 返回传入的API基础URL或默认值
  */
-const getApiBaseUrl = (): string => {
-  try {
-    const storedSettings = localStorage.getItem("appSettings");
-    if (storedSettings) {
-      const settings = JSON.parse(storedSettings);
-      const apiUrl = settings.tagApiUrl;
-      
-      if (apiUrl) {
-        return apiUrl;
-      }
-    }
-  } catch (error) {
-    console.error("读取API URL设置时出错:", error);
+const getApiBaseUrl = (apiBaseUrl?: string): string => {
+  // 如果外部传入了API基础URL，直接使用
+  if (apiBaseUrl) {
+    return apiBaseUrl;
   }
   
   // 如未配置，返回默认值或显示警告
-  console.warn('API基础URL未在应用设置中配置，使用默认URL');
+  console.warn('未提供API基础URL，使用默认URL');
   return 'http://localhost:8080'; // 更新默认值为本地开发服务器
 };
 
@@ -169,15 +159,19 @@ const getApiBaseUrl = (): string => {
  * 注意：此函数已被适配为直接与Gemini API兼容的后端交互
  */
 export async function submitTagGenerationTask(
-  options: GenerateTagsOptions
+  options: GenerateTagsOptions,
+  apiSettings?: {
+    apiKey?: string;
+    apiBaseUrl?: string;
+  }
 ): Promise<string> {
   try {
-    // 获取API密钥和基础URL
-    const apiKey = getApiKey();
+    // 获取API密钥和基础URL，优先使用传入的配置
+    const apiKey = getApiKey(apiSettings?.apiKey);
     if (!apiKey) {
       throw new ApiError('API密钥未配置', 401);
     }
-    const apiBaseUrl = getApiBaseUrl();
+    const apiBaseUrl = getApiBaseUrl(apiSettings?.apiBaseUrl);
 
     // 使用代理路由来启动任务
     const url = '/api/generate-tags';
@@ -230,14 +224,21 @@ export async function submitTagGenerationTask(
  * @param taskId - 临时任务ID（包含原始选项）
  * @returns 包含任务状态和结果的Promise
  */
-export async function getTaskStatus(taskId: string, options: GenerateTagsOptions): Promise<TaskStatus> {
+export async function getTaskStatus(
+  taskId: string,
+  options: GenerateTagsOptions,
+  apiSettings?: {
+    apiKey?: string;
+    apiBaseUrl?: string;
+  }
+): Promise<TaskStatus> {
   try {
-    // 获取API密钥和基础URL
-    const apiKey = getApiKey();
+    // 获取API密钥和基础URL，优先使用传入的配置
+    const apiKey = getApiKey(apiSettings?.apiKey);
     if (!apiKey) {
       throw new ApiError('API密钥未配置', 401);
     }
-    const apiBaseUrl = getApiBaseUrl();
+    const apiBaseUrl = getApiBaseUrl(apiSettings?.apiBaseUrl);
 
     // 使用代理路由查询任务状态
     const url = `/api/generate-tags?taskId=${encodeURIComponent(taskId)}`;
@@ -321,6 +322,10 @@ export async function pollTaskUntilComplete(
     timeoutMs?: number;
     onProgressUpdate?: (status: TaskStatus) => void;
     taskOptions?: GenerateTagsOptions; // 添加任务选项参数
+    apiSettings?: {
+      apiKey?: string;
+      apiBaseUrl?: string;
+    };
   } = {}
 ): Promise<TaskStatusCompleted | TaskStatusFailed> {
   const {
@@ -343,8 +348,8 @@ export async function pollTaskUntilComplete(
       throw new ApiError('任务轮询超时', 408);
     }
     
-    // 获取任务状态，传递必要的任务选项
-    const status = await getTaskStatus(taskId, taskOptions);
+    // 获取任务状态，传递必要的任务选项和API配置
+    const status = await getTaskStatus(taskId, taskOptions, options.apiSettings);
     
     // 如果有进度回调函数，调用它
     if (onProgressUpdate) {
@@ -370,22 +375,27 @@ export async function pollTaskUntilComplete(
  */
 export async function generateTags(
   options: GenerateTagsOptions,
-  pollOptions?: Parameters<typeof pollTaskUntilComplete>[1]
+  pollOptions?: Parameters<typeof pollTaskUntilComplete>[1],
+  apiSettings?: {
+    apiKey?: string;
+    apiBaseUrl?: string;
+  }
 ): Promise<string[]> {
   try {
     // 为了保持接口一致，我们仍然使用与之前相同的函数签名
     // 但实际实现改为直接请求并返回结果
     
-    // 首先提交任务（现在只返回一个临时ID）
-    const taskId = await submitTagGenerationTask(options);
+    // 首先提交任务（现在只返回一个临时ID），传递API配置
+    const taskId = await submitTagGenerationTask(options, apiSettings);
     
-    // 准备轮询选项，添加任务选项
+    // 准备轮询选项，添加任务选项和API配置
     const fullPollOptions = {
       ...pollOptions,
-      taskOptions: options // 传递任务选项给轮询函数
+      taskOptions: options, // 传递任务选项给轮询函数
+      apiSettings: apiSettings // 传递API配置给轮询函数
     };
     
-    // 调用轮询函数获取结果（现在它可以正确传递任务选项）
+    // 调用轮询函数获取结果，同时传递API配置
     const result = await pollTaskUntilComplete(taskId, fullPollOptions);
     
     // 检查任务是否成功

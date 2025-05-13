@@ -72,7 +72,7 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
       // 确保URL格式正确
       const formattedUrl = url.startsWith("http") ? url : `https://${url}`
 
-      // 调用新的标签生成API
+      // 调用新的标签生成API，传递API配置
       const suggestedTags = await generateTags({
         url: formattedUrl,
         filter_tags: tags // 传递已存在的标签列表
@@ -105,6 +105,11 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
             })
           }
         }
+      },
+      // 从 settings 中获取 API 配置并传递给 generateTags
+      {
+        apiKey: settings?.tagApiKey,
+        apiBaseUrl: settings?.tagApiUrl
       })
 
       // 将推荐标签添加到已选标签中（避免重复）

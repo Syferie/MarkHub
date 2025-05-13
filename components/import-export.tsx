@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Button,
   Modal,
@@ -62,6 +62,8 @@ export default function ImportExport() {
   const [importError, setImportError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string | null>("upload")
   const [importFormat, setImportFormat] = useState<string>("json")
+  const [isImporting, setIsImporting] = useState<boolean>(false)
+  const [importSuccess, setImportSuccess] = useState<boolean>(false)
 
   const handleFileSelect = async (selectedFile: File | null) => {
     if (!selectedFile) return
@@ -183,17 +185,30 @@ export default function ImportExport() {
     }
   }
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!previewData) return
+    
+    setIsImporting(true)
+    setImportError(null)
+    setImportSuccess(false)
 
     try {
-      importBookmarks(previewData as ImportData)
-      setImportModalOpen(false)
-      setFile(null)
-      setPreviewData(null)
+      // 导入书签是异步操作
+      await importBookmarks(previewData as ImportData)
+      setImportSuccess(true)
+      
+      // 导入成功后，等待一小段时间再关闭模态窗口，让用户看到成功提示
+      setTimeout(() => {
+        setImportModalOpen(false)
+        setFile(null)
+        setPreviewData(null)
+        setImportSuccess(false)
+      }, 1500)
     } catch (error) {
       console.error("Error importing bookmarks:", error)
       setImportError(`Error importing: ${error instanceof Error ? error.message : "Unknown error"}`)
+    } finally {
+      setIsImporting(false)
     }
   }
 
@@ -280,6 +295,12 @@ export default function ImportExport() {
               {importError && (
                 <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red" variant="light">
                   {importError}
+                </Alert>
+              )}
+              
+              {importSuccess && (
+                <Alert icon={<IconCheck size={16} />} title="Success" color="green" variant="light">
+                  Import completed successfully! Your data has been saved to IndexedDB.
                 </Alert>
               )}
             </div>
@@ -454,12 +475,18 @@ export default function ImportExport() {
         <Divider my="md" />
 
         <Group justify="flex-end" mt="md">
-          <Button variant="light" onClick={closeModal} leftSection={<IconX size={16} />}>
+          <Button variant="light" onClick={closeModal} leftSection={<IconX size={16} />} disabled={isImporting}>
             Cancel
           </Button>
           {previewData && activeTab === "preview" && (
-            <Button onClick={handleImport} leftSection={<IconCheck size={16} />} color="green">
-              Confirm Import
+            <Button
+              onClick={handleImport}
+              leftSection={<IconCheck size={16} />}
+              color="green"
+              loading={isImporting}
+              disabled={isImporting}
+            >
+              {isImporting ? "Importing..." : "Confirm Import"}
             </Button>
           )}
         </Group>

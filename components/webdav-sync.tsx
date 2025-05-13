@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { db } from "@/lib/db"
 import { Button, Modal, TextInput, PasswordInput, Group, Text, Switch, Alert, Progress } from "@mantine/core"
 import { IconCloud, IconCloudUpload, IconCloudDownload, IconAlertCircle } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
@@ -19,32 +20,73 @@ export default function WebDAVSync() {
   const [syncError, setSyncError] = useState("")
   const [syncSuccess, setSyncSuccess] = useState("")
 
-  // Load saved WebDAV credentials from localStorage
+  // 从 IndexedDB 加载 WebDAV 配置
   useEffect(() => {
-    const savedWebDAV = localStorage.getItem("webdav_config")
-    if (savedWebDAV) {
+    const loadWebDAVConfig = async () => {
       try {
-        const config = JSON.parse(savedWebDAV)
-        setServerUrl(config.serverUrl || "")
-        setUsername(config.username || "")
-        setStoragePath(config.storagePath || "/bookmarks/")
-        setAutoSync(config.autoSync || false)
-      } catch (e) {
-        console.error("Error loading WebDAV config:", e)
+        // 打开 IndexedDB 连接
+        const db_connection = await db.openDB()
+        
+        // 获取 WebDAV 配置
+        const transaction = db_connection.transaction(["appSettings"], "readonly")
+        const store = transaction.objectStore("appSettings")
+        
+        const request = store.get("webdav_config")
+        
+        request.onsuccess = () => {
+          if (request.result) {
+            const config = request.result.value
+            setServerUrl(config.serverUrl || "")
+            setUsername(config.username || "")
+            setStoragePath(config.storagePath || "/bookmarks/")
+            setAutoSync(config.autoSync || false)
+          }
+        }
+        
+        request.onerror = () => {
+          console.error("Error loading WebDAV config from IndexedDB:", request.error)
+        }
+      } catch (error) {
+        console.error("Failed to load WebDAV config:", error)
       }
     }
+    
+    loadWebDAVConfig()
   }, [])
 
-  // Save WebDAV config
-  const saveWebDAVConfig = () => {
+  // 保存 WebDAV 配置到 IndexedDB
+  const saveWebDAVConfig = useCallback(async () => {
     const config = {
       serverUrl,
       username,
       storagePath,
       autoSync,
     }
-    localStorage.setItem("webdav_config", JSON.stringify(config))
-  }
+    
+    try {
+      // 打开 IndexedDB 连接
+      const db_connection = await db.openDB()
+      
+      // 保存 WebDAV 配置
+      const transaction = db_connection.transaction(["appSettings"], "readwrite")
+      const store = transaction.objectStore("appSettings")
+      
+      const request = store.put({
+        key: "webdav_config",
+        value: config
+      })
+      
+      request.onsuccess = () => {
+        console.log("WebDAV 配置已保存")
+      }
+      
+      request.onerror = () => {
+        console.error("Error saving WebDAV config to IndexedDB:", request.error)
+      }
+    } catch (error) {
+      console.error("Failed to save WebDAV config:", error)
+    }
+  }, [serverUrl, username, storagePath, autoSync])
 
   // Helper function to normalize URL
   const normalizeUrl = (url: string) => {

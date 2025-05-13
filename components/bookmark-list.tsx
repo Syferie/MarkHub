@@ -337,7 +337,7 @@ export default function BookmarkList({
           return updatedDetails;
         });
   
-        // 调用 API 生成标签
+        // 调用 API 生成标签，传递API配置
         const generatedTags = await generateTags(
           {
             url: bookmark.url,
@@ -361,6 +361,11 @@ export default function BookmarkList({
                 return updatedDetails;
               });
             }
+          },
+          // 从 settings 中获取 API 配置并传递给 generateTags
+          {
+            apiKey: settings?.tagApiKey,
+            apiBaseUrl: settings?.tagApiUrl
           }
         );
         
