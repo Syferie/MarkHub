@@ -512,11 +512,19 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   }
 
   const deleteBookmark = async (id: string) => {
-    // 更新状态
-    setBookmarks((prev) => prev.filter((b) => b.id !== id))
-    
-    // 删除 IndexedDB 中的数据 - 因为状态更新已经触发防抖保存，这里不需要重复操作
-    // await db.deleteBookmark(id)
+    try {
+      // 先直接从数据库中删除书签
+      await db.deleteBookmark(id);
+      
+      // 然后更新状态
+      setBookmarks((prev) => prev.filter((b) => b.id !== id));
+      
+      console.log(`成功删除书签: ${id}`);
+    } catch (error) {
+      console.error(`删除书签失败: ${id}`, error);
+      // 删除失败，但仍然尝试更新UI状态，提供更好的用户体验
+      setBookmarks((prev) => prev.filter((b) => b.id !== id));
+    }
   }
 
   // Folder operations
