@@ -67,7 +67,7 @@ export default function BookmarkDashboard() {
   return (
     <div className="container mx-auto p-4 max-w-6xl h-screen overflow-hidden">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Bookmark Manager</h1>
+        <h1 className="text-2xl font-bold text-gray-800">MarkHub</h1>
         <div className="flex space-x-2">
           <Button
             leftSection={<IconPlus size={16} />}

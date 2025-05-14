@@ -94,9 +94,9 @@ export default function BookmarkList({
 
   // 本地存储的键名
   const STORAGE_KEYS = {
-    BULK_GENERATION: "markit_bulk_tag_generation",
-    TAG_DETAILS: "markit_tag_generation_details",
-    REMAINING_IDS: "markit_remaining_bookmark_ids"
+    BULK_GENERATION: "markHub_bulk_tag_generation",
+    TAG_DETAILS: "markHub_tag_generation_details",
+    REMAINING_IDS: "markHub_remaining_bookmark_ids"
   }
 
   const getFolderName = (folderId: string | null) => {

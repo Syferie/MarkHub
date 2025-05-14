@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Modern Bookmark Manager",
+  "name": "MarkHub",
   "version": "1.0",
   "description": "A modern bookmark manager with powerful organization features",
   "permissions": ["bookmarks", "storage", "tabs"],

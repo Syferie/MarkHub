@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 // 简化 metadata，仅保留必要信息
 export const metadata = {
-  title: "Bookmark Manager",
+  title: "MarkHub",
   description: "A modern bookmark manager for Chrome"
 }
 

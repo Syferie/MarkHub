@@ -1,7 +1,7 @@
 "use client"
 
 // 定义数据库版本和名称
-export const DB_NAME = "markitDB"
+export const DB_NAME = "markHubDB"
 export const DB_VERSION = 1
 
 // 定义对象存储名称
