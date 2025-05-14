@@ -9,6 +9,7 @@ import TagManager from "./tag-manager"
 import AddBookmarkModal from "./add-bookmark-modal"
 import SettingsModal from "./settings-modal"
 import { useBookmarks } from "@/context/bookmark-context"
+import { uploadBookmarksToWebDAV } from "./webdav-sync"
 
 export default function BookmarkDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -29,6 +30,7 @@ export default function BookmarkDashboard() {
     searchFields,
     toggleSearchField,
     settings,
+    addBookmark, // 从context中获取addBookmark函数
   } = useBookmarks()
   const [folderName, setFolderName] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState(settings?.defaultView || "all")
@@ -39,6 +41,94 @@ export default function BookmarkDashboard() {
       setActiveTab(settings.defaultView)
     }
   }, [settings?.defaultView])
+
+  // 处理来自浏览器扩展的消息
+  useEffect(() => {
+    const handleExtensionMessage = async (event: MessageEvent<any>) => {
+      if (!event.data || event.data.source !== 'markhub-extension') {
+        return;
+      }
+
+      console.log("MarkHub应用：收到扩展消息:", event.data);
+
+      if (event.data.type === 'MARKHUB_EXTENSION_ADD_BOOKMARK' && event.data.bookmark) {
+        try {
+          const bookmark = event.data.bookmark;
+          // 调用应用中的添加书签函数
+          addBookmark({
+            id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            title: bookmark.title,
+            url: bookmark.url,
+            tags: bookmark.tags || [],
+            folderId: bookmark.folderId || null,
+            createdAt: bookmark.createdAt || new Date().toISOString(),
+            isFavorite: false,
+          });
+
+          console.log("MarkHub应用：已从扩展添加书签。");
+          
+          // 触发WebDAV同步
+          await uploadBookmarksToWebDAV();
+          console.log("MarkHub应用：添加书签后触发了WebDAV同步。");
+
+        } catch (error) {
+          console.error("MarkHub应用：处理扩展书签时出错:", error);
+        }
+      } else if (event.data.type === 'MARKHUB_EXTENSION_PENDING_BOOKMARKS' && Array.isArray(event.data.bookmarks)) {
+        try {
+          const pendingBookmarks = event.data.bookmarks;
+          console.log(`MarkHub应用：处理来自扩展的${pendingBookmarks.length}个待处理书签。`);
+          for (const bookmark of pendingBookmarks) {
+            addBookmark({
+              id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              title: bookmark.title,
+              url: bookmark.url,
+              tags: bookmark.tags || [],
+              folderId: bookmark.folderId || null,
+              createdAt: bookmark.createdAt || new Date().toISOString(),
+              isFavorite: false,
+            });
+          }
+          await uploadBookmarksToWebDAV(); // 处理完所有待处理书签后同步
+          console.log("MarkHub应用：处理待处理书签后触发了WebDAV同步。");
+        } catch (error) {
+          console.error("MarkHub应用：处理待处理书签时出错:", error);
+        }
+      }
+    };
+
+    // 检查localStorage中是否有待处理的书签
+    const checkLocalStorageForPendingBookmarks = () => {
+      try {
+        const pendingBookmarksStr = localStorage.getItem('markhub_extension_bookmarks');
+        if (pendingBookmarksStr) {
+          const bookmarks = JSON.parse(pendingBookmarksStr);
+          if (Array.isArray(bookmarks) && bookmarks.length > 0) {
+            console.log(`MarkHub应用：从扩展的localStorage中找到${bookmarks.length}个书签。`);
+            // 发送一个消息给自己来统一处理逻辑
+            window.postMessage({
+              type: 'MARKHUB_EXTENSION_PENDING_BOOKMARKS',
+              bookmarks: bookmarks,
+              source: 'markhub-extension' // 伪装来源以复用处理逻辑
+            }, '*');
+            localStorage.removeItem('markhub_extension_bookmarks');
+          }
+        }
+      } catch (error) {
+        console.error("MarkHub应用：检查扩展书签的localStorage时出错:", error);
+      }
+    };
+
+    // 添加消息监听器
+    window.addEventListener('message', handleExtensionMessage);
+    
+    // 启动时检查localStorage
+    checkLocalStorageForPendingBookmarks();
+
+    return () => {
+      window.removeEventListener('message', handleExtensionMessage);
+    };
+  }, [addBookmark]); // 将addBookmark作为依赖项添加到useEffect
 
   useEffect(() => {
     const getFolderName = () => {
