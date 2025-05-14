@@ -7,6 +7,7 @@ import { useBookmarks } from "@/context/bookmark-context"
 import type { Bookmark } from "@/types"
 import { HierarchicalFolderSelect } from "./hierarchical-folder-select"
 import { generateTags } from "@/lib/tag-api"
+import { uploadBookmarksToWebDAV, getWebDAVStatus } from "./webdav-sync"
 
 interface EditBookmarkModalProps {
   bookmark: Bookmark
@@ -39,7 +40,7 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
     }
   }, [isOpen, bookmark])
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (title && url) {
       try {
         const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`)
@@ -50,6 +51,29 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
           folderId: selectedFolder,
           tags: selectedTags,
         })
+        
+        // 编辑书签后，如果WebDAV已启用，则自动上传
+        console.log("编辑的书签数据:", {
+          id: bookmark.id,
+          title,
+          url: urlObj.toString(),
+          folderId: selectedFolder,
+          tags: selectedTags
+        });
+        
+        try {
+          // 直接调用上传函数，让它内部检查WebDAV是否启用
+          console.log("调用uploadBookmarksToWebDAV开始...");
+          const uploadResult = await uploadBookmarksToWebDAV();
+          console.log("自动上传结果:", uploadResult);
+          
+          if (!uploadResult) {
+            console.warn("自动上传返回false，可能未启用WebDAV或未成功执行上传操作");
+          }
+        } catch (syncError) {
+          console.error("自动同步书签数据失败:", syncError)
+        }
+        
         onClose()
       } catch (e) {
         console.error("Invalid URL:", e)

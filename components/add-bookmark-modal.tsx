@@ -6,6 +6,7 @@ import { IconWand, IconAlertCircle, IconCheck, IconSparkles, IconLoader2 } from 
 import { useBookmarks } from "@/context/bookmark-context"
 import { HierarchicalFolderSelect } from "./hierarchical-folder-select"
 import { generateTags } from "@/lib/tag-api"
+import { uploadBookmarksToWebDAV, getWebDAVStatus } from "./webdav-sync"
 
 interface AddBookmarkModalProps {
   isOpen: boolean
@@ -45,7 +46,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
     }
   }, [isOpen])
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (title && url) {
       try {
         const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`)
@@ -58,6 +59,21 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           createdAt: new Date().toISOString(),
           isFavorite: false,
         })
+        
+        // 添加书签后，尝试自动上传（内部会检查WebDAV是否启用）
+        try {
+          console.log("添加书签完成，尝试自动上传...");
+          console.log("调用uploadBookmarksToWebDAV开始...");
+          const uploadResult = await uploadBookmarksToWebDAV();
+          console.log("自动上传结果:", uploadResult);
+          
+          if (!uploadResult) {
+            console.warn("自动上传返回false，可能未启用WebDAV或未成功执行上传操作");
+          }
+        } catch (syncError) {
+          console.error("自动同步书签数据失败:", syncError)
+        }
+        
         onClose()
       } catch (e) {
         console.error("Invalid URL:", e)
