@@ -51,7 +51,9 @@ export default function BookmarkDashboard() {
 
       console.log("MarkHub应用：收到扩展消息:", event.data);
 
-      if (event.data.type === 'MARKHUB_EXTENSION_ADD_BOOKMARK' && event.data.bookmark) {
+      if (event.data.type === 'MARKHUB_EXTENSION_LOADED') {
+        console.log("MarkHub应用：检测到扩展已加载，应用已准备好接收书签");
+      } else if (event.data.type === 'MARKHUB_EXTENSION_ADD_BOOKMARK' && event.data.bookmark) {
         try {
           const bookmark = event.data.bookmark;
           // 调用应用中的添加书签函数
