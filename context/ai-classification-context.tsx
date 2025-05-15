@@ -78,8 +78,8 @@ export function AIClassificationProvider({ children }: { children: ReactNode }) 
   // 使用 useRef 存储当前正在被持久化的任务ID集合
   const persistingTaskIdsRef = useRef<Set<string>>(new Set())
   
-  // 访问书签上下文以获取文件夹列表
-  const { folders, settings, addBookmark } = useBookmarks()
+  // 访问书签上下文以获取文件夹列表和标签
+  const { folders, settings, addBookmark, tags } = useBookmarks()
   
   // 添加单个任务
   const addTask = (bookmarkData: BookmarkData) => {
@@ -294,10 +294,11 @@ export function AIClassificationProvider({ children }: { children: ReactNode }) 
     )
     
     try {
-      // 调用API生成标签
+      // 调用API生成标签，传递现有标签作为filter_tags参数
       const generatedTags = await generateTags(
         {
           url: task.url,
+          filter_tags: tags  // 添加当前用户的所有标签作为参考
         },
         undefined,
         // 使用环境设置
