@@ -74,7 +74,6 @@ export const HierarchicalFolderSelect = forwardRef<HTMLInputElement, Hierarchica
     return (
       <Select
         ref={ref}
-        label="Folder"
         placeholder="Select a folder"
         data={folderOptions || []}
         value={value}

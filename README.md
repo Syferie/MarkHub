@@ -48,7 +48,18 @@ MarkHub 是一个功能全面的现代书签管理应用，结合了本地存储
 - 通过外部 API 自动为书签生成标签建议
 - 异步任务处理模式（任务提交、状态轮询）
 
-### 6. 设置和个性化
+### 6. AI 生成建议文件夹
+
+- 基于书签内容智能推荐合适的文件夹名称
+- 支持单个书签和批量书签处理
+- 用户界面集成：
+  - 在添加/编辑书签的模态框中通过 "AI Suggest Folder" 按钮使用
+  - 在书签列表的批量编辑操作中选择 "Suggest Folder (AI)" 选项
+- 技术实现：
+  - 后端 API 路由：`app/api/suggest-folder/route.ts`
+  - 前端 API 客户端：`lib/folder-api.ts`
+
+### 7. 设置和个性化
 
 - 深色/浅色模式
 - 主题色自定义
@@ -139,6 +150,7 @@ flowchart TD
     %% API交互层
     subgraph API["API交互"]
         TA[tag-api.ts] -->|请求| NR[Next.js API路由]
+        FA[folder-api.ts] -->|请求| NR[Next.js API路由]
         NR -->|代理| ES[外部服务]
         HFS[hierarchical-folder-select]
     end
@@ -153,6 +165,7 @@ flowchart TD
     SM -->|更新设置| BC
     WS -->|同步数据| BC
     BC -->|标签生成| TA
+    BC -->|文件夹建议| FA
 ```
 
 ## 项目结构
@@ -163,7 +176,8 @@ flowchart TD
 markhub/
 ├── app/                      # Next.js 应用程序目录
 │   ├── api/                  # API 路由
-│   │   └── generate-tags/    # 标签生成 API 代理
+│   │   ├── generate-tags/    # 标签生成 API 代理
+│   │   └── suggest-folder/   # 文件夹建议 API
 │   ├── layout.tsx            # 全局布局组件
 │   ├── page.tsx              # 主页组件
 │   ├── background.js         # 背景脚本
@@ -192,6 +206,7 @@ markhub/
 │   └── use-toast.ts          # 通知提示
 │
 ├── lib/                      # 工具库
+│   ├── folder-api.ts         # 文件夹建议 API 客户端
 │   ├── tag-api.ts            # 标签生成 API 客户端
 │   └── utils.ts              # 通用工具函数
 │

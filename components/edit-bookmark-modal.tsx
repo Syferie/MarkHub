@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { Modal, TextInput, Button, Group, Tooltip, ActionIcon, Alert, Text, Combobox, PillsInput, Pill, useCombobox, Progress } from "@mantine/core"
-import { IconWand, IconAlertCircle, IconCheck, IconSparkles, IconLoader2 } from "@tabler/icons-react"
+import { IconWand, IconAlertCircle, IconCheck, IconSparkles, IconLoader2, IconFolder } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
 import type { Bookmark } from "@/types"
 import { HierarchicalFolderSelect } from "./hierarchical-folder-select"
 import { generateTags } from "@/lib/tag-api"
+import { suggestFolder } from "@/lib/folder-api"
 import { uploadBookmarksToWebDAV, getWebDAVStatus } from "./webdav-sync"
 
 interface EditBookmarkModalProps {
@@ -16,14 +17,21 @@ interface EditBookmarkModalProps {
 }
 
 export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBookmarkModalProps) {
-  const { updateBookmark, tags, suggestTags, settings } = useBookmarks()
+  const { updateBookmark, tags, suggestTags, settings, folders } = useBookmarks()
   const [title, setTitle] = useState(bookmark.title)
   const [url, setUrl] = useState(bookmark.url)
   const [selectedFolder, setSelectedFolder] = useState<string | null>(bookmark.folderId)
   const [selectedTags, setSelectedTags] = useState<string[]>(bookmark.tags || [])
   const [isLoadingTags, setIsLoadingTags] = useState(false)
+  const [isLoadingFolder, setIsLoadingFolder] = useState(false)
   const [tagError, setTagError] = useState<string | null>(null)
+  const [folderError, setFolderError] = useState<string | null>(null)
   const [tagGenerationStatus, setTagGenerationStatus] = useState<{
+    status: 'idle' | 'pending' | 'processing' | 'completed' | 'failed';
+    progress?: number;
+    message?: string;
+  }>({ status: 'idle' })
+  const [folderGenerationStatus, setFolderGenerationStatus] = useState<{
     status: 'idle' | 'pending' | 'processing' | 'completed' | 'failed';
     progress?: number;
     message?: string;
@@ -36,7 +44,9 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
       setSelectedFolder(bookmark.folderId)
       setSelectedTags(bookmark.tags || [])
       setTagError(null)
+      setFolderError(null)
       setTagGenerationStatus({ status: 'idle' })
+      setFolderGenerationStatus({ status: 'idle' })
     }
   }, [isOpen, bookmark])
 
@@ -175,7 +185,93 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
     return item
   }
 
+  // 处理AI建议文件夹
+  const handleSuggestFolder = async () => {
+    if (!url) {
+      setFolderError("请先输入URL")
+      return
+    }
+
+    try {
+      setIsLoadingFolder(true)
+      setFolderError(null)
+      setFolderGenerationStatus({ status: 'pending', message: '正在初始化...' })
+
+      // 确保URL格式正确
+      const formattedUrl = url.startsWith("http") ? url : `https://${url}`
+
+      // 获取所有文件夹名称列表
+      const folderNames = Array.isArray(folders)
+        ? folders.map(folder => folder.name)
+        : []
+
+      // 调用文件夹建议API
+      const suggestedFolder = await suggestFolder({
+        url: formattedUrl,
+        folders: folderNames
+      }, {
+        onProgressUpdate: (status) => {
+          console.log("文件夹生成进度:", status)
+          // 根据API返回的状态更新进度展示
+          if (status.status === 'pending') {
+            setFolderGenerationStatus({
+              status: 'pending',
+              progress: 10,
+              message: '任务已提交，等待处理...'
+            })
+          } else if (status.status === 'processing') {
+            setFolderGenerationStatus({
+              status: 'processing',
+              progress: status.progress || 50,
+              message: status.message || '正在分析网页内容...'
+            })
+          } else if (status.status === 'completed') {
+            setFolderGenerationStatus({
+              status: 'completed',
+              progress: 100,
+              message: '文件夹建议完成!'
+            })
+          } else if (status.status === 'failed') {
+            setFolderGenerationStatus({
+              status: 'failed',
+              message: status.error || '生成失败'
+            })
+          }
+        }
+      },
+      {
+        apiKey: settings?.tagApiKey, // 复用标签API的配置
+        apiBaseUrl: settings?.tagApiUrl
+      })
+
+      // 查找匹配的文件夹ID
+      if (suggestedFolder) {
+        const matchedFolder = folders.find(folder => folder.name === suggestedFolder)
+        if (matchedFolder) {
+          setSelectedFolder(matchedFolder.id)
+        } else {
+          // 如果没有找到匹配的文件夹，可以根据业务需求决定是否创建新文件夹
+          console.log("建议的文件夹不存在:", suggestedFolder)
+        }
+      }
+
+    } catch (error) {
+      console.error("文件夹建议错误:", error)
+      setFolderError(error instanceof Error ? error.message : "获取文件夹建议失败")
+      setFolderGenerationStatus({ status: 'failed', message: error instanceof Error ? error.message : "获取文件夹建议失败" })
+    } finally {
+      setIsLoadingFolder(false)
+      // 延迟将状态重置为idle，让用户有时间看到完成状态
+      setTimeout(() => {
+        if (folderGenerationStatus.status === 'completed') {
+          setFolderGenerationStatus({ status: 'idle' })
+        }
+      }, 3000)
+    }
+  }
+
   const isTagApiConfigured = !!(settings?.tagApiUrl && settings?.tagApiKey)
+  const isFolderApiConfigured = !!(settings?.tagApiUrl && settings?.tagApiKey) // 复用标签API的配置
   
   // 新添加的TagSelector组件，使用最新的Mantine API
   function TagSelector({
@@ -313,10 +409,62 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
           required
         />
 
-        <HierarchicalFolderSelect
-          value={selectedFolder}
-          onChange={setSelectedFolder}
-        />
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Folder</label>
+              
+              {/* 文件夹生成状态指示器 */}
+              {folderGenerationStatus.status !== 'idle' && (
+                <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                  {folderGenerationStatus.status === 'pending' && (
+                    <IconLoader2 size={14} className="animate-spin" />
+                  )}
+                  {folderGenerationStatus.status === 'completed' && (
+                    <IconCheck size={14} className="text-green-600" />
+                  )}
+                  {folderGenerationStatus.message}
+                </div>
+              )}
+            </div>
+            
+            <Tooltip label="根据URL内容建议文件夹">
+              <ActionIcon size="sm" color="blue" onClick={handleSuggestFolder} loading={isLoadingFolder} disabled={!url}>
+                <IconFolder size={16} />
+              </ActionIcon>
+            </Tooltip>
+          </div>
+          
+          {/* 进度条 */}
+          {(folderGenerationStatus.status === 'pending' || folderGenerationStatus.status === 'processing') && (
+            <Progress
+              value={folderGenerationStatus.progress || 0}
+              size="xs"
+              color={folderGenerationStatus.status === 'pending' ? "blue" : "green"}
+              striped
+              animated
+              mb="xs"
+            />
+          )}
+
+          <HierarchicalFolderSelect
+            value={selectedFolder}
+            onChange={setSelectedFolder}
+          />
+
+          {folderError && (
+            <Alert
+              icon={<IconAlertCircle size={16} />}
+              color="red"
+              mt="xs"
+              p="xs"
+              withCloseButton
+              onClose={() => setFolderError(null)}
+            >
+              {folderError}
+            </Alert>
+          )}
+        </div>
 
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -385,7 +533,7 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={tagGenerationStatus.status === 'pending' || tagGenerationStatus.status === 'processing'}
+            disabled={tagGenerationStatus.status === 'pending' || tagGenerationStatus.status === 'processing' || folderGenerationStatus.status === 'pending' || folderGenerationStatus.status === 'processing'}
           >
             Update Bookmark
           </Button>
