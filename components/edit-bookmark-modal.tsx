@@ -320,8 +320,8 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
       setSelectedTags((current) => current.filter((v) => v !== val))
   
     // 渲染已选择的标签
-    const values = selectedTags.map((item) => (
-      <Pill key={item} withRemoveButton onRemove={() => handleValueRemove(item)}>
+    const values = selectedTags.map((item, index) => (
+      <Pill key={`${item}-${index}`} withRemoveButton onRemove={() => handleValueRemove(item)}>
         {item}
       </Pill>
     ))
@@ -329,8 +329,8 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
     // 渲染选项列表
     const options = tagOptions
       .filter((item) => item.value.toLowerCase().includes(search.trim().toLowerCase()))
-      .map((item) => (
-        <Combobox.Option value={item.value} key={item.value} active={selectedTags.includes(item.value)}>
+      .map((item, index) => (
+        <Combobox.Option value={item.value} key={`${item.value}-${index}`} active={selectedTags.includes(item.value)}>
           <Group gap="sm">
             {selectedTags.includes(item.value) ? <IconCheck size={12} /> : null}
             <span>{item.label}</span>
