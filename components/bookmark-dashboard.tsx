@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import { Tabs, ActionIcon, TextInput, Button, Badge, Checkbox } from "@mantine/core"
 import { IconSearch, IconPlus, IconAdjustments, IconFolder, IconSettings, IconStar, IconX } from "@tabler/icons-react"
+import { AIClassificationIndicator } from "./ai-classification-indicator"
+import ExtensionMessageListener from "./extension-message-listener"
 import BookmarkList from "./bookmark-list"
 import FolderTree from "./folder-tree"
 import TagManager from "./tag-manager"
@@ -42,95 +44,9 @@ export default function BookmarkDashboard() {
     }
   }, [settings?.defaultView])
 
-  // 处理来自浏览器扩展的消息
-  useEffect(() => {
-    const handleExtensionMessage = async (event: MessageEvent<any>) => {
-      if (!event.data || event.data.source !== 'markhub-extension') {
-        return;
-      }
-
-      console.log("MarkHub应用：收到扩展消息:", event.data);
-
-      if (event.data.type === 'MARKHUB_EXTENSION_LOADED') {
-        console.log("MarkHub应用：检测到扩展已加载，应用已准备好接收书签");
-      } else if (event.data.type === 'MARKHUB_EXTENSION_ADD_BOOKMARK' && event.data.bookmark) {
-        try {
-          const bookmark = event.data.bookmark;
-          // 调用应用中的添加书签函数
-          addBookmark({
-            id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            title: bookmark.title,
-            url: bookmark.url,
-            tags: bookmark.tags || [],
-            folderId: bookmark.folderId || null,
-            createdAt: bookmark.createdAt || new Date().toISOString(),
-            isFavorite: false,
-          });
-
-          console.log("MarkHub应用：已从扩展添加书签。");
-          
-          // 触发WebDAV同步
-          await uploadBookmarksToWebDAV();
-          console.log("MarkHub应用：添加书签后触发了WebDAV同步。");
-
-        } catch (error) {
-          console.error("MarkHub应用：处理扩展书签时出错:", error);
-        }
-      } else if (event.data.type === 'MARKHUB_EXTENSION_PENDING_BOOKMARKS' && Array.isArray(event.data.bookmarks)) {
-        try {
-          const pendingBookmarks = event.data.bookmarks;
-          console.log(`MarkHub应用：处理来自扩展的${pendingBookmarks.length}个待处理书签。`);
-          for (const bookmark of pendingBookmarks) {
-            addBookmark({
-              id: `bookmark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              title: bookmark.title,
-              url: bookmark.url,
-              tags: bookmark.tags || [],
-              folderId: bookmark.folderId || null,
-              createdAt: bookmark.createdAt || new Date().toISOString(),
-              isFavorite: false,
-            });
-          }
-          await uploadBookmarksToWebDAV(); // 处理完所有待处理书签后同步
-          console.log("MarkHub应用：处理待处理书签后触发了WebDAV同步。");
-        } catch (error) {
-          console.error("MarkHub应用：处理待处理书签时出错:", error);
-        }
-      }
-    };
-
-    // 检查localStorage中是否有待处理的书签
-    const checkLocalStorageForPendingBookmarks = () => {
-      try {
-        const pendingBookmarksStr = localStorage.getItem('markhub_extension_bookmarks');
-        if (pendingBookmarksStr) {
-          const bookmarks = JSON.parse(pendingBookmarksStr);
-          if (Array.isArray(bookmarks) && bookmarks.length > 0) {
-            console.log(`MarkHub应用：从扩展的localStorage中找到${bookmarks.length}个书签。`);
-            // 发送一个消息给自己来统一处理逻辑
-            window.postMessage({
-              type: 'MARKHUB_EXTENSION_PENDING_BOOKMARKS',
-              bookmarks: bookmarks,
-              source: 'markhub-extension' // 伪装来源以复用处理逻辑
-            }, '*');
-            localStorage.removeItem('markhub_extension_bookmarks');
-          }
-        }
-      } catch (error) {
-        console.error("MarkHub应用：检查扩展书签的localStorage时出错:", error);
-      }
-    };
-
-    // 添加消息监听器
-    window.addEventListener('message', handleExtensionMessage);
-    
-    // 启动时检查localStorage
-    checkLocalStorageForPendingBookmarks();
-
-    return () => {
-      window.removeEventListener('message', handleExtensionMessage);
-    };
-  }, [addBookmark]); // 将addBookmark作为依赖项添加到useEffect
+  // 使用新的 ExtensionMessageListener 组件替代直接编写在 BookmarkDashboard 中的消息处理逻辑
+  // ExtensionMessageListener 组件不会渲染任何内容，只是设置事件监听器
+  // 这样可以让组件职责更加清晰，AI分类任务由专门的组件处理
 
   useEffect(() => {
     const getFolderName = () => {
@@ -161,6 +77,7 @@ export default function BookmarkDashboard() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">MarkHub</h1>
         <div className="flex space-x-2">
+          <AIClassificationIndicator />
           <Button
             leftSection={<IconPlus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
@@ -298,6 +215,13 @@ export default function BookmarkDashboard() {
           </div>
 
           <div className="bg-white rounded-lg shadow p-4 flex-grow overflow-hidden">
+            {/* 书签列表顶部区域 */}
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center space-x-2">
+                {/* AI分类状态指示器已移至顶部导航栏 */}
+              </div>
+            </div>
+            
             <BookmarkList
               bookmarks={bookmarksToShow}
               searchQuery={searchQuery}
@@ -311,6 +235,8 @@ export default function BookmarkDashboard() {
 
       <AddBookmarkModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />
+      {/* 添加消息监听器组件 */}
+      <ExtensionMessageListener />
     </div>
   )
 }

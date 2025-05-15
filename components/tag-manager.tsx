@@ -75,9 +75,9 @@ export default function TagManager() {
 
       <div className="flex flex-wrap gap-2 mt-2">
         {Array.isArray(tags) &&
-          tags.map((tag) => (
+          tags.map((tag, index) => (
             <Badge
-              key={tag}
+              key={`${tag}-${index}`}
               size="sm"
               color={Array.isArray(selectedTags) && selectedTags.includes(tag) ? "blue" : "gray"}
               variant={Array.isArray(selectedTags) && selectedTags.includes(tag) ? "filled" : "light"}

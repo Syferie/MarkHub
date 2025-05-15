@@ -4,6 +4,7 @@ import "./globals.css"
 import { MantineProvider, ColorSchemeScript } from "@mantine/core"
 import { Inter } from "next/font/google"
 import { BookmarkProvider } from "@/context/bookmark-context"
+import { AIClassificationProvider } from "@/context/ai-classification-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -27,7 +28,11 @@ export default function RootLayout({
       <body className={inter.className}>
         {/* 只使用 defaultColorScheme，确保与 HTML 属性一致 */}
         <MantineProvider defaultColorScheme="light">
-          <BookmarkProvider>{children}</BookmarkProvider>
+          <BookmarkProvider>
+            <AIClassificationProvider>
+              {children}
+            </AIClassificationProvider>
+          </BookmarkProvider>
         </MantineProvider>
       </body>
     </html>
