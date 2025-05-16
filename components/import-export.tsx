@@ -26,6 +26,7 @@ import {
   IconFileCode,
 } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
+import { useLanguage } from "@/context/language-context"
 // 直接使用 bookmark-context.tsx 中定义的接口，确保类型一致
 interface Bookmark {
   id: string
@@ -46,6 +47,7 @@ interface Folder {
 
 export default function ImportExport() {
   const { exportBookmarks, importBookmarks, bookmarks: currentBookmarks } = useBookmarks()
+  const { t } = useLanguage()
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   // 明确定义 ImportData 接口，与 importBookmarks 函数接口保持一致
@@ -187,7 +189,7 @@ export default function ImportExport() {
 
   const handleImport = async () => {
     if (!previewData) return
-    
+
     setIsImporting(true)
     setImportError(null)
     setImportSuccess(false)
@@ -196,7 +198,7 @@ export default function ImportExport() {
       // 导入书签是异步操作
       await importBookmarks(previewData as ImportData)
       setImportSuccess(true)
-      
+
       // 导入成功后，等待一小段时间再关闭模态窗口，让用户看到成功提示
       setTimeout(() => {
         setImportModalOpen(false)
@@ -234,29 +236,29 @@ export default function ImportExport() {
     <>
       <Group>
         <Button leftSection={<IconDownload size={16} />} variant="light" onClick={exportBookmarks}>
-          Export
+          {t("importExport.export")}
         </Button>
         <Button leftSection={<IconUpload size={16} />} variant="light" onClick={() => setImportModalOpen(true)}>
-          Import
+          {t("importExport.import")}
         </Button>
       </Group>
 
-      <Modal opened={importModalOpen} onClose={closeModal} title="Import Bookmarks" centered size="lg">
+      <Modal opened={importModalOpen} onClose={closeModal} title={t("importExport.importBookmarks")} centered size="lg">
         <Tabs value={activeTab} onChange={setActiveTab}>
           <Tabs.List>
-            <Tabs.Tab value="upload">Upload File</Tabs.Tab>
-            {previewData && <Tabs.Tab value="preview">Preview</Tabs.Tab>}
+            <Tabs.Tab value="upload">{t("importExport.uploadFile")}</Tabs.Tab>
+            {previewData && <Tabs.Tab value="preview">{t("importExport.preview")}</Tabs.Tab>}
           </Tabs.List>
 
           <Tabs.Panel value="upload" pt="md">
             <div className="space-y-4">
-              <Text size="sm" color="dimmed">
-                Select a file to import your bookmarks. You'll be able to preview the data before importing.
+              <Text size="sm" c="dimmed">
+                {t("importExport.selectFileDescription")}
               </Text>
 
               <div className="mb-4">
                 <Text size="sm" fw={500} className="mb-2">
-                  Import Format
+                  {t("importExport.importFormat")}
                 </Text>
                 <SegmentedControl
                   value={importFormat}
@@ -280,7 +282,7 @@ export default function ImportExport() {
                       variant="light"
                       leftSection={importFormat === "json" ? <IconFile size={16} /> : <IconFileCode size={16} />}
                     >
-                      Select {importFormat.toUpperCase()} file
+                      {t("importExport.selectFile", { format: importFormat.toUpperCase() })}
                     </Button>
                   )}
                 </FileButton>
@@ -288,19 +290,19 @@ export default function ImportExport() {
 
               {file && (
                 <Text size="sm" className="mt-2">
-                  Selected file: {file.name}
+                  {t("importExport.selectedFile")} {file.name}
                 </Text>
               )}
 
               {importError && (
-                <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red" variant="light">
+                <Alert icon={<IconAlertCircle size={16} />} title={t("importExport.error")} color="red" variant="light">
                   {importError}
                 </Alert>
               )}
-              
+
               {importSuccess && (
-                <Alert icon={<IconCheck size={16} />} title="Success" color="green" variant="light">
-                  Import completed successfully! Your data has been saved to IndexedDB.
+                <Alert icon={<IconCheck size={16} />} title={t("importExport.success")} color="green" variant="light">
+                  {t("importExport.importCompleted")}
                 </Alert>
               )}
             </div>
@@ -309,31 +311,30 @@ export default function ImportExport() {
           {previewData && (
             <Tabs.Panel value="preview" pt="md">
               <div className="space-y-4">
-                <Alert icon={<IconAlertCircle size={16} />} title="Warning" color="yellow" variant="light">
-                  Importing will replace your current bookmarks, folders, tags, and settings. This action cannot be
-                  undone.
+                <Alert icon={<IconAlertCircle size={16} />} title={t("importExport.warning")} color="yellow" variant="light">
+                  {t("importExport.importWarning")}
                 </Alert>
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="p-3 border rounded-md">
                     <Text size="sm" fw={500} className="mb-2">
-                      Import Summary
+                      {t("importExport.importSummary")}
                     </Text>
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <Text size="sm">Bookmarks:</Text>
+                        <Text size="sm">{t("importExport.bookmarks")}:</Text>
                         <Badge>{previewData.bookmarks?.length || 0}</Badge>
                       </div>
                       <div className="flex justify-between">
-                        <Text size="sm">Folders:</Text>
+                        <Text size="sm">{t("importExport.folders")}:</Text>
                         <Badge>{previewData.folders?.length || 0}</Badge>
                       </div>
                       <div className="flex justify-between">
-                        <Text size="sm">Tags:</Text>
+                        <Text size="sm">{t("importExport.tags")}:</Text>
                         <Badge>{previewData.tags?.length || 0}</Badge>
                       </div>
                       <div className="flex justify-between">
-                        <Text size="sm">Favorite Folders:</Text>
+                        <Text size="sm">{t("folders.favorites")}:</Text>
                         <Badge>{previewData.favoriteFolders?.length || 0}</Badge>
                       </div>
                     </div>
@@ -341,15 +342,15 @@ export default function ImportExport() {
 
                   <div className="p-3 border rounded-md">
                     <Text size="sm" fw={500} className="mb-2">
-                      Current Data
+                      {t("importExport.currentData")}
                     </Text>
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <Text size="sm">Bookmarks:</Text>
+                        <Text size="sm">{t("importExport.bookmarks")}:</Text>
                         <Badge>{currentBookmarks?.length || 0}</Badge>
                       </div>
                       <div className="flex justify-between">
-                        <Text size="sm">Export Date:</Text>
+                        <Text size="sm">{t("importExport.exportDate")}:</Text>
                         <Text size="xs">{formatDate(previewData.exportDate)}</Text>
                       </div>
                     </div>
@@ -360,7 +361,7 @@ export default function ImportExport() {
                   <Accordion.Item value="bookmarks">
                     <Accordion.Control>
                       <Group>
-                        <Text>Bookmarks Preview</Text>
+                        <Text>{t("importExport.bookmarksPreview")}</Text>
                         <Badge>{previewData.bookmarks?.length || 0}</Badge>
                       </Group>
                     </Accordion.Control>
@@ -377,8 +378,8 @@ export default function ImportExport() {
                           </div>
                         ))}
                         {(previewData.bookmarks?.length || 0) > 10 && (
-                          <Text size="xs" color="dimmed" className="mt-2 text-center">
-                            And {(previewData.bookmarks?.length || 0) - 10} more...
+                          <Text size="xs" c="dimmed" className="mt-2 text-center">
+                            {t("importExport.andMore", { count: String((previewData.bookmarks?.length || 0) - 10) })}
                           </Text>
                         )}
                       </div>
@@ -388,7 +389,7 @@ export default function ImportExport() {
                   <Accordion.Item value="folders">
                     <Accordion.Control>
                       <Group>
-                        <Text>Folders Preview</Text>
+                        <Text>{t("importExport.foldersPreview")}</Text>
                         <Badge>{previewData.folders?.length || 0}</Badge>
                       </Group>
                     </Accordion.Control>
@@ -400,14 +401,14 @@ export default function ImportExport() {
                             <Text size="sm">{folder.name}</Text>
                             {folder.parentId && (
                               <Badge size="xs" className="ml-2">
-                                Subfolder
+                                {t("importExport.subfolder")}
                               </Badge>
                             )}
                           </div>
                         ))}
                         {(previewData.folders?.length || 0) > 10 && (
-                          <Text size="xs" color="dimmed" className="mt-2 text-center">
-                            And {(previewData.folders?.length || 0) - 10} more...
+                          <Text size="xs" c="dimmed" className="mt-2 text-center">
+                            {t("importExport.andMore", { count: String((previewData.folders?.length || 0) - 10) })}
                           </Text>
                         )}
                       </div>
@@ -417,7 +418,7 @@ export default function ImportExport() {
                   <Accordion.Item value="tags">
                     <Accordion.Control>
                       <Group>
-                        <Text>Tags Preview</Text>
+                        <Text>{t("importExport.tagsPreview")}</Text>
                         <Badge>{previewData.tags?.length || 0}</Badge>
                       </Group>
                     </Accordion.Control>
@@ -430,8 +431,8 @@ export default function ImportExport() {
                             </Badge>
                           ))}
                           {(previewData.tags?.length || 0) > 20 && (
-                            <Text size="xs" color="dimmed">
-                              And {(previewData.tags?.length || 0) - 20} more...
+                            <Text size="xs" c="dimmed">
+                              {t("importExport.andMore", { count: String((previewData.tags?.length || 0) - 20) })}
                             </Text>
                           )}
                         </div>
@@ -442,15 +443,15 @@ export default function ImportExport() {
                   {previewData.settings && (
                     <Accordion.Item value="settings">
                       <Accordion.Control>
-                        <Text>Settings</Text>
+                        <Text>{t("importExport.settings")}</Text>
                       </Accordion.Control>
                       <Accordion.Panel>
                         <div className="p-2">
                           <div className="grid grid-cols-2 gap-2">
-                            <Text size="sm">Dark Mode:</Text>
-                            <Text size="sm">{previewData.settings.darkMode ? "Enabled" : "Disabled"}</Text>
+                            <Text size="sm">{t("importExport.darkMode")}:</Text>
+                            <Text size="sm">{previewData.settings.darkMode ? t("importExport.enabled") : t("importExport.disabled")}</Text>
 
-                            <Text size="sm">Accent Color:</Text>
+                            <Text size="sm">{t("importExport.accentColor")}:</Text>
                             <div className="flex items-center">
                               <div
                                 className="w-4 h-4 rounded-full mr-2"
@@ -459,7 +460,7 @@ export default function ImportExport() {
                               <Text size="sm">{previewData.settings.accentColor}</Text>
                             </div>
 
-                            <Text size="sm">Default View:</Text>
+                            <Text size="sm">{t("importExport.defaultView")}:</Text>
                             <Text size="sm">{previewData.settings.defaultView}</Text>
                           </div>
                         </div>
@@ -476,7 +477,7 @@ export default function ImportExport() {
 
         <Group justify="flex-end" mt="md">
           <Button variant="light" onClick={closeModal} leftSection={<IconX size={16} />} disabled={isImporting}>
-            Cancel
+            {t("importExport.cancel")}
           </Button>
           {previewData && activeTab === "preview" && (
             <Button
@@ -486,7 +487,7 @@ export default function ImportExport() {
               loading={isImporting}
               disabled={isImporting}
             >
-              {isImporting ? "Importing..." : "Confirm Import"}
+              {isImporting ? t("importExport.importing") : t("importExport.confirmImport")}
             </Button>
           )}
         </Group>

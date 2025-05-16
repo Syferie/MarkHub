@@ -23,6 +23,7 @@ import {
   IconInfoCircle,
 } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
+import { useLanguage } from "@/context/language-context"
 import EditBookmarkModal from "./edit-bookmark-modal"
 import type { Bookmark } from "@/types"
 import { generateTags } from "@/lib/tag-api"
@@ -94,6 +95,7 @@ export default function BookmarkList({
 }: BookmarkListProps) {
   const { deleteBookmark, updateBookmark, folders, tags, setSelectedFolderId, setSelectedTags, toggleFavoriteBookmark, settings } =
     useBookmarks()
+  const { t } = useLanguage()
   const [editingBookmark, setEditingBookmark] = useState<ExtendedBookmark | null>(null)
   const [selectedBookmarks, setSelectedBookmarks] = useState<string[]>([])
   const [bulkMode, setBulkMode] = useState(false)
@@ -179,7 +181,7 @@ export default function BookmarkList({
   }
 
   const handleBulkDelete = () => {
-    if (window.confirm(`Are you sure you want to delete ${selectedBookmarks.length} bookmarks?`)) {
+    if (window.confirm(t("bookmarks.confirmBulkDelete"))) {
       selectedBookmarks.forEach((id) => {
         deleteBookmark && deleteBookmark(id)
       })
@@ -1310,16 +1312,16 @@ export default function BookmarkList({
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
 
       if (diffDays === 0) {
-        return "Today"
+        return t("dateFormat.today")
       } else if (diffDays === 1) {
-        return "Yesterday"
+        return t("dateFormat.yesterday")
       } else if (diffDays < 7) {
-        return `${diffDays} days ago`
+        return t("dateFormat.daysAgo", { days: diffDays.toString() })
       } else {
         return date.toLocaleDateString()
       }
     } catch (e) {
-      return "Unknown date"
+      return t("dateFormat.unknown")
     }
   }
 
@@ -1556,10 +1558,10 @@ export default function BookmarkList({
     return (
       <div className="text-center py-10 fade-in">
         <Text size="lg" className="text-gray-500">
-          No bookmarks found
+          {t("bookmarks.noBookmarks")}
         </Text>
         <Text size="sm" className="text-gray-400 mt-2">
-          Add some bookmarks or adjust your filters
+          {t("bookmarks.addYourFirst")}
         </Text>
       </div>
     )
@@ -1595,8 +1597,8 @@ export default function BookmarkList({
         }
         onClick={() => setShowFolderGenerationStatus(true)}
       >
-        AI Folder Suggestion: {completed}/{total} completed
-        {failed > 0 && ` (${failed} failed)`}
+        {t("ai.folderSuggestion")}: {completed}/{total} {t("ai.completed")}
+        {failed > 0 && ` (${failed} ${t("ai.failed")})`}
       </Button>
     );
   };
@@ -1638,7 +1640,7 @@ export default function BookmarkList({
       <Drawer
         opened={showFolderGenerationStatus}
         onClose={() => setShowFolderGenerationStatus(false)}
-        title="AI Folder Suggestion Status"
+        title={t("ai.folderSuggestionStatus")}
         position="right"
         size="md"
       >
@@ -1646,10 +1648,10 @@ export default function BookmarkList({
           {/* 总体进度 */}
           <div>
             <div className="flex justify-between mb-2">
-              <Text size="sm" fw={500}>Overall Progress: {completed}/{total}</Text>
+              <Text size="sm" fw={500}>{t("ai.overallProgress")}: {completed}/{total}</Text>
               <Text size="sm" color={inProgress ? "blue" : (isCancelled ? "red" : (failed > 0 ? "orange" : "green"))}>
-                {inProgress ? `Processing (${bulkFolderGeneration.concurrencyLimit || getConcurrencyLimit()} concurrent)...` :
-                  (isCancelled ? "Canceled" : "Completed")}
+                {inProgress ? `${t("ai.processing")} (${bulkFolderGeneration.concurrencyLimit || getConcurrencyLimit()} ${t("ai.concurrent")})...` :
+                  (isCancelled ? t("ai.canceled") : t("ai.completed"))}
               </Text>
             </div>
             <Progress
@@ -1659,9 +1661,9 @@ export default function BookmarkList({
               animated={inProgress}
             />
             <div className="mt-2 flex justify-between text-xs text-gray-500">
-              <span>Succeeded: {successCount}</span>
-              <span>Failed: {failed}</span>
-              <span>Pending: {total - completed}</span>
+              <span>{t("ai.succeeded")}: {successCount}</span>
+              <span>{t("ai.failed")}: {failed}</span>
+              <span>{t("ai.pending")}: {total - completed}</span>
             </div>
 
             {/* 警告提示文本 */}
@@ -1670,7 +1672,7 @@ export default function BookmarkList({
                 <div className="flex items-start">
                   <IconInfoCircle size={18} className="text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
                   <Text size="sm" color="dimmed">
-                    Warning: Please do not refresh or close this page while tasks are in progress, as it will cancel the current operation.
+                    {t("ai.warningMessage")}
                   </Text>
                 </div>
               </div>
@@ -1680,7 +1682,7 @@ export default function BookmarkList({
             <div className="mt-4 flex justify-end space-x-2">
               {inProgress && (
                 <Button size="xs" color="red" onClick={handleCancelFolderGeneration}>
-                  Cancel
+                  {t("ai.cancel")}
                 </Button>
               )}
             </div>
@@ -1689,7 +1691,7 @@ export default function BookmarkList({
           {/* 当前处理中的书签 */}
           {processingBookmarks.length > 0 && (
             <div className="border-l-4 border-blue-500 pl-3 py-2">
-              <Text size="sm" fw={500}>Processing ({processingBookmarks.length}):</Text>
+              <Text size="sm" fw={500}>{t("ai.processing")} ({processingBookmarks.length}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {processingBookmarks.map(bookmark => bookmark && (
                   <div key={bookmark.id} className="bg-blue-50 p-2 rounded mb-2">
@@ -1713,7 +1715,7 @@ export default function BookmarkList({
           {/* 成功的书签 */}
           {successBookmarks.length > 0 && (
             <div className="border-l-4 border-green-500 pl-3 py-2">
-              <Text size="sm" fw={500}>Succeeded ({successBookmarks.length}):</Text>
+              <Text size="sm" fw={500}>{t("ai.succeeded")} ({successBookmarks.length}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {successBookmarks.map(({bookmark, folder}) => (
                   <div key={bookmark?.id} className="bg-green-50 p-2 rounded mb-2">
@@ -1733,7 +1735,7 @@ export default function BookmarkList({
           {/* 失败的书签 */}
           {failedBookmarks.length > 0 && (
             <div className="border-l-4 border-red-500 pl-3 py-2">
-              <Text size="sm" fw={500}>Failed ({failedBookmarks.length}):</Text>
+              <Text size="sm" fw={500}>{t("ai.failed")} ({failedBookmarks.length}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {failedBookmarks.map(({bookmark, error}) => (
                   <div key={bookmark?.id} className="bg-red-50 p-2 rounded mb-2">
@@ -1749,7 +1751,7 @@ export default function BookmarkList({
           {/* 等待中的书签 */}
           {waitingBookmarks.length > 0 && (
             <div className="border-l-4 border-gray-300 pl-3 py-2">
-              <Text size="sm" fw={500}>Pending ({waitingBookmarks.length}):</Text>
+              <Text size="sm" fw={500}>{t("ai.pending")} ({waitingBookmarks.length}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {waitingBookmarks.map(bookmark => bookmark && (
                   <div key={bookmark.id} className="bg-gray-50 p-2 rounded mb-2">
@@ -1795,8 +1797,8 @@ export default function BookmarkList({
         }
         onClick={() => setShowTagGenerationStatus(true)}
       >
-        AI Tag Generation: {completed}/{total} completed
-        {failed > 0 && ` (${failed} failed)`}
+        {t("ai.tagGeneration")}: {completed}/{total} {t("ai.completed")}
+        {failed > 0 && ` (${failed} ${t("ai.failed")})`}
       </Button>
     );
   };
@@ -1838,7 +1840,7 @@ export default function BookmarkList({
       <Drawer
         opened={showTagGenerationStatus}
         onClose={() => setShowTagGenerationStatus(false)}
-        title="AI Tag Generation Status"
+        title={t("ai.tagGenerationStatus")}
         position="right"
         size="md"
       >
@@ -1846,10 +1848,10 @@ export default function BookmarkList({
           {/* 总体进度 */}
           <div>
             <div className="flex justify-between mb-2">
-              <Text size="sm" fw={500}>Overall Progress: {completed}/{total}</Text>
+              <Text size="sm" fw={500}>{t("ai.overallProgress")}: {completed}/{total}</Text>
               <Text size="sm" color={inProgress ? "blue" : (isCancelled ? "red" : (failed > 0 ? "orange" : "green"))}>
-                {inProgress ? `Processing (${bulkTagGeneration.concurrencyLimit || getConcurrencyLimit()} concurrent)...` :
-                  (isCancelled ? "Canceled" : "Completed")}
+                {inProgress ? `${t("ai.processing")} (${bulkTagGeneration.concurrencyLimit || getConcurrencyLimit()} ${t("ai.concurrent")})...` :
+                  (isCancelled ? t("ai.canceled") : t("ai.completed"))}
               </Text>
             </div>
             <Progress
@@ -1859,9 +1861,9 @@ export default function BookmarkList({
               animated={inProgress}
             />
             <div className="mt-2 flex justify-between text-xs text-gray-500">
-              <span>Succeeded: {successCount}</span>
-              <span>Failed: {failed}</span>
-              <span>Pending: {total - completed}</span>
+              <span>{t("ai.succeeded")}: {successCount}</span>
+              <span>{t("ai.failed")}: {failed}</span>
+              <span>{t("ai.pending")}: {total - completed}</span>
             </div>
 
             {/* 警告提示文本 */}
@@ -1870,7 +1872,7 @@ export default function BookmarkList({
                 <div className="flex items-start">
                   <IconInfoCircle size={18} className="text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
                   <Text size="sm" color="dimmed">
-                    Warning: Please do not refresh or close this page while tasks are in progress, as it will cancel the current operation.
+                    {t("ai.warningMessage")}
                   </Text>
                 </div>
               </div>
@@ -1880,7 +1882,7 @@ export default function BookmarkList({
             <div className="mt-4 flex justify-end space-x-2">
               {inProgress && (
                 <Button size="xs" color="red" onClick={handleCancelGeneration}>
-                  Cancel
+                  {t("ai.cancel")}
                 </Button>
               )}
             </div>
@@ -1889,7 +1891,7 @@ export default function BookmarkList({
           {/* 当前处理中的书签 */}
           {processingBookmarks.length > 0 && (
             <div className="border-l-4 border-blue-500 pl-3 py-2">
-              <Text size="sm" fw={500}>Processing ({processingBookmarks.length}):</Text>
+              <Text size="sm" fw={500}>{t("ai.processing")} ({processingBookmarks.length}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {processingBookmarks.map(bookmark => bookmark && (
                   <div key={bookmark.id} className="bg-blue-50 p-2 rounded mb-2">
@@ -1913,7 +1915,7 @@ export default function BookmarkList({
           {/* 成功的书签 */}
           {successBookmarks.length > 0 && (
             <div className="border-l-4 border-green-500 pl-3 py-2">
-              <Text size="sm" fw={500}>Succeeded ({successBookmarks.length}):</Text>
+              <Text size="sm" fw={500}>{t("ai.succeeded")} ({successBookmarks.length}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {successBookmarks.map(({bookmark, tags}) => (
                   <div key={bookmark?.id} className="bg-green-50 p-2 rounded mb-2">
@@ -1935,7 +1937,7 @@ export default function BookmarkList({
           {/* 失败的书签 */}
           {failedBookmarks.length > 0 && (
             <div className="border-l-4 border-red-500 pl-3 py-2">
-              <Text size="sm" fw={500}>Failed ({failedBookmarks.length}):</Text>
+              <Text size="sm" fw={500}>{t("ai.failed")} ({failedBookmarks.length}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {failedBookmarks.map(({bookmark, error}) => (
                   <div key={bookmark?.id} className="bg-red-50 p-2 rounded mb-2">
@@ -1951,7 +1953,7 @@ export default function BookmarkList({
           {/* 等待中的书签 */}
           {waitingBookmarks.length > 0 && (
             <div className="border-l-4 border-gray-300 pl-3 py-2">
-              <Text size="sm" fw={500}>Pending ({waitingBookmarks.length}):</Text>
+              <Text size="sm" fw={500}>{t("ai.pending")} ({waitingBookmarks.length}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {waitingBookmarks.map(bookmark => bookmark && (
                   <div key={bookmark.id} className="bg-gray-50 p-2 rounded mb-2">
@@ -1975,7 +1977,7 @@ export default function BookmarkList({
           {bulkFolderGeneration && <FolderGenerationStatusButton />}
           {bulkMode && (
             <Text size="sm" className="text-gray-500">
-              {selectedBookmarks.length} of {bookmarks.length} selected
+              {t("bookmarks.selected", { count: selectedBookmarks.length.toString(), total: bookmarks.length.toString() })}
             </Text>
           )}
         </div>
@@ -1983,7 +1985,7 @@ export default function BookmarkList({
           {bulkMode ? (
             <>
               <Button size="xs" variant="outline" onClick={toggleAllBookmarks} leftSection={<IconCheck size={14} />}>
-                {selectedBookmarks.length === bookmarks.length ? "Deselect All" : "Select All"}
+                {selectedBookmarks.length === bookmarks.length ? t("bookmarks.deselectAll") : t("bookmarks.selectAll")}
               </Button>
 
               <Button
@@ -1993,7 +1995,7 @@ export default function BookmarkList({
                 onClick={() => setShowBulkActions(!showBulkActions)}
                 disabled={selectedBookmarks.length === 0}
               >
-                Actions
+                {t("bookmarks.actions")}
               </Button>
 
               <Button
@@ -2005,13 +2007,13 @@ export default function BookmarkList({
                   setShowBulkActions(false)
                 }}
               >
-                Cancel
+                {t("bookmarks.cancel")}
               </Button>
             </>
           ) : (
             <>
               <Button size="xs" variant="light" onClick={() => setBulkMode(true)}>
-                Bulk Edit
+                {t("bookmarks.bulkEdit")}
               </Button>
               {Array.isArray(sortOptions) && sortOptions.length > 0 && setCurrentSortOption && (
                 <Select
@@ -2020,7 +2022,7 @@ export default function BookmarkList({
                   value={currentSortOption}
                   onChange={(value) => setCurrentSortOption(value || "newest")}
                   leftSection={<IconSortAscending size={14} />}
-                  placeholder="Sort by"
+                  placeholder={t("bookmarks.sortBy")}
                 />
               )}
             </>
@@ -2031,7 +2033,7 @@ export default function BookmarkList({
       {showBulkActions && selectedBookmarks.length > 0 && (
         <div className="mb-4 p-3 border border-gray-200 rounded-md bg-gray-50 slide-in">
           <div className="flex justify-between items-center mb-2">
-            <span className="font-medium text-sm">Bulk Actions</span>
+            <span className="font-medium text-sm">{t("bookmarks.bulkActions")}</span>
             <ActionIcon size="sm" onClick={() => setShowBulkActions(false)}>
               <IconX size={16} />
             </ActionIcon>
@@ -2043,7 +2045,7 @@ export default function BookmarkList({
               leftSection={<IconSparkles size={14} />}
               onClick={handleBulkGenerateTags}
             >
-              Generate Tags (AI)
+              {t("bookmarks.generateTags")}
             </Button>
             <Button
               size="xs"
@@ -2051,7 +2053,7 @@ export default function BookmarkList({
               leftSection={<IconFolder size={14} />}
               onClick={handleBulkSuggestFolders}
             >
-              Suggest Folder (AI)
+              {t("bookmarks.suggestFolder")}
             </Button>
             <Button
               size="xs"
@@ -2059,7 +2061,7 @@ export default function BookmarkList({
               leftSection={<IconStarFilled size={14} />}
               onClick={() => handleBulkFavorite(true)}
             >
-              Add to Favorites
+              {t("bookmarks.addToFavorites")}
             </Button>
             <Button
               size="xs"
@@ -2067,7 +2069,7 @@ export default function BookmarkList({
               leftSection={<IconStar size={14} />}
               onClick={() => handleBulkFavorite(false)}
             >
-              Remove from Favorites
+              {t("bookmarks.removeFromFavorites")}
             </Button>
             <Button
               size="xs"
@@ -2076,7 +2078,7 @@ export default function BookmarkList({
               leftSection={<IconTrash size={14} />}
               onClick={handleBulkDelete}
             >
-              Delete Selected
+              {t("bookmarks.delete")}
             </Button>
           </Group>
         </div>

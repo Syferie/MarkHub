@@ -35,6 +35,7 @@ interface AppSettings {
   tagApiUrl?: string
   tagApiKey?: string
   tagConcurrencyLimit?: number // 添加标签生成并发限制配置
+  language?: string // 添加语言设置
 }
 
 interface BookmarkContextType {

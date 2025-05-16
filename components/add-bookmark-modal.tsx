@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Modal, TextInput, Button, Group, Tooltip, ActionIcon, Alert, Text, Combobox, PillsInput, Pill, useCombobox, Progress } from "@mantine/core"
 import { IconWand, IconAlertCircle, IconCheck, IconSparkles, IconLoader2, IconFolder } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
+import { useLanguage } from "@/context/language-context"
 import { HierarchicalFolderSelect } from "./hierarchical-folder-select"
 import { generateTags } from "@/lib/tag-api"
 import { suggestFolder } from "@/lib/folder-api"
@@ -15,7 +16,8 @@ interface AddBookmarkModalProps {
 }
 
 export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalProps) {
-  const { addBookmark, tags, suggestTags, settings, folders } = useBookmarks()
+  const { addBookmark, tags, settings, folders } = useBookmarks()
+  const { t } = useLanguage()
   const [title, setTitle] = useState("")
   const [url, setUrl] = useState("")
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
@@ -94,7 +96,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
 
   const handleSuggestTags = async () => {
     if (!url) {
-      setTagError("Please enter URL first")
+      setTagError(t("bookmarkModal.enterUrlFirst"))
       return
     }
 
@@ -183,7 +185,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
   // 处理AI建议文件夹
   const handleSuggestFolder = async () => {
     if (!url) {
-      setFolderError("Please enter URL first")
+      setFolderError(t("bookmarkModal.enterUrlFirst"))
       return
     }
 
@@ -351,7 +353,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                   // 移除onBlur事件以防止在选择选项时关闭下拉框
                   // onBlur={() => combobox.closeDropdown()}
                   value={search}
-                  placeholder="Select or create tags"
+                  placeholder={t("bookmarkModal.enterTags")}
                   onChange={(event) => {
                     combobox.updateSelectedOptionIndex()
                     setSearch(event.currentTarget.value)
@@ -373,11 +375,11 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
             {options}
 
             {!exactOptionMatch && search.trim().length > 0 && (
-              <Combobox.Option value="$create">+ Create {search}</Combobox.Option>
+              <Combobox.Option value="$create">+ {t("bookmarkModal.create")} {search}</Combobox.Option>
             )}
 
             {options.length === 0 && search.trim().length > 0 && (
-              <Combobox.Empty>Nothing found</Combobox.Empty>
+              <Combobox.Empty>{t("bookmarkModal.nothingFound")}</Combobox.Empty>
             )}
           </Combobox.Options>
         </Combobox.Dropdown>
@@ -386,18 +388,18 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
   }
 
   return (
-    <Modal opened={isOpen} onClose={onClose} title="Add Bookmark" centered>
+    <Modal opened={isOpen} onClose={onClose} title={t("bookmarkModal.addTitle")} centered>
       <div className="space-y-4">
         <TextInput
-          label="Title"
-          placeholder="Bookmark title"
+          label={t("bookmarkModal.title")}
+          placeholder={t("bookmarkModal.title")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
         />
 
         <TextInput
-          label="URL"
+          label={t("bookmarkModal.url")}
           placeholder="https://example.com"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
@@ -407,7 +409,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
         <div>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Folder</label>
+              <label className="text-sm font-medium">{t("bookmarkModal.folder")}</label>
 
               {/* 文件夹生成状态指示器 */}
               {folderGenerationStatus.status !== 'idle' && (
@@ -423,7 +425,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
               )}
             </div>
 
-            <Tooltip label={!url ? "Please enter URL first" : "Suggest folder based on URL content"}>
+            <Tooltip label={!url ? t("bookmarkModal.configureTags") : t("bookmarkModal.suggestFolder")}>
               <ActionIcon
                 size="sm"
                 color="blue"
@@ -471,7 +473,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
         <div>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Tags</label>
+              <label className="text-sm font-medium">{t("bookmarkModal.tags")}</label>
 
               {/* 标签生成状态指示器 */}
               {tagGenerationStatus.status !== 'idle' && (
@@ -487,7 +489,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
               )}
             </div>
 
-            <Tooltip label={!url ? "Please enter URL first" : "Generate tags based on URL content"}>
+            <Tooltip label={!url ? t("bookmarkModal.configureTags") : t("bookmarkModal.suggestTags")}>
               <ActionIcon
                 size="sm"
                 color="blue"
@@ -538,13 +540,13 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
 
         <Group justify="flex-end" mt="md">
           <Button variant="light" onClick={onClose}>
-            Cancel
+            {t("bookmarkModal.cancel")}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={tagGenerationStatus.status === 'pending' || tagGenerationStatus.status === 'processing' || folderGenerationStatus.status === 'pending' || folderGenerationStatus.status === 'processing'}
           >
-            Save Bookmark
+            {t("bookmarkModal.save")}
           </Button>
         </Group>
       </div>

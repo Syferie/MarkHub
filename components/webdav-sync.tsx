@@ -14,6 +14,7 @@ import { db } from "@/lib/db"
 import { Button, Modal, TextInput, PasswordInput, Group, Text, Switch, Alert, Progress } from "@mantine/core"
 import { IconCloud, IconCloudUpload, IconCloudDownload, IconAlertCircle } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
+import { useLanguage } from "@/context/language-context"
 
 // 导出供外部组件使用的函数和状态
 // 使用异步函数从IndexedDB获取最新状态
@@ -237,6 +238,7 @@ export async function uploadBookmarksToWebDAV() {
 
 export default function WebDAVSync() {
   const { bookmarks, folders, tags, favoriteFolders, settings, importBookmarks } = useBookmarks()
+  const { t } = useLanguage()
   const [syncModalOpen, setSyncModalOpen] = useState(false)
   const [serverUrl, setServerUrl] = useState("")
   const [username, setUsername] = useState("")
@@ -495,7 +497,7 @@ export default function WebDAVSync() {
   const uploadBookmarks = async () => {
     console.log("组件内uploadBookmarks函数被调用");
     if (!serverUrl || !username || !password) {
-      setSyncError("Please fill in all WebDAV connection fields")
+      setSyncError(t("webdav.fillAllFields"))
       console.log("WebDAV字段未完整填写，上传取消");
       return false
     }
@@ -605,7 +607,7 @@ export default function WebDAVSync() {
   // Download bookmarks from WebDAV - 改进错误处理和日志
   const downloadBookmarks = async () => {
     if (!serverUrl || !username || !password) {
-      setSyncError("Please fill in all WebDAV connection fields")
+      setSyncError(t("webdav.fillAllFields"))
       return false
     }
 
@@ -706,17 +708,17 @@ export default function WebDAVSync() {
   return (
     <>
       <Button leftSection={<IconCloud size={16} />} variant="light" onClick={() => setSyncModalOpen(true)}>
-        WebDAV Sync
+        {t("webdav.configure")}
       </Button>
 
-      <Modal opened={syncModalOpen} onClose={() => setSyncModalOpen(false)} title="WebDAV Sync" centered size="lg">
+      <Modal opened={syncModalOpen} onClose={() => setSyncModalOpen(false)} title={t("webdav.configure")} centered size="lg">
         <div className="space-y-4">
           <Text size="sm" color="dimmed">
-            Sync your bookmarks with a WebDAV server to access them from any device.
+            {t("webdav.webdavDescription")}
           </Text>
 
           <TextInput
-            label="Server URL"
+            label={t("webdav.serverUrl")}
             placeholder="https://example.com/webdav/"
             value={serverUrl}
             onChange={(e) => setServerUrl(e.target.value)}
@@ -724,7 +726,7 @@ export default function WebDAVSync() {
           />
 
           <TextInput
-            label="Username"
+            label={t("webdav.username")}
             placeholder="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -732,7 +734,7 @@ export default function WebDAVSync() {
           />
 
           <PasswordInput
-            label="Password"
+            label={t("webdav.password")}
             placeholder="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -740,19 +742,19 @@ export default function WebDAVSync() {
           />
 
           <TextInput
-            label="Storage Path"
+            label={t("webdav.path")}
             placeholder="/bookmarks/"
-            description="Path where bookmarks will be stored on the server"
+            description={t("webdav.pathDescription")}
             value={storagePath}
             onChange={(e) => setStoragePath(e.target.value)}
           />
 
           <Switch
-            label="Enable Cloud Auto-Sync"
+            label={t("webdav.autoSync")}
             checked={autoSync}
             onChange={(e) => setAutoSync(e.target.checked)}
             mt="md"
-            description="When enabled, your bookmarks will be automatically backed up to your cloud storage when you add or edit a bookmark."
+            description={t("webdav.autoSyncDescription")}
           />
 
           {isSyncing && (
@@ -765,13 +767,13 @@ export default function WebDAVSync() {
           )}
 
           {syncError && (
-            <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red" variant="light">
+            <Alert icon={<IconAlertCircle size={16} />} title={t("importExport.error")} color="red" variant="light">
               {syncError}
             </Alert>
           )}
 
           {syncSuccess && (
-            <Alert title="Success" color="green" variant="light">
+            <Alert title={t("importExport.success")} color="green" variant="light">
               {syncSuccess}
             </Alert>
           )}
@@ -785,7 +787,7 @@ export default function WebDAVSync() {
               disabled={!serverUrl || !username || !password}
               className="flex-1"
             >
-              Upload
+              {t("webdav.upload")}
             </Button>
             <Button
               leftSection={<IconCloudDownload size={16} />}
@@ -795,7 +797,7 @@ export default function WebDAVSync() {
               disabled={!serverUrl || !username || !password}
               className="flex-1"
             >
-              Download
+              {t("webdav.download")}
             </Button>
           </Group>
         </div>

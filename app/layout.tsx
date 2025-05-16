@@ -5,13 +5,14 @@ import { MantineProvider } from "@mantine/core"
 import { Inter } from "next/font/google"
 import { BookmarkProvider } from "@/context/bookmark-context"
 import { AIClassificationProvider } from "@/context/ai-classification-context"
+import { LanguageProvider } from "@/context/language-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
 // 扩展 metadata，使用新的图标文件
 export const metadata = {
   title: "MarkHub",
-  description: "A modern bookmark manager for Chrome",
+  description: "A modern bookmark manager",
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -30,6 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      {/* TODO: Ideally, lang attribute should reflect the current language from context */}
       <head>
         {/* 移除ColorSchemeScript组件，改用Next.js的Script组件 */}
       </head>
@@ -39,7 +41,10 @@ export default function RootLayout({
             Modal: {
               styles: {
                 content: {
-                  '&[data-with-border="true"]': {
+                  '&[data-with-border]': {
+                    border: '1px solid var(--mantine-color-gray-3)',
+                  },
+                  '&[dataWithBorder]': {
                     border: '1px solid var(--mantine-color-gray-3)',
                   }
                 }
@@ -48,7 +53,13 @@ export default function RootLayout({
             Button: {
               styles: {
                 root: {
-                  '&[data-disabled="true"]': {
+                  '&[data-disabled]': {
+                    backgroundColor: 'var(--mantine-color-gray-2)',
+                    color: 'var(--mantine-color-gray-5)',
+                    borderColor: 'var(--mantine-color-gray-3)',
+                    opacity: 0.6
+                  },
+                  '&[dataDisabled]': {
                     backgroundColor: 'var(--mantine-color-gray-2)',
                     color: 'var(--mantine-color-gray-5)',
                     borderColor: 'var(--mantine-color-gray-3)',
@@ -123,11 +134,13 @@ export default function RootLayout({
             }
           }
         }}>
-          <BookmarkProvider>
-            <AIClassificationProvider>
-              {children}
-            </AIClassificationProvider>
-          </BookmarkProvider>
+          <LanguageProvider>
+            <BookmarkProvider>
+              <AIClassificationProvider>
+                {children}
+              </AIClassificationProvider>
+            </BookmarkProvider>
+          </LanguageProvider>
         </MantineProvider>
       </body>
     </html>

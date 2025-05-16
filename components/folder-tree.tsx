@@ -16,6 +16,7 @@ import {
   IconStarFilled,
 } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
+import { useLanguage } from "@/context/language-context"
 import type { Folder } from "@/types"
 
 export default function FolderTree() {
@@ -29,6 +30,7 @@ export default function FolderTree() {
     favoriteFolders,
     toggleFavoriteFolder,
   } = useBookmarks()
+  const { t } = useLanguage()
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({})
   const [newFolderName, setNewFolderName] = useState("")
   const [isAddingFolder, setIsAddingFolder] = useState(false)
@@ -191,7 +193,7 @@ export default function FolderTree() {
           )}
 
           <div className="hidden group-hover:flex items-center flex-shrink-0">
-            <Tooltip label={isFavorite ? "Remove from favorites" : "Add to favorites"} withArrow position="top">
+            <Tooltip label={isFavorite ? t("bookmarks.removeFromFavorites") : t("bookmarks.addToFavorites")} withArrow position="top">
               <ActionIcon
                 variant="subtle"
                 size="sm"
@@ -237,9 +239,9 @@ export default function FolderTree() {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-500">Folders</span>
+        <span className="text-sm font-medium text-gray-500">{t("folders.title")}</span>
         <div className="flex space-x-1">
-          <Tooltip label="Add root folder" withArrow position="top">
+          <Tooltip label={t("folders.addRootFolder")} withArrow position="top">
             <ActionIcon
               variant="light"
               color="blue"
@@ -257,7 +259,7 @@ export default function FolderTree() {
             folders.find((f) => f && f.id === selectedFolderId) &&
             canHaveSubfolders(folders.find((f) => f && f.id === selectedFolderId)!) && (
               <Tooltip
-                label={`Add subfolder to ${folders.find((f) => f && f.id === selectedFolderId)?.name}`}
+                label={t("folders.addSubfolder")}
                 withArrow
                 position="top"
               >
@@ -280,7 +282,7 @@ export default function FolderTree() {
       {isAddingFolder && (
         <div className="mb-3 space-y-2 slide-in">
           <TextInput
-            placeholder={`New ${addingParentId ? "subfolder" : "folder"} name`}
+            placeholder={t("folders.newFolder")}
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
             size="xs"
@@ -293,10 +295,10 @@ export default function FolderTree() {
           />
           <div className="flex justify-end space-x-2">
             <Button size="xs" onClick={handleAddFolder} className="transition-all duration-200 hover:scale-105">
-              Add
+              {t("folders.add")}
             </Button>
             <Button size="xs" variant="light" onClick={() => setIsAddingFolder(false)}>
-              Cancel
+              {t("folders.cancel")}
             </Button>
           </div>
         </div>
@@ -310,7 +312,7 @@ export default function FolderTree() {
           onClick={() => setSelectedFolderId && setSelectedFolderId(null)}
         >
           <IconFolder size={18} className={selectedFolderId === null ? "text-blue-600 mr-2" : "text-gray-500 mr-2"} />
-          <span className="text-sm truncate flex-1 min-w-0">All Folders</span>
+          <span className="text-sm truncate flex-1 min-w-0">{t("settings.allBookmarks")}</span>
         </div>
         {rootFolders.map((folder) => renderFolder(folder))}
       </div>

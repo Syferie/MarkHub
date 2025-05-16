@@ -11,6 +11,7 @@ import {
   IconFolder
 } from "@tabler/icons-react"
 import { useAIClassification } from "@/context/ai-classification-context"
+import { useLanguage } from "@/context/language-context"
 
 export function AIClassificationIndicator() {
   // 获取分类任务状态
@@ -23,6 +24,7 @@ export function AIClassificationIndicator() {
     clearCompletedTasks,
     clearAllTasks
   } = useAIClassification()
+  const { t } = useLanguage()
 
   // 控制抽屉是否打开
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -61,7 +63,7 @@ export function AIClassificationIndicator() {
   return (
     <>
       <Tooltip
-        label={`AI Classification: ${completedCount + failedCount}/${totalTasks} completed`}
+        label={`${t("ai.classification")}: ${completedCount + failedCount}/${totalTasks} ${t("ai.completed")}`}
         position="bottom"
         withArrow
       >
@@ -77,15 +79,15 @@ export function AIClassificationIndicator() {
             <ButtonIcon size={18} />
           )}
         >
-          AI Classification: {completedCount + failedCount}/{totalTasks}
-          {failedCount > 0 && ` (${failedCount} failed)`}
+          {t("ai.classification")}: {completedCount + failedCount}/{totalTasks}
+          {failedCount > 0 && ` (${failedCount} ${t("ai.failed")})`}
         </Button>
       </Tooltip>
 
       <Drawer
         opened={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title="AI分类任务状态"
+        title={t("ai.classificationStatus")}
         position="right"
         size="md"
       >
@@ -93,12 +95,12 @@ export function AIClassificationIndicator() {
           {/* 总体进度 */}
           <div>
             <div className="flex justify-between mb-2">
-              <Text size="sm" fw={500}>总体进度: {completedCount + failedCount}/{totalTasks}</Text>
+              <Text size="sm" fw={500}>{t("ai.overallProgress")}: {completedCount + failedCount}/{totalTasks}</Text>
               <Text
                 size="sm"
                 color={hasActiveTasks ? "blue" : (failedCount > 0 ? "orange" : "green")}
               >
-                {hasActiveTasks ? "处理中..." : "已完成"}
+                {hasActiveTasks ? t("ai.processingEllipsis") : t("ai.completed")}
               </Text>
             </div>
             <Progress
@@ -108,10 +110,10 @@ export function AIClassificationIndicator() {
               animated={hasActiveTasks}
             />
             <div className="mt-2 flex justify-between text-xs text-gray-500">
-              <span>已处理: {completedCount}</span>
-              <span>失败: {failedCount}</span>
-              <span>处理中: {processingCount}</span>
-              <span>等待中: {pendingCount}</span>
+              <span>{t("ai.processed")}: {completedCount}</span>
+              <span>{t("ai.failed")}: {failedCount}</span>
+              <span>{t("ai.processing")}: {processingCount}</span>
+              <span>{t("ai.pending")}: {pendingCount}</span>
             </div>
 
             {/* 控制按钮 */}
@@ -122,7 +124,7 @@ export function AIClassificationIndicator() {
                 onClick={clearCompletedTasks}
                 disabled={completedCount + failedCount === 0}
               >
-                Clear Completed Tasks
+                {t("ai.clearCompletedTasks")}
               </Button>
               <Button
                 size="xs"
@@ -130,7 +132,7 @@ export function AIClassificationIndicator() {
                 variant="light"
                 onClick={clearAllTasks}
               >
-                Clear All Tasks
+                {t("ai.clearAllTasks")}
               </Button>
             </div>
           </div>
@@ -138,7 +140,7 @@ export function AIClassificationIndicator() {
           {/* 进行中的任务 */}
           {processingCount > 0 && (
             <div className="border-l-4 border-blue-500 pl-3 py-2">
-              <Text size="sm" fw={500}>Processing ({processingCount}):</Text>
+              <Text size="sm" fw={500}>{t("ai.processing")} ({processingCount}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {taskQueue
                   .filter(task => task.overallStatus === 'processing')
@@ -154,7 +156,7 @@ export function AIClassificationIndicator() {
                             color="blue"
                             leftSection={<IconTag size={12} />}
                           >
-                            Generating...
+                            {t("ai.generating")}
                           </Badge>
                         ) : task.tagStatus === 'pending' && (
                           <Badge
@@ -163,7 +165,7 @@ export function AIClassificationIndicator() {
                             color="gray"
                             leftSection={<IconTag size={12} />}
                           >
-                            Pending
+                            {t("ai.pending")}
                           </Badge>
                         )}
 
@@ -174,7 +176,7 @@ export function AIClassificationIndicator() {
                             color="blue"
                             leftSection={<IconFolder size={12} />}
                           >
-                            Suggesting...
+                            {t("ai.suggesting")}
                           </Badge>
                         ) : task.folderStatus === 'pending' && (
                           <Badge
@@ -183,7 +185,7 @@ export function AIClassificationIndicator() {
                             color="gray"
                             leftSection={<IconFolder size={12} />}
                           >
-                            Pending
+                            {t("ai.pending")}
                           </Badge>
                         )}
                       </div>
@@ -196,7 +198,7 @@ export function AIClassificationIndicator() {
           {/* 已完成的任务 */}
           {completedCount > 0 && (
             <div className="border-l-4 border-green-500 pl-3 py-2">
-              <Text size="sm" fw={500}>Completed ({completedCount}):</Text>
+              <Text size="sm" fw={500}>{t("ai.completed")} ({completedCount}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {taskQueue
                   .filter(task =>
@@ -246,13 +248,13 @@ export function AIClassificationIndicator() {
                         {/* 错误信息展示 */}
                         {task.folderStatus === 'folder_failed' && task.folderError && (
                           <Text size="xs" color="red" className="mt-1 w-full">
-                            Folder Error: {task.folderError}
+                            {t("ai.folderError")}: {task.folderError}
                           </Text>
                         )}
 
                         {task.tagStatus === 'tags_failed' && task.tagError && (
                           <Text size="xs" color="red" className="mt-1 w-full">
-                            Tag Error: {task.tagError}
+                            {t("ai.tagError")}: {task.tagError}
                           </Text>
                         )}
                       </div>
@@ -265,7 +267,7 @@ export function AIClassificationIndicator() {
           {/* 失败的任务 */}
           {failedCount > 0 && (
             <div className="border-l-4 border-red-500 pl-3 py-2">
-              <Text size="sm" fw={500}>Failed ({failedCount}):</Text>
+              <Text size="sm" fw={500}>{t("ai.failed")} ({failedCount}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {taskQueue
                   .filter(task => task.overallStatus === 'failed')
@@ -281,7 +283,7 @@ export function AIClassificationIndicator() {
                             color="red"
                             leftSection={<IconTag size={12} />}
                           >
-                            标签生成失败
+                            {t("ai.tagGenerationFailed")}
                           </Badge>
                         )}
 
@@ -292,15 +294,15 @@ export function AIClassificationIndicator() {
                             color="red"
                             leftSection={<IconFolder size={12} />}
                           >
-                            文件夹建议失败
+                            {t("ai.folderSuggestionFailed")}
                           </Badge>
                         )}
 
                         {task.tagError && (
-                          <Text size="xs" color="red" className="w-full mt-1">标签错误: {task.tagError}</Text>
+                          <Text size="xs" color="red" className="w-full mt-1">{t("ai.tagError")}: {task.tagError}</Text>
                         )}
                         {task.folderError && (
-                          <Text size="xs" color="red" className="w-full mt-1">文件夹错误: {task.folderError}</Text>
+                          <Text size="xs" color="red" className="w-full mt-1">{t("ai.folderError")}: {task.folderError}</Text>
                         )}
                       </div>
                     </div>
@@ -312,7 +314,7 @@ export function AIClassificationIndicator() {
           {/* 等待中的任务 */}
           {pendingCount > 0 && (
             <div className="border-l-4 border-gray-300 pl-3 py-2">
-              <Text size="sm" fw={500}>Pending ({pendingCount}):</Text>
+              <Text size="sm" fw={500}>{t("ai.pending")} ({pendingCount}):</Text>
               <div className="mt-1 max-h-36 overflow-y-auto">
                 {taskQueue
                   .filter(task => task.overallStatus === 'pending')

@@ -4,9 +4,11 @@ import { useState } from "react"
 import { ActionIcon, TextInput, Button, Badge } from "@mantine/core"
 import { IconPlus, IconX } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
+import { useLanguage } from "@/context/language-context"
 
 export default function TagManager() {
   const { tags, addTag, deleteTag, selectedTags, setSelectedTags } = useBookmarks()
+  const { t } = useLanguage()
   const [newTag, setNewTag] = useState("")
   const [isAddingTag, setIsAddingTag] = useState(false)
 
@@ -14,15 +16,15 @@ export default function TagManager() {
     if (newTag.trim() && addTag) {
       // 使用英文逗号分隔标签
       const tagArray = newTag.split(',')
-      
+
       // 处理每个标签：去除空格并过滤掉空字符串
       const validTags = tagArray
         .map(tag => tag.trim())
         .filter(tag => tag.length > 0)
-      
+
       // 添加每一个有效的标签
       validTags.forEach(tag => addTag(tag))
-      
+
       setNewTag("")
       setIsAddingTag(false)
     }
@@ -37,7 +39,7 @@ export default function TagManager() {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-500">Tags</span>
+        <span className="text-sm font-medium text-gray-500">{t("tags.title")}</span>
         <ActionIcon
           variant="light"
           color="blue"
@@ -51,7 +53,7 @@ export default function TagManager() {
       {isAddingTag && (
         <div className="mb-3 space-y-2 slide-in">
           <TextInput
-            placeholder="Enter tags, separated by commas."
+            placeholder={t("tags.enterTags")}
             value={newTag}
             onChange={(e) => setNewTag(e.target.value)}
             size="xs"
@@ -64,10 +66,10 @@ export default function TagManager() {
           />
           <div className="flex justify-end space-x-2">
             <Button size="xs" onClick={handleAddTag} className="transition-all duration-200 hover:scale-105">
-              Add
+              {t("tags.add")}
             </Button>
             <Button size="xs" variant="light" onClick={() => setIsAddingTag(false)}>
-              Cancel
+              {t("tags.cancel")}
             </Button>
           </div>
         </div>

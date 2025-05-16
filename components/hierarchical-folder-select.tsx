@@ -3,6 +3,7 @@
 import { forwardRef } from "react"
 import { Select, type SelectProps } from "@mantine/core"
 import { useBookmarks } from "@/context/bookmark-context"
+import { useLanguage } from "@/context/language-context"
 
 // 定义内部使用的类型
 interface Folder {
@@ -25,6 +26,7 @@ interface HierarchicalFolderSelectProps extends Omit<SelectProps, "data"> {
 export const HierarchicalFolderSelect = forwardRef<HTMLInputElement, HierarchicalFolderSelectProps>(
   ({ value, onChange, ...props }, ref) => {
     const { folders } = useBookmarks()
+    const { t } = useLanguage()
 
     // Create hierarchical data structure
     const getFolderOptions = (): SelectOption[] => {
@@ -74,14 +76,14 @@ export const HierarchicalFolderSelect = forwardRef<HTMLInputElement, Hierarchica
     return (
       <Select
         ref={ref}
-        placeholder="Select a folder"
+        placeholder={t("folder.selectFolder")}
         data={folderOptions || []}
         value={value}
         onChange={onChange}
         clearable
         searchable
         maxDropdownHeight={280}
-        nothingFoundMessage="No folders found"
+        nothingFoundMessage={t("folder.noFoldersFound")}
         // 移除transitionProps属性，因为它会导致React错误
         {...Object.fromEntries(
           Object.entries(props).filter(([key]) => key !== 'transitionProps')

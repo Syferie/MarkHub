@@ -389,7 +389,8 @@ button:active,
   background-color: #3a3a3a;
 }
 
-.dark .mantine-Select-item[data-selected] {
+.dark .mantine-Select-item[data-selected],
+.dark .mantine-Select-item[dataSelected] {
   background-color: rgba(var(--accent-rgb), 0.2);
   color: #ffffff;
 }
@@ -421,7 +422,8 @@ button:active,
   background-color: #3a3a3a;
 }
 
-.dark .mantine-Combobox-option[data-selected] {
+.dark .mantine-Combobox-option[data-selected],
+.dark .mantine-Combobox-option[dataSelected] {
   background-color: rgba(var(--accent-rgb), 0.2);
 }
 
@@ -437,7 +439,8 @@ button:active,
   border-color: #444444;
 }
 
-.dark .mantine-Modal-content[data-with-border="true"] {
+.dark .mantine-Modal-content[data-with-border],
+.dark .mantine-Modal-content[dataWithBorder] {
   border-color: #444444;
 }
 
@@ -467,12 +470,14 @@ button:active,
   background-color: var(--accent-color) !important;
 }
 
-.mantine-Tabs-tab[data-active="true"] {
+.mantine-Tabs-tab[data-active],
+.mantine-Tabs-tab[dataActive] {
   color: var(--accent-color) !important;
   border-color: var(--accent-color) !important;
 }
 
-.mantine-Switch-track[data-checked] {
+.mantine-Switch-track[data-checked],
+.mantine-Switch-track[dataChecked] {
   background-color: var(--accent-color) !important;
 }
 
@@ -481,7 +486,8 @@ button:active,
   border-color: var(--accent-color) !important;
 }
 
-.mantine-ActionIcon-root[data-variant="filled"] {
+.mantine-ActionIcon-root[data-variant="filled"],
+.mantine-ActionIcon-root[dataVariant="filled"] {
   background-color: var(--accent-color) !important;
 }
 
@@ -567,7 +573,8 @@ body {
   color: #e0e0e0;
 }
 
-.dark .mantine-Tabs-tab[data-active] {
+.dark .mantine-Tabs-tab[data-active],
+.dark .mantine-Tabs-tab[dataActive] {
   color: var(--accent-color);
   border-color: var(--accent-color);
 }
@@ -657,7 +664,8 @@ body {
 }
 
 /* 修复Mantine Button在禁用状态下的样式 */
-.dark .mantine-Button-root[data-disabled="true"] {
+.dark .mantine-Button-root[data-disabled],
+.dark .mantine-Button-root[dataDisabled] {
   background-color: #2a2a2a !important;
   color: #666666 !important;
   border-color: #444444 !important;
@@ -797,7 +805,8 @@ body {
 }
 
 /* 修复ActionIcon在禁用状态下的样式 */
-.dark .mantine-ActionIcon-root[data-disabled="true"] {
+.dark .mantine-ActionIcon-root[data-disabled],
+.dark .mantine-ActionIcon-root[dataDisabled] {
   background-color: transparent !important;
   color: #666666 !important;
   border-color: transparent !important;
@@ -823,14 +832,18 @@ body {
 }
 
 /* 特别处理错误Alert */
-.dark .mantine-Alert-root[data-variant="filled"][data-color="red"] {
+.dark .mantine-Alert-root[data-variant="filled"][data-color="red"],
+.dark .mantine-Alert-root[dataVariant="filled"][dataColor="red"] {
   background-color: rgba(239, 68, 68, 0.2) !important;
   border-color: #ef4444 !important;
 }
 
 .dark .mantine-Alert-root[data-variant="filled"][data-color="red"] .mantine-Alert-message,
 .dark .mantine-Alert-root[data-variant="filled"][data-color="red"] .mantine-Alert-title,
-.dark .mantine-Alert-root[data-variant="filled"][data-color="red"] .mantine-Alert-icon {
+.dark .mantine-Alert-root[data-variant="filled"][data-color="red"] .mantine-Alert-icon,
+.dark .mantine-Alert-root[dataVariant="filled"][dataColor="red"] .mantine-Alert-message,
+.dark .mantine-Alert-root[dataVariant="filled"][dataColor="red"] .mantine-Alert-title,
+.dark .mantine-Alert-root[dataVariant="filled"][dataColor="red"] .mantine-Alert-icon {
   color: #f87171 !important;
 }
 

@@ -11,6 +11,7 @@ import TagManager from "./tag-manager"
 import AddBookmarkModal from "./add-bookmark-modal"
 import SettingsModal from "./settings-modal"
 import { useBookmarks } from "@/context/bookmark-context"
+import { useLanguage } from "@/context/language-context"
 import { uploadBookmarksToWebDAV } from "./webdav-sync"
 
 export default function BookmarkDashboard() {
@@ -32,8 +33,8 @@ export default function BookmarkDashboard() {
     searchFields,
     toggleSearchField,
     settings,
-    addBookmark, // 从context中获取addBookmark函数
   } = useBookmarks()
+  const { t } = useLanguage()
   const [folderName, setFolderName] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState(settings?.defaultView || "all")
 
@@ -86,7 +87,7 @@ export default function BookmarkDashboard() {
             onClick={() => setIsAddModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-700"
           >
-            Add Bookmark
+            {t("dashboard.addBookmark")}
           </Button>
           <ActionIcon
             variant="light"
@@ -101,10 +102,10 @@ export default function BookmarkDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-[calc(100vh-100px)]">
         <div className="md:col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
-          <h2 className="text-lg font-semibold mb-4 text-gray-700">Collections</h2>
+          <h2 className="text-lg font-semibold mb-4 text-gray-700">{t("dashboard.collections")}</h2>
           <FolderTree />
 
-          <h2 className="text-lg font-semibold mb-4 mt-6 text-gray-700">Tags</h2>
+          <h2 className="text-lg font-semibold mb-4 mt-6 text-gray-700">{t("dashboard.tags")}</h2>
           <TagManager />
         </div>
 
@@ -112,7 +113,7 @@ export default function BookmarkDashboard() {
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="flex items-center space-x-2 mb-4">
               <TextInput
-                placeholder="Search bookmarks..."
+                placeholder={t("dashboard.search")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-grow"
@@ -131,24 +132,24 @@ export default function BookmarkDashboard() {
             {showSearchFilters && (
               <div className="mb-4 p-3 border border-gray-200 rounded-md bg-gray-50 slide-in">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium text-sm">Search Filters</span>
+                  <span className="font-medium text-sm">{t("dashboard.searchFilters")}</span>
                   <ActionIcon size="sm" onClick={() => setShowSearchFilters(false)}>
                     <IconX size={16} />
                   </ActionIcon>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <Checkbox
-                    label="Title"
+                    label={t("dashboard.title")}
                     checked={Array.isArray(searchFields) && searchFields.includes("title")}
                     onChange={() => toggleSearchField && toggleSearchField("title")}
                   />
                   <Checkbox
-                    label="URL"
+                    label={t("dashboard.url")}
                     checked={Array.isArray(searchFields) && searchFields.includes("url")}
                     onChange={() => toggleSearchField && toggleSearchField("url")}
                   />
                   <Checkbox
-                    label="Tags"
+                    label={t("dashboard.tagsField")}
                     checked={Array.isArray(searchFields) && searchFields.includes("tags")}
                     onChange={() => toggleSearchField && toggleSearchField("tags")}
                   />
@@ -160,18 +161,18 @@ export default function BookmarkDashboard() {
             <div className="mb-3 flex flex-wrap items-center gap-2 min-h-[32px]">
               {selectedFolderId || (Array.isArray(selectedTags) && selectedTags.length > 0) ? (
                 <>
-                  <span className="text-sm text-gray-500">Filtered by:</span>
+                  <span className="text-sm text-gray-500">{t("dashboard.filteredBy")}</span>
 
                   {folderName && (
                     <Badge color="blue" variant="light" size="lg">
-                      Folder: {folderName}
+                      {t("dashboard.folder")} {folderName}
                     </Badge>
                   )}
 
                   {Array.isArray(selectedTags) &&
                     selectedTags.map((tag) => (
                       <Badge key={tag} color="green" variant="light" size="lg">
-                        Tag: {tag}
+                        {t("dashboard.tag")} {tag}
                       </Badge>
                     ))}
 
@@ -183,11 +184,11 @@ export default function BookmarkDashboard() {
                       setSelectedTags && setSelectedTags([])
                     }}
                   >
-                    Clear Filters
+                    {t("dashboard.clearFilters")}
                   </Button>
                 </>
               ) : (
-                <span className="text-sm text-gray-400">No filters applied</span>
+                <span className="text-sm text-gray-400">{t("dashboard.noFilters")}</span>
               )}
             </div>
 
@@ -204,9 +205,9 @@ export default function BookmarkDashboard() {
               }}
             >
               <Tabs.List>
-                <Tabs.Tab value="all">All Bookmarks</Tabs.Tab>
+                <Tabs.Tab value="all">{t("dashboard.allBookmarks")}</Tabs.Tab>
                 <Tabs.Tab value="favorites" leftSection={<IconStar size={14} />}>
-                  Favorites
+                  {t("dashboard.favorites")}
                 </Tabs.Tab>
                 {favoriteFolderTabs.map((folder) => (
                   <Tabs.Tab key={folder!.id} value={folder!.id} leftSection={<IconFolder size={14} />}>

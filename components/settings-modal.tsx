@@ -13,10 +13,11 @@ import {
   PasswordInput,
   Divider,
 } from "@mantine/core"
-import { IconPalette, IconCloud, IconFileExport, IconRefresh, IconApi } from "@tabler/icons-react"
+import { IconPalette, IconCloud, IconFileExport, IconRefresh, IconApi, IconLanguage } from "@tabler/icons-react"
 import ImportExport from "./import-export"
 import WebDAVSync from "./webdav-sync"
 import { useBookmarks } from "@/context/bookmark-context"
+import { useLanguage } from "@/context/language-context"
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -25,6 +26,7 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { settings, updateSettings, refreshAllFavicons, clearAllBookmarkData, resetToSampleData } = useBookmarks()
+  const { language, setLanguage, t } = useLanguage()
   const [localSettings, setLocalSettings] = useState({
     darkMode: false,
     accentColor: "#3b82f6",
@@ -32,6 +34,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     tagApiUrl: "",
     tagApiKey: "",
     tagConcurrencyLimit: 5,
+    language: "en",
   })
   const [hasChanges, setHasChanges] = useState(false)
   const [isRefreshingFavicons, setIsRefreshingFavicons] = useState(false)
@@ -49,10 +52,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         tagApiUrl: settings.tagApiUrl || "",
         tagApiKey: settings.tagApiKey || "",
         tagConcurrencyLimit: settings.tagConcurrencyLimit || 5,
+        language: settings.language || language,
       })
       setHasChanges(false)
     }
-  }, [isOpen, settings])
+  }, [isOpen, settings, language])
 
   // Track changes
   useEffect(() => {
@@ -63,14 +67,21 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         localSettings.defaultView !== settings.defaultView ||
         localSettings.tagApiUrl !== (settings.tagApiUrl || "") ||
         localSettings.tagApiKey !== (settings.tagApiKey || "") ||
-        localSettings.tagConcurrencyLimit !== (settings.tagConcurrencyLimit || 5)
+        localSettings.tagConcurrencyLimit !== (settings.tagConcurrencyLimit || 5) ||
+        localSettings.language !== (settings.language || language)
 
       setHasChanges(changed)
     }
-  }, [localSettings, settings])
+  }, [localSettings, settings, language])
 
   const handleSaveChanges = () => {
     updateSettings(localSettings)
+
+    // 更新语言设置
+    if (localSettings.language !== language) {
+      setLanguage(localSettings.language as "en" | "zh")
+    }
+
     onClose()
   }
 
@@ -84,7 +95,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }
 
   const handleClearAllData = async () => {
-    if (window.confirm("确定要清除所有书签数据吗？此操作不可恢复！")) {
+    if (window.confirm(t("settings.confirmClearData"))) {
       setIsClearingData(true)
       try {
         await clearAllBookmarkData()
@@ -95,7 +106,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }
 
   const handleResetToSampleData = async () => {
-    if (window.confirm("确定要重置为示例数据吗？当前所有书签数据将被替换！")) {
+    if (window.confirm(t("settings.confirmResetData"))) {
       setIsResettingData(true)
       try {
         await resetToSampleData()
@@ -106,20 +117,20 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }
 
   return (
-    <Modal opened={isOpen} onClose={onClose} title="Settings" size="lg" centered>
+    <Modal opened={isOpen} onClose={onClose} title={t("settings.title")} size="lg" centered>
       <Tabs defaultValue="appearance">
         <Tabs.List>
           <Tabs.Tab value="appearance" leftSection={<IconPalette size={16} />}>
-            Appearance
+            {t("settings.appearance")}
           </Tabs.Tab>
           <Tabs.Tab value="api" leftSection={<IconApi size={16} />}>
-            API
+            {t("settings.api")}
           </Tabs.Tab>
           <Tabs.Tab value="sync" leftSection={<IconCloud size={16} />}>
-            Sync
+            {t("settings.sync")}
           </Tabs.Tab>
           <Tabs.Tab value="data" leftSection={<IconFileExport size={16} />}>
-            Data
+            {t("settings.data")}
           </Tabs.Tab>
         </Tabs.List>
 
@@ -127,7 +138,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           <div className="space-y-6">
             <div>
               <Switch
-                label="Dark Mode"
+                label={t("settings.darkMode")}
                 checked={localSettings.darkMode}
                 onChange={(e) =>
                   setLocalSettings({
@@ -140,7 +151,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
             <div>
               <ColorInput
-                label="Accent Color"
+                label={t("settings.accentColor")}
                 value={localSettings.accentColor}
                 onChange={(color) =>
                   setLocalSettings({
@@ -155,13 +166,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
             <div>
               <Select
-                label="Default View"
-                placeholder="Select default view"
+                label={t("settings.defaultView")}
+                placeholder={t("settings.defaultView")}
                 data={[
-                  { value: "all", label: "All Bookmarks" },
-                  { value: "favorites", label: "Favorites" },
-                  { value: "folders", label: "Folders" },
-                  { value: "tags", label: "Tags" },
+                  { value: "all", label: t("settings.allBookmarks") },
+                  { value: "favorites", label: t("settings.favorites") },
+                  { value: "folders", label: t("folders.title") },
+                  { value: "tags", label: t("tags.title") },
                 ]}
                 value={localSettings.defaultView}
                 onChange={(value) =>
@@ -172,23 +183,40 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 }
               />
             </div>
+
+            <div>
+              <Select
+                label={t("settings.language")}
+                placeholder={t("settings.language")}
+                leftSection={<IconLanguage size={16} />}
+                data={[
+                  { value: "en", label: "English" },
+                  { value: "zh", label: "中文" },
+                ]}
+                value={localSettings.language}
+                onChange={(value) =>
+                  setLocalSettings({
+                    ...localSettings,
+                    language: value || "en",
+                  })
+                }
+              />
+            </div>
           </div>
         </Tabs.Panel>
 
         <Tabs.Panel value="api" pt="md">
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium mb-2">Tag Generation API</h3>
+              <h3 className="text-lg font-medium mb-2">{t("settings.api")}</h3>
               <p className="text-sm text-gray-500 mb-4">
-                Configure API connection information for the automatic tag generation service. This feature can analyze bookmark URLs
-                and generate relevant tags automatically. The system will send requests to the tag generation service based on the
-                following configuration.
+                {t("settings.apiUrlDescription")}
               </p>
 
               <div className="space-y-4">
                 <TextInput
-                  label="API Base URL"
-                  placeholder="https://api.tag-service.example.com"
+                  label={t("settings.apiBaseUrl")}
+                  placeholder={t("settings.apiUrlPlaceholder")}
                   value={localSettings.tagApiUrl}
                   onChange={(e) =>
                     setLocalSettings({
@@ -196,12 +224,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       tagApiUrl: e.target.value,
                     })
                   }
-                  description="Enter the base URL of the tag generation service, e.g. https://api.tag-service.example.com"
+                  description={t("settings.apiUrlDescription")}
                 />
 
                 <PasswordInput
-                  label="API Key"
-                  placeholder="Your API key"
+                  label={t("settings.apiKey")}
+                  placeholder={t("settings.apiKeyPlaceholder")}
                   value={localSettings.tagApiKey}
                   visible={showApiKey}
                   onVisibilityChange={setShowApiKey}
@@ -211,11 +239,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       tagApiKey: e.target.value,
                     })
                   }
-                  description="This key will be used in the Authorization header of API requests as Bearer <API_KEY>"
+                  description={t("settings.apiKeyDescription")}
                 />
 
                 <TextInput
-                  label="AI 标签生成并发数"
+                  label={t("settings.concurrencyLimit")}
                   placeholder="5"
                   type="number"
                   value={String(localSettings.tagConcurrencyLimit || 5)}
@@ -226,27 +254,27 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       tagConcurrencyLimit: !isNaN(value) && value > 0 ? value : 5,
                     });
                   }}
-                  description="同时处理的书签数量，建议值：3-10 (默认: 5)"
+                  description={t("settings.concurrencyDescription")}
                 />
               </div>
 
               <Divider my="md" />
 
               <div className="text-sm text-gray-500">
-                <h4 className="font-medium mb-2">API Specification:</h4>
+                <h4 className="font-medium mb-2">{t("settings.apiSpecification")}</h4>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li>The system will send a POST request to <code>{"{Your Base URL}/api/v1/tags/generate-from-url"}</code></li>
+                  <li>{t("settings.apiEndpointInfo")} <code>{"{Your Base URL}/api/v1/tags/generate-from-url"}</code></li>
                   <li>
-                    Request body format: <code>{"{ url: string, filter_tags?: string[], fetch_options?: {...} }"}</code>
+                    {t("settings.apiRequestFormat")}: <code>{"{ url: string, filter_tags?: string[], fetch_options?: {...} }"}</code>
                   </li>
                   <li>
-                    Upon success, a task ID is returned, and the system will automatically poll the task status until completion
+                    {t("settings.apiTaskIdInfo")}
                   </li>
                   <li>
-                    Completed response format: <code>{"{ status: 'completed', tags: string[], url: string, ... }"}</code>
+                    {t("settings.apiResponseFormat")}: <code>{"{ status: 'completed', tags: string[], url: string, ... }"}</code>
                   </li>
                   <li>
-                    All requests include the header <code>Authorization: Bearer &lt;Your API Key&gt;</code>
+                    {t("settings.apiAuthHeader")} <code>Authorization: Bearer &lt;Your API Key&gt;</code>
                   </li>
                 </ul>
               </div>
@@ -257,10 +285,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <Tabs.Panel value="sync" pt="md">
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium mb-2">WebDAV Sync</h3>
+              <h3 className="text-lg font-medium mb-2">{t("settings.webdavSync")}</h3>
               <p className="text-sm text-gray-500 mb-4">
-                Sync your bookmarks across devices using WebDAV protocol. This allows you to access your bookmarks from
-                any device that can connect to your WebDAV server.
+                {t("settings.webdavDescription")}
               </p>
               <WebDAVSync />
             </div>
@@ -270,14 +297,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <Tabs.Panel value="data" pt="md">
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium mb-2">Import/Export</h3>
-              <p className="text-sm text-gray-500 mb-4">Export your bookmarks to a file or import from a file.</p>
+              <h3 className="text-lg font-medium mb-2">{t("settings.importExport")}</h3>
+              <p className="text-sm text-gray-500 mb-4">{t("settings.importExportDescription")}</p>
               <ImportExport />
             </div>
 
             <div className="pt-4 border-t">
-              <h3 className="text-lg font-medium mb-2">Data Management</h3>
-              <p className="text-sm text-gray-500 mb-4">Manage your bookmark data.</p>
+              <h3 className="text-lg font-medium mb-2">{t("settings.dataManagement")}</h3>
+              <p className="text-sm text-gray-500 mb-4">{t("settings.dataManagement")}</p>
               <Group>
                 <Button
                   variant="light"
@@ -285,7 +312,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   onClick={handleRefreshFavicons}
                   loading={isRefreshingFavicons}
                 >
-                  Refresh All Favicons
+                  {t("settings.refreshFavicons")}
                 </Button>
                 <Button
                   variant="light"
@@ -293,7 +320,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   onClick={handleClearAllData}
                   loading={isClearingData}
                 >
-                  Clear All Data
+                  {t("settings.clearData")}
                 </Button>
                 <Button
                   variant="light"
@@ -301,7 +328,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   onClick={handleResetToSampleData}
                   loading={isResettingData}
                 >
-                  Reset to Sample Data
+                  {t("settings.resetData")}
                 </Button>
               </Group>
             </div>
@@ -311,10 +338,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
       <Group justify="flex-end" mt="xl">
         <Button variant="light" onClick={onClose}>
-          Cancel
+          {t("bookmarkModal.cancel")}
         </Button>
         <Button onClick={handleSaveChanges} disabled={!hasChanges}>
-          Save Changes
+          {t("settings.save")}
         </Button>
       </Group>
     </Modal>
