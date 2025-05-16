@@ -1362,18 +1362,18 @@ export default function BookmarkList({
     const isFavorite = bookmark.isFavorite
     const isSelected = selectedBookmarks.includes(bookmark.id)
 
-    // 使用固定高度和一致的间距
+    // 移除外层容器的固定高度，让内容决定高度
     return (
       <div
         style={{
           ...style,
-          height: "130px", // 使用固定高度
-          padding: "6px 0", // 上下统一的内边距
+          height: "auto", // 让内容决定高度
+          padding: "4px 0", // 减少上下内边距
         }}
         className={`${index % 2 === 0 ? "bg-gray-50 dark:bg-gray-800" : ""}`}
       >
         <div
-          className={`flex items-start justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-all duration-200 bookmark-item hover:shadow-sm ${
+          className={`flex items-start justify-between p-3 pb-2 border border-gray-100 rounded-lg hover:bg-gray-50 transition-all duration-200 bookmark-item hover:shadow-sm ${
             isSelected ? "bg-blue-50 border-blue-200" : ""
           }`}
         >
@@ -1406,9 +1406,9 @@ export default function BookmarkList({
                 {highlightText(bookmark.url || "", searchQuery)}
               </Text>
 
-              <div className="flex flex-wrap gap-2 mt-2 max-h-[40px] overflow-y-auto">
+              <div className="flex flex-wrap gap-2 mt-1">
                 <Tooltip label="Added date" withArrow>
-                  <Badge size="sm" color="gray" variant="outline" leftSection={<IconClock size={12} />}>
+                  <Badge size="xs" color="gray" variant="outline" leftSection={<IconClock size={10} />}>
                     {formatDate(bookmark.createdAt)}
                   </Badge>
                 </Tooltip>
@@ -1416,10 +1416,10 @@ export default function BookmarkList({
                 {folderName && (
                   <Tooltip label="Click to filter by this folder" withArrow>
                     <Badge
-                      size="sm"
+                      size="xs"
                       color="blue"
                       variant="outline"
-                      leftSection={<IconFolder size={12} />}
+                      leftSection={<IconFolder size={10} />}
                       className="cursor-pointer transition-all duration-200 hover:bg-blue-50 filter-badge"
                       onClick={(e) => handleFolderClick(bookmark.folderId, e)}
                     >
@@ -1433,10 +1433,10 @@ export default function BookmarkList({
                   bookmark.tags.map((tag: string) => (
                     <Tooltip key={tag} label="Click to filter by this tag" withArrow>
                       <Badge
-                        size="sm"
+                        size="xs"
                         color="green"
                         variant="light"
-                        leftSection={<IconTag size={12} />}
+                        leftSection={<IconTag size={10} />}
                         className="cursor-pointer transition-all duration-200 hover:bg-green-50 filter-badge"
                         onClick={(e) => handleTagClick(tag, e)}
                       >
@@ -1496,10 +1496,13 @@ export default function BookmarkList({
 
   // 创建虚拟列表的记忆化组件
   const MemoizedVirtualList = React.memo(({ bookmarks }: { bookmarks: ExtendedBookmark[] }) => {
-    // 使用固定高度，确保一致的间距
+    // 根据标签数量动态调整高度，但设置最小高度
     const getItemSize = (index: number) => {
-      // 使用固定高度，不再根据标签数量动态调整
-      return 130; // 固定高度，足够容纳标签
+      const bookmark = bookmarks[index];
+      // 基础高度 + 根据标签数量调整高度
+      const tagsCount = bookmark?.tags?.length || 0;
+      // 如果有标签，给予更多空间；如果没有标签，使用较小的高度
+      return tagsCount > 0 ? 110 : 90;
     };
 
     // 为虚拟列表组件定义类型
