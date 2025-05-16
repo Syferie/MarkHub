@@ -27,7 +27,7 @@ function getApiSettings(request: Request) {
     // 从请求头中获取API基础URL和密钥
     const apiBaseUrl = request.headers.get('X-Api-Base-Url') || 'http://localhost:8080';
     const apiKey = request.headers.get('X-Api-Key');
-    
+
     return { apiBaseUrl, apiKey };
   } catch (error) {
     console.error("获取API设置失败:", error);
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (!url) {
       return NextResponse.json(
-        { error: '缺少URL参数' }, 
+        { error: '缺少URL参数' },
         { status: 400 }
       );
     }
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     // 验证folders参数
     if (!folders || !Array.isArray(folders)) {
       return NextResponse.json(
-        { error: '缺少folders参数或格式不正确' }, 
+        { error: '缺少folders参数或格式不正确' },
         { status: 400 }
       );
     }
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'API密钥未配置' }, 
+        { error: 'API密钥未配置' },
         { status: 401 }
       );
     }
@@ -118,12 +118,12 @@ export async function POST(request: NextRequest) {
       { status: backendResponse.status }
     );
   } catch (error) {
-    console.error('API代理发生错误:', error);
-    
+    console.error('API proxy error:', error);
+
     // 改进错误处理，返回结构化的错误响应
     return NextResponse.json(
       {
-        error: `处理请求时发生错误: ${error instanceof Error ? error.message : '未知错误'}`,
+        error: `Error processing request: ${error instanceof Error ? error.message : 'Unknown error'}`,
         code: 'INTERNAL_ERROR'
       },
       { status: 500 }
@@ -141,24 +141,24 @@ export async function GET(request: NextRequest) {
     // 从URL获取任务ID
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get('taskId');
-    
+
     if (!taskId) {
       return NextResponse.json(
         { error: '缺少taskId参数' },
         { status: 400 }
       );
     }
-    
+
     // 从请求头中获取API设置
     const { apiBaseUrl, apiKey } = getApiSettings(request);
-    
+
     if (!apiKey) {
       return NextResponse.json(
         { error: 'API密钥未配置' },
         { status: 401 }
       );
     }
-    
+
     // 向后端API发送任务状态查询请求
     const statusResponse = await fetch(`${apiBaseUrl}/api/v1/tasks/${taskId}`, {
       method: 'GET',
@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
         'Authorization': `Bearer ${apiKey}`
       }
     });
-    
+
     // 处理错误响应
     if (!statusResponse.ok) {
       let errorMessage = '获取任务状态失败';
@@ -178,26 +178,26 @@ export async function GET(request: NextRequest) {
         const textError = await statusResponse.text().catch(() => '未知错误');
         errorMessage = textError || errorMessage;
       }
-      
+
       return NextResponse.json(
         { error: errorMessage },
         { status: statusResponse.status }
       );
     }
-    
+
     // 获取并转发任务状态响应
     const taskStatus = await statusResponse.json() as TaskStatusResponse;
-    
+
     return NextResponse.json(
       taskStatus,
       { status: 200 }
     );
   } catch (error) {
-    console.error('获取任务状态时发生错误:', error);
-    
+    console.error('Error getting task status:', error);
+
     return NextResponse.json(
       {
-        error: `获取任务状态时发生错误: ${error instanceof Error ? error.message : '未知错误'}`,
+        error: `Error getting task status: ${error instanceof Error ? error.message : 'Unknown error'}`,
         code: 'INTERNAL_ERROR'
       },
       { status: 500 }

@@ -863,7 +863,7 @@ export default function BookmarkList({
                 ...prev,
                 [bookmarkId]: {
                   status: "failed" as const,
-                  errorMessage: `建议的文件夹 "${suggestedFolder}" 不存在`
+                  errorMessage: `Suggested folder "${suggestedFolder}" does not exist`
                 }
               };
               // 同步更新ref
@@ -894,7 +894,7 @@ export default function BookmarkList({
               ...prev,
               [bookmarkId]: {
                 status: "failed" as const,
-                errorMessage: "没有获取到建议的文件夹"
+                errorMessage: "No folder suggestion received"
               }
             };
             // 同步更新ref

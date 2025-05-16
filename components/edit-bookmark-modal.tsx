@@ -62,8 +62,8 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
           tags: selectedTags,
         })
 
-        // 编辑书签后，如果WebDAV已启用，则自动上传
-        console.log("编辑的书签数据:", {
+        // After editing bookmark, automatically upload if WebDAV is enabled
+        console.log("Edited bookmark data:", {
           id: bookmark.id,
           title,
           url: urlObj.toString(),
@@ -72,16 +72,16 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
         });
 
         try {
-          // 直接调用上传函数，让它内部检查WebDAV是否启用
-          console.log("调用uploadBookmarksToWebDAV开始...");
+          // Call upload function directly, let it check if WebDAV is enabled
+          console.log("Calling uploadBookmarksToWebDAV...");
           const uploadResult = await uploadBookmarksToWebDAV();
-          console.log("自动上传结果:", uploadResult);
+          console.log("Automatic upload result:", uploadResult);
 
           if (!uploadResult) {
-            console.warn("自动上传返回false，可能未启用WebDAV或未成功执行上传操作");
+            console.warn("Automatic upload returned false, WebDAV may not be enabled or upload failed");
           }
         } catch (syncError) {
-          console.error("自动同步书签数据失败:", syncError)
+          console.error("Failed to automatically sync bookmark data:", syncError)
         }
 
         onClose()
@@ -94,14 +94,14 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
 
   const handleSuggestTags = async () => {
     if (!url) {
-      setTagError("请先输入URL")
+      setTagError("Please enter URL first")
       return
     }
 
     try {
       setIsLoadingTags(true)
       setTagError(null)
-      setTagGenerationStatus({ status: 'pending', message: '正在初始化...' })
+      setTagGenerationStatus({ status: 'pending', message: 'Initializing...' })
 
       // 确保URL格式正确
       const formattedUrl = url.startsWith("http") ? url : `https://${url}`
@@ -112,30 +112,30 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
         filter_tags: tags // 传递已存在的标签列表
       }, {
         onProgressUpdate: (status) => {
-          console.log("标签生成进度:", status)
+          console.log("Tag generation progress:", status)
           // 根据API返回的状态更新进度展示
           if (status.status === 'pending') {
             setTagGenerationStatus({
               status: 'pending',
               progress: 10,
-              message: '任务已提交，等待处理...'
+              message: 'Task submitted, waiting...'
             })
           } else if (status.status === 'processing') {
             setTagGenerationStatus({
               status: 'processing',
               progress: status.progress || 50,
-              message: status.message || '正在分析网页内容...'
+              message: status.message || 'Analyzing content...'
             })
           } else if (status.status === 'completed') {
             setTagGenerationStatus({
               status: 'completed',
               progress: 100,
-              message: '标签生成完成!'
+              message: 'Tag generation completed!'
             })
           } else if (status.status === 'failed') {
             setTagGenerationStatus({
               status: 'failed',
-              message: status.error || '生成失败'
+              message: status.error || 'Generation failed'
             })
           }
         }
@@ -157,9 +157,9 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
         return newTags
       })
     } catch (error) {
-      console.error("标签生成错误:", error)
-      setTagError(error instanceof Error ? error.message : "获取标签推荐失败")
-      setTagGenerationStatus({ status: 'failed', message: error instanceof Error ? error.message : "获取标签推荐失败" })
+      console.error("Tag generation error:", error)
+      setTagError(error instanceof Error ? error.message : "Failed to get tag recommendations")
+      setTagGenerationStatus({ status: 'failed', message: error instanceof Error ? error.message : "Failed to get tag recommendations" })
     } finally {
       setIsLoadingTags(false)
       // 延迟将状态重置为idle，让用户有时间看到完成状态
@@ -188,14 +188,14 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
   // 处理AI建议文件夹
   const handleSuggestFolder = async () => {
     if (!url) {
-      setFolderError("请先输入URL")
+      setFolderError("Please enter URL first")
       return
     }
 
     try {
       setIsLoadingFolder(true)
       setFolderError(null)
-      setFolderGenerationStatus({ status: 'pending', message: '正在初始化...' })
+      setFolderGenerationStatus({ status: 'pending', message: 'Initializing...' })
 
       // 确保URL格式正确
       const formattedUrl = url.startsWith("http") ? url : `https://${url}`
@@ -211,30 +211,30 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
         folders: folderNames
       }, {
         onProgressUpdate: (status) => {
-          console.log("文件夹生成进度:", status)
+          console.log("Folder generation progress:", status)
           // 根据API返回的状态更新进度展示
           if (status.status === 'pending') {
             setFolderGenerationStatus({
               status: 'pending',
               progress: 10,
-              message: '任务已提交，等待处理...'
+              message: 'Task submitted, waiting...'
             })
           } else if (status.status === 'processing') {
             setFolderGenerationStatus({
               status: 'processing',
               progress: status.progress || 50,
-              message: status.message || '正在分析网页内容...'
+              message: status.message || 'Analyzing content...'
             })
           } else if (status.status === 'completed') {
             setFolderGenerationStatus({
               status: 'completed',
               progress: 100,
-              message: '文件夹建议完成!'
+              message: 'Folder suggestion completed!'
             })
           } else if (status.status === 'failed') {
             setFolderGenerationStatus({
               status: 'failed',
-              message: status.error || '生成失败'
+              message: status.error || 'Generation failed'
             })
           }
         }
@@ -251,14 +251,14 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
           setSelectedFolder(matchedFolder.id)
         } else {
           // 如果没有找到匹配的文件夹，可以根据业务需求决定是否创建新文件夹
-          console.log("建议的文件夹不存在:", suggestedFolder)
+          console.log("Suggested folder does not exist:", suggestedFolder)
         }
       }
 
     } catch (error) {
-      console.error("文件夹建议错误:", error)
-      setFolderError(error instanceof Error ? error.message : "获取文件夹建议失败")
-      setFolderGenerationStatus({ status: 'failed', message: error instanceof Error ? error.message : "获取文件夹建议失败" })
+      console.error("Folder suggestion error:", error)
+      setFolderError(error instanceof Error ? error.message : "Failed to get folder suggestion")
+      setFolderGenerationStatus({ status: 'failed', message: error instanceof Error ? error.message : "Failed to get folder suggestion" })
     } finally {
       setIsLoadingFolder(false)
       // 延迟将状态重置为idle，让用户有时间看到完成状态
@@ -428,7 +428,7 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
               )}
             </div>
 
-            <Tooltip label={!url ? "请先输入URL" : "根据URL内容建议文件夹"}>
+            <Tooltip label={!url ? "Please enter URL first" : "Suggest folder based on URL content"}>
               <ActionIcon
                 size="sm"
                 color="blue"
@@ -492,7 +492,7 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
               )}
             </div>
 
-            <Tooltip label={!url ? "请先输入URL" : "根据URL内容生成标签"}>
+            <Tooltip label={!url ? "Please enter URL first" : "Generate tags based on URL content"}>
               <ActionIcon
                 size="sm"
                 color="blue"

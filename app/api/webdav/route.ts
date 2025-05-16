@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('WebDAV proxy error:', error);
     return NextResponse.json(
-      { 
+      {
         error: `Request processing error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         code: 'INTERNAL_ERROR'
       },
@@ -85,10 +85,10 @@ async function handleCheckOperation(url: string, headers: Record<string, string>
     } else {
       // 文件不存在或其他错误
       return NextResponse.json(
-        { 
-          exists: false, 
+        {
+          exists: false,
           status: response.status,
-          statusText: response.statusText 
+          statusText: response.statusText
         },
         { status: 200 } // 返回200给客户端，但内容表示文件不存在
       );
@@ -96,7 +96,7 @@ async function handleCheckOperation(url: string, headers: Record<string, string>
   } catch (error) {
     console.error('WebDAV check operation error:', error);
     return NextResponse.json(
-      { 
+      {
         error: `Check operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         exists: false
       },
@@ -121,9 +121,9 @@ async function handleUploadOperation(url: string, headers: Record<string, string
     });
 
     if (response.ok) {
-      return NextResponse.json({ 
-        success: true, 
-        status: response.status 
+      return NextResponse.json({
+        success: true,
+        status: response.status
       });
     } else {
       // 尝试获取错误详情
@@ -136,8 +136,8 @@ async function handleUploadOperation(url: string, headers: Record<string, string
       }
 
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           status: response.status,
           statusText: response.statusText,
           details: errorDetails
@@ -148,7 +148,7 @@ async function handleUploadOperation(url: string, headers: Record<string, string
   } catch (error) {
     console.error('WebDAV upload operation error:', error);
     return NextResponse.json(
-      { 
+      {
         error: `Upload operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         success: false
       },
@@ -179,7 +179,7 @@ async function handleDownloadOperation(url: string, headers: Record<string, stri
         });
       } catch (error) {
         console.error('Error parsing WebDAV response as JSON:', error);
-        
+
         // 如果不是JSON，返回文本内容
         const text = await response.text();
         return NextResponse.json({
@@ -193,7 +193,7 @@ async function handleDownloadOperation(url: string, headers: Record<string, stri
 
     // 如果直接下载失败，尝试查找目录中最新的备份文件
     console.log("Requested file not found, trying to find latest timestamped backup...");
-    
+
     // 获取目录的基本URL（去掉文件名部分）
     const urlParts = url.split('/');
     urlParts.pop(); // 移除文件名
@@ -220,62 +220,62 @@ async function handleDownloadOperation(url: string, headers: Record<string, stri
 
     // 解析WebDAV目录列表响应
     const responseText = await propfindResponse.text();
-    
+
     // 记录PROPFIND响应的部分内容，帮助调试
     console.log(`PROPFIND response (first 500 chars): ${responseText.substring(0, 500)}...`);
     console.log(`PROPFIND response contains "bookmarks_": ${responseText.includes("bookmarks_")}`);
-    
+
     // 尝试不同的正则表达式模式来查找备份文件
     const patterns = [
       // 标准模式：完全匹配14位数字的时间戳
-      { regex: /bookmarks_\d{14}\.json/g, name: "标准模式(14位数字)" },
+      { regex: /bookmarks_\d{14}\.json/g, name: "Standard mode (14 digits)" },
       // 宽松模式1：匹配任意数字
-      { regex: /bookmarks_[0-9]+\.json/g, name: "宽松模式(任意数字)" },
+      { regex: /bookmarks_[0-9]+\.json/g, name: "Relaxed mode (any digits)" },
       // 宽松模式2：匹配可能被XML转义的文件名
-      { regex: /bookmarks_[0-9]+\.json/gi, name: "宽松模式(忽略大小写)" },
+      { regex: /bookmarks_[0-9]+\.json/gi, name: "Relaxed mode (case insensitive)" },
       // 宽松模式3：匹配URL编码的可能性
-      { regex: /bookmarks_[0-9]+(?:\.json|%2Ejson)/gi, name: "宽松模式(URL编码)" }
+      { regex: /bookmarks_[0-9]+(?:\.json|%2Ejson)/gi, name: "Relaxed mode (URL encoded)" }
     ];
-    
+
     let matches = null;
     let matchedPattern = "";
-    
+
     // 尝试所有模式直到找到匹配
     for (const pattern of patterns) {
       const result = responseText.match(pattern.regex);
-      console.log(`${pattern.name} 匹配结果: ${result ? JSON.stringify(result) : 'null'}`);
-      
+      console.log(`${pattern.name} match result: ${result ? JSON.stringify(result) : 'null'}`);
+
       if (result && result.length > 0) {
         matches = result;
         matchedPattern = pattern.name;
         break;
       }
     }
-    
-    console.log(`最终使用的匹配模式: ${matchedPattern || '无匹配'}`);
-    
+
+    console.log(`Final matching pattern used: ${matchedPattern || 'No match'}`);
+
     // 如果没有找到任何备份文件
     if (!matches || matches.length === 0) {
-      console.log("所有模式均未找到匹配的备份文件");
+      console.log("No backup files found with any pattern");
       return NextResponse.json({
         success: false,
         error: 'No backup files found in directory',
         status: 404
       });
     }
-    
+
     // 按时间戳排序找到最新的备份文件
     const latestFile = findLatestBackupFile(matches);
     console.log(`找到最新的备份文件: ${latestFile}`);
 
     // 下载最新的备份文件
     const latestFileUrl = directoryUrl + latestFile;
-    
+
     // 创建新的headers，移除PROPFIND特有的headers
     const downloadHeaders = { ...headers };
     delete downloadHeaders['Depth'];
     delete downloadHeaders['Content-Type'];
-    
+
     const latestFileResponse = await fetch(latestFileUrl, {
       method: 'GET',
       headers: downloadHeaders
@@ -326,27 +326,27 @@ async function handleDownloadOperation(url: string, headers: Record<string, stri
 function findLatestBackupFile(files: string[]): string {
   // 记录原始文件列表
   console.log(`Original backup files: ${JSON.stringify(files)}`);
-  
+
   // 提取每个文件名中的时间戳并按时间戳数值排序
   const sortedFiles = [...files].sort((a, b) => {
     // 提取时间戳部分 (bookmarks_TIMESTAMP.json)
     const timestampA = a.match(/bookmarks_(\d+)\.json/)?.[1] || "";
     const timestampB = b.match(/bookmarks_(\d+)\.json/)?.[1] || "";
-    
+
     // 如果格式不匹配，按原始字符串比较
     if (!timestampA || !timestampB) {
       return a.localeCompare(b);
     }
-    
+
     // 将时间戳转换为数字后比较，较大的时间戳表示较新的文件
     // 由于JavaScript的数字限制，将时间戳作为字符串比较，但使用自然排序
     return timestampA.length !== timestampB.length
       ? timestampA.length - timestampB.length  // 先按长度排序
       : timestampA.localeCompare(timestampB);  // 长度相同时按字典序排序
   });
-  
+
   console.log(`Sorted backup files: ${JSON.stringify(sortedFiles)}`);
-  
+
   // 返回最后一个（最新的）文件
   return sortedFiles[sortedFiles.length - 1];
 }
@@ -395,12 +395,12 @@ function normalizePath(path: string, operation?: string, customFileName?: string
   if (!path.endsWith("/")) {
     path += "/";
   }
-  
+
   // 如果提供了自定义文件名，使用它
   if (customFileName) {
     return path + customFileName;
   }
-  
+
   // 根据操作类型决定文件名
   if (operation === 'upload') {
     // 上传时使用带时间戳的文件名
