@@ -1377,9 +1377,9 @@ export default function BookmarkList({
             isSelected ? "bg-blue-50 border-blue-200" : ""
           }`}
         >
-          <div className="flex items-start space-x-3">
+          <div className="flex items-start space-x-3 flex-1 min-w-0">
             {bulkMode && (
-              <Checkbox checked={isSelected} onChange={() => toggleBookmarkSelection(bookmark.id)} className="mt-1" />
+              <Checkbox checked={isSelected} onChange={() => toggleBookmarkSelection(bookmark.id)} className="mt-1 flex-shrink-0" />
             )}
             <div className="w-8 h-8 flex-shrink-0 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden transition-all duration-200 hover:shadow-inner">
               {/* 简化为始终使用标题首字母作为图标 */}
@@ -1388,17 +1388,19 @@ export default function BookmarkList({
               </div>
             </div>
 
-            <div>
+            <div className="flex-1 min-w-0">
               <a
                 href={bookmark.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-lg font-medium text-gray-800 hover:text-blue-600 transition-colors duration-200 flex items-center"
               >
-                {highlightText(bookmark.title || "", searchQuery)}
+                <div className="truncate max-w-full">
+                  {highlightText(bookmark.title || "", searchQuery)}
+                </div>
                 <IconExternalLink
                   size={16}
-                  className="ml-1 text-gray-400 transition-transform duration-200 hover:translate-x-1"
+                  className="ml-1 text-gray-400 transition-transform duration-200 hover:translate-x-1 flex-shrink-0"
                 />
               </a>
 
@@ -1967,7 +1969,7 @@ export default function BookmarkList({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-2">
         <div className="flex items-center space-x-2">
           {bulkTagGeneration && <TagGenerationStatusButton />}
           {bulkFolderGeneration && <FolderGenerationStatusButton />}

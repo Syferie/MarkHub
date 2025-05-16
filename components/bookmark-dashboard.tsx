@@ -218,13 +218,6 @@ export default function BookmarkDashboard() {
           </div>
 
           <div className="bg-white rounded-lg shadow p-4 flex-grow overflow-hidden">
-            {/* 书签列表顶部区域 */}
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center space-x-2">
-                {/* AI分类状态指示器已移至顶部导航栏 */}
-              </div>
-            </div>
-
             <BookmarkList
               bookmarks={bookmarksToShow}
               searchQuery={searchQuery}

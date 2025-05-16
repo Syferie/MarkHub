@@ -437,6 +437,10 @@ button:active,
   border-color: #444444;
 }
 
+.dark .mantine-Modal-content[data-with-border="true"] {
+  border-color: #444444;
+}
+
 .dark .mantine-Modal-header {
   background-color: #1e1e1e;
   border-bottom-color: #444444;
@@ -653,7 +657,7 @@ body {
 }
 
 /* 修复Mantine Button在禁用状态下的样式 */
-.dark .mantine-Button-root[data-disabled] {
+.dark .mantine-Button-root[data-disabled="true"] {
   background-color: #2a2a2a !important;
   color: #666666 !important;
   border-color: #444444 !important;
@@ -793,7 +797,7 @@ body {
 }
 
 /* 修复ActionIcon在禁用状态下的样式 */
-.dark .mantine-ActionIcon-root[data-disabled] {
+.dark .mantine-ActionIcon-root[data-disabled="true"] {
   background-color: transparent !important;
   color: #666666 !important;
   border-color: transparent !important;

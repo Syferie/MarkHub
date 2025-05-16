@@ -39,7 +39,7 @@ export default function RootLayout({
             Modal: {
               styles: {
                 content: {
-                  '&[data-with-border]': {
+                  '&[data-with-border="true"]': {
                     border: '1px solid var(--mantine-color-gray-3)',
                   }
                 }
@@ -48,7 +48,7 @@ export default function RootLayout({
             Button: {
               styles: {
                 root: {
-                  '&[data-disabled]': {
+                  '&[data-disabled="true"]': {
                     backgroundColor: 'var(--mantine-color-gray-2)',
                     color: 'var(--mantine-color-gray-5)',
                     borderColor: 'var(--mantine-color-gray-3)',
