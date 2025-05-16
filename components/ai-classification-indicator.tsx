@@ -147,20 +147,45 @@ export function AIClassificationIndicator() {
                       <Text size="sm">{task.title}</Text>
                       <Text size="xs" color="dimmed" className="truncate">{task.url}</Text>
                       <div className="flex gap-2 mt-1">
-                        <Badge 
-                          size="xs" 
-                          variant="light" 
-                          color={task.tagStatus === 'generating_tags' ? "blue" : "gray"}
-                        >
-                          {task.tagStatus === 'generating_tags' ? '标签: 生成中...' : '标签: 等待中'}
-                        </Badge>
-                        <Badge 
-                          size="xs" 
-                          variant="light" 
-                          color={task.folderStatus === 'suggesting_folder' ? "blue" : "gray"}
-                        >
-                          {task.folderStatus === 'suggesting_folder' ? '文件夹: 推荐中...' : '文件夹: 等待中'}
-                        </Badge>
+                        {task.tagStatus === 'generating_tags' ? (
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color="blue"
+                            leftSection={<IconTag size={12} />}
+                          >
+                            生成中...
+                          </Badge>
+                        ) : task.tagStatus === 'pending' && (
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color="gray"
+                            leftSection={<IconTag size={12} />}
+                          >
+                            等待中
+                          </Badge>
+                        )}
+
+                        {task.folderStatus === 'suggesting_folder' ? (
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color="blue"
+                            leftSection={<IconFolder size={12} />}
+                          >
+                            推荐中...
+                          </Badge>
+                        ) : task.folderStatus === 'pending' && (
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color="gray"
+                            leftSection={<IconFolder size={12} />}
+                          >
+                            等待中
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -193,64 +218,43 @@ export function AIClassificationIndicator() {
                       </div>
                       <Text size="xs" color="dimmed" className="truncate">{task.url}</Text>
                       
-                      <div className="flex gap-2 mt-2">
-                        <div className="flex-1">
-                          <Badge 
-                            size="xs" 
-                            variant="dot" 
-                            color={
-                              task.tagStatus === 'tags_generated' ? "green" : 
-                              task.tagStatus === 'tags_failed' ? "red" : "gray"
-                            }
-                            leftSection={<IconTag size={12} />}
-                          >
-                            标签
-                          </Badge>
-                          
-                          {task.tagStatus === 'tags_generated' && task.generatedTags && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {task.generatedTags.map((tag, idx) => (
-                                <Badge key={idx} size="xs" variant="light" color="green">
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                          
-                          {task.tagStatus === 'tags_failed' && task.tagError && (
-                            <Text size="xs" color="red" className="mt-1">
-                              {task.tagError}
-                            </Text>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1">
-                          <Badge 
-                            size="xs" 
-                            variant="dot" 
-                            color={
-                              task.folderStatus === 'folder_suggested' ? "green" : 
-                              task.folderStatus === 'folder_failed' ? "red" : "gray"
-                            }
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {/* 统一展示生成的文件夹和标签 */}
+                        {task.folderStatus === 'folder_suggested' && task.suggestedFolder && (
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color="blue"
                             leftSection={<IconFolder size={12} />}
                           >
-                            文件夹
+                            {task.suggestedFolder}
                           </Badge>
-                          
-                          {task.folderStatus === 'folder_suggested' && task.suggestedFolder && (
-                            <div className="mt-1">
-                              <Badge size="xs" variant="light" color="blue">
-                                {task.suggestedFolder}
-                              </Badge>
-                            </div>
-                          )}
-                          
-                          {task.folderStatus === 'folder_failed' && task.folderError && (
-                            <Text size="xs" color="red" className="mt-1">
-                              {task.folderError}
-                            </Text>
-                          )}
-                        </div>
+                        )}
+                        
+                        {task.tagStatus === 'tags_generated' && task.generatedTags && task.generatedTags.map((tag, idx) => (
+                          <Badge
+                            key={idx}
+                            size="xs"
+                            variant="light"
+                            color="green"
+                            leftSection={<IconTag size={12} />}
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                        
+                        {/* 错误信息展示 */}
+                        {task.folderStatus === 'folder_failed' && task.folderError && (
+                          <Text size="xs" color="red" className="mt-1 w-full">
+                            文件夹错误: {task.folderError}
+                          </Text>
+                        )}
+                        
+                        {task.tagStatus === 'tags_failed' && task.tagError && (
+                          <Text size="xs" color="red" className="mt-1 w-full">
+                            标签错误: {task.tagError}
+                          </Text>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -269,12 +273,34 @@ export function AIClassificationIndicator() {
                     <div key={task.id} className="bg-red-50 p-2 rounded mb-2">
                       <Text size="sm">{task.title}</Text>
                       <Text size="xs" color="dimmed" className="truncate">{task.url}</Text>
-                      <div className="mt-1">
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {task.tagStatus === 'tags_failed' && (
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color="red"
+                            leftSection={<IconTag size={12} />}
+                          >
+                            标签生成失败
+                          </Badge>
+                        )}
+                        
+                        {task.folderStatus === 'folder_failed' && (
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color="red"
+                            leftSection={<IconFolder size={12} />}
+                          >
+                            文件夹建议失败
+                          </Badge>
+                        )}
+                        
                         {task.tagError && (
-                          <Text size="xs" color="red">标签错误: {task.tagError}</Text>
+                          <Text size="xs" color="red" className="w-full mt-1">标签错误: {task.tagError}</Text>
                         )}
                         {task.folderError && (
-                          <Text size="xs" color="red">文件夹错误: {task.folderError}</Text>
+                          <Text size="xs" color="red" className="w-full mt-1">文件夹错误: {task.folderError}</Text>
                         )}
                       </div>
                     </div>

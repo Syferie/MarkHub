@@ -1918,7 +1918,7 @@ export default function BookmarkList({
                     <Text size="xs" color="dimmed" className="truncate">{bookmark?.url}</Text>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {tags.map(tag => (
-                        <Badge key={tag} size="xs" variant="light" color="green">
+                        <Badge key={tag} size="xs" variant="light" color="green" leftSection={<IconTag size={12} />}>
                           {tag}
                         </Badge>
                       ))}
