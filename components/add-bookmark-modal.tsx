@@ -69,21 +69,21 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           createdAt: new Date().toISOString(),
           isFavorite: false,
         })
-        
+
         // 添加书签后，尝试自动上传（内部会检查WebDAV是否启用）
         try {
           console.log("添加书签完成，尝试自动上传...");
           console.log("调用uploadBookmarksToWebDAV开始...");
           const uploadResult = await uploadBookmarksToWebDAV();
           console.log("自动上传结果:", uploadResult);
-          
+
           if (!uploadResult) {
             console.warn("自动上传返回false，可能未启用WebDAV或未成功执行上传操作");
           }
         } catch (syncError) {
           console.error("自动同步书签数据失败:", syncError)
         }
-        
+
         onClose()
       } catch (e) {
         console.error("Invalid URL:", e)
@@ -267,7 +267,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
 
   const isTagApiConfigured = !!(settings?.tagApiUrl && settings?.tagApiKey)
   const isFolderApiConfigured = !!(settings?.tagApiUrl && settings?.tagApiKey) // 复用标签API的配置
-  
+
   // 新添加的TagSelector组件，使用最新的Mantine API
   function TagSelector({
     tagOptions,
@@ -288,14 +288,14 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
       opened,
       onOpenedChange: setOpened
     })
-  
+
     const [search, setSearch] = useState('')
-  
+
     const exactOptionMatch = tagOptions.some((item) => item.value === search)
-  
+
     const handleValueSelect = (val: string) => {
       setSearch('')
-  
+
       if (val === '$create') {
         // 创建新标签
         createTag(search)
@@ -310,17 +310,17 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
         setOpened(true)
       }
     }
-  
+
     const handleValueRemove = (val: string) =>
       setSelectedTags((current) => current.filter((v) => v !== val))
-  
+
     // 渲染已选择的标签
     const values = selectedTags.map((item, index) => (
       <Pill key={`${item}-${index}`} withRemoveButton onRemove={() => handleValueRemove(item)}>
         {item}
       </Pill>
     ))
-  
+
     // 渲染选项列表
     const options = tagOptions
       .filter((item) => item.value.toLowerCase().includes(search.trim().toLowerCase()))
@@ -332,7 +332,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           </Group>
         </Combobox.Option>
       ))
-  
+
     return (
       <Combobox
         store={combobox}
@@ -344,7 +344,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           <PillsInput onClick={() => combobox.openDropdown()}>
             <Pill.Group>
               {values}
-  
+
               <Combobox.EventsTarget>
                 <PillsInput.Field
                   onFocus={() => combobox.openDropdown()}
@@ -367,15 +367,15 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
             </Pill.Group>
           </PillsInput>
         </Combobox.DropdownTarget>
-  
+
         <Combobox.Dropdown>
           <Combobox.Options>
             {options}
-  
+
             {!exactOptionMatch && search.trim().length > 0 && (
               <Combobox.Option value="$create">+ Create {search}</Combobox.Option>
             )}
-  
+
             {options.length === 0 && search.trim().length > 0 && (
               <Combobox.Empty>Nothing found</Combobox.Empty>
             )}
@@ -408,7 +408,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Folder</label>
-              
+
               {/* 文件夹生成状态指示器 */}
               {folderGenerationStatus.status !== 'idle' && (
                 <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
@@ -422,14 +422,21 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                 </div>
               )}
             </div>
-            
-            <Tooltip label="根据URL内容建议文件夹">
-              <ActionIcon size="sm" color="blue" onClick={handleSuggestFolder} loading={isLoadingFolder} disabled={!url}>
+
+            <Tooltip label={!url ? "请先输入URL" : "根据URL内容建议文件夹"}>
+              <ActionIcon
+                size="sm"
+                color="blue"
+                onClick={handleSuggestFolder}
+                loading={isLoadingFolder}
+                disabled={!url}
+                className="disabled:opacity-40 disabled:bg-transparent dark:disabled:bg-transparent"
+              >
                 <IconFolder size={16} />
               </ActionIcon>
             </Tooltip>
           </div>
-          
+
           {/* 进度条 */}
           {(folderGenerationStatus.status === 'pending' || folderGenerationStatus.status === 'processing') && (
             <Progress
@@ -465,7 +472,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Tags</label>
-              
+
               {/* 标签生成状态指示器 */}
               {tagGenerationStatus.status !== 'idle' && (
                 <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
@@ -479,14 +486,21 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                 </div>
               )}
             </div>
-            
-            <Tooltip label="根据URL内容生成标签">
-              <ActionIcon size="sm" color="blue" onClick={handleSuggestTags} loading={isLoadingTags} disabled={!url}>
+
+            <Tooltip label={!url ? "请先输入URL" : "根据URL内容生成标签"}>
+              <ActionIcon
+                size="sm"
+                color="blue"
+                onClick={handleSuggestTags}
+                loading={isLoadingTags}
+                disabled={!url}
+                className="disabled:opacity-40 disabled:bg-transparent dark:disabled:bg-transparent"
+              >
                 <IconSparkles size={16} />
               </ActionIcon>
             </Tooltip>
           </div>
-          
+
           {/* 进度条 */}
           {(tagGenerationStatus.status === 'pending' || tagGenerationStatus.status === 'processing') && (
             <Progress

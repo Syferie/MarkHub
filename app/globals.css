@@ -791,3 +791,11 @@ body {
 .dark .folder-item .group:hover .hover\:bg-gray-100 {
   background-color: #333333 !important;
 }
+
+/* 修复ActionIcon在禁用状态下的样式 */
+.dark .mantine-ActionIcon-root[data-disabled] {
+  background-color: transparent !important;
+  color: #666666 !important;
+  border-color: transparent !important;
+  opacity: 0.6;
+}
