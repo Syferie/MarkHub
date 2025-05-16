@@ -1,7 +1,7 @@
 import type React from "react"
 import "@mantine/core/styles.css"
 import "./globals.css"
-import { MantineProvider } from "@mantine/core"
+import { MantineProvider, ColorSchemeScript } from "@mantine/core"
 import { Inter } from "next/font/google"
 import { BookmarkProvider } from "@/context/bookmark-context"
 import { AIClassificationProvider } from "@/context/ai-classification-context"
@@ -28,15 +28,101 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // 将 light 模式硬编码到 HTML 元素，确保服务器和客户端一致
   return (
-    <html lang="en" data-mantine-color-scheme="light">
+    <html lang="en">
       <head>
-        {/* 由于我们直接在 html 标签上设置了 data-mantine-color-scheme，这里不再需要 ColorSchemeScript */}
+        <ColorSchemeScript />
       </head>
       <body className={inter.className}>
-        {/* 只使用 defaultColorScheme，确保与 HTML 属性一致 */}
-        <MantineProvider defaultColorScheme="light">
+        <MantineProvider theme={{
+          components: {
+            Modal: {
+              styles: {
+                content: {
+                  '&[data-with-border]': {
+                    border: '1px solid var(--mantine-color-gray-3)',
+                  }
+                }
+              }
+            },
+            Button: {
+              styles: {
+                root: {
+                  '&[data-disabled]': {
+                    backgroundColor: 'var(--mantine-color-gray-2)',
+                    color: 'var(--mantine-color-gray-5)',
+                    borderColor: 'var(--mantine-color-gray-3)',
+                    opacity: 0.6
+                  }
+                }
+              }
+            },
+            ColorInput: {
+              styles: {
+                dropdown: {
+                  backgroundColor: 'var(--mantine-color-body)',
+                  borderColor: 'var(--mantine-color-gray-3)'
+                },
+                preview: {
+                  borderColor: 'var(--mantine-color-gray-3)'
+                },
+                input: {
+                  backgroundColor: 'var(--mantine-color-body)',
+                  color: 'var(--mantine-color-text)',
+                  borderColor: 'var(--mantine-color-gray-3)'
+                }
+              }
+            },
+            PasswordInput: {
+              styles: {
+                input: {
+                  backgroundColor: 'var(--mantine-color-body)',
+                  color: 'var(--mantine-color-text)',
+                  borderColor: 'var(--mantine-color-gray-3)'
+                },
+                innerInput: {
+                  color: 'var(--mantine-color-text)'
+                }
+              }
+            },
+            PillsInput: {
+              styles: {
+                root: {
+                  backgroundColor: 'var(--mantine-color-body)',
+                  borderColor: 'var(--mantine-color-gray-3)'
+                },
+                input: {
+                  backgroundColor: 'var(--mantine-color-body)',
+                  color: 'var(--mantine-color-text)'
+                }
+              }
+            },
+            Pill: {
+              styles: {
+                root: {
+                  backgroundColor: 'var(--mantine-color-dark-5)',
+                  color: 'var(--mantine-color-text)'
+                }
+              }
+            },
+            Drawer: {
+              styles: {
+                content: {
+                  backgroundColor: 'var(--mantine-color-body)',
+                  color: 'var(--mantine-color-text)',
+                  borderColor: 'var(--mantine-color-gray-3)'
+                },
+                header: {
+                  backgroundColor: 'var(--mantine-color-body)',
+                  borderBottomColor: 'var(--mantine-color-gray-3)'
+                },
+                title: {
+                  color: 'var(--mantine-color-text)'
+                }
+              }
+            }
+          }
+        }}>
           <BookmarkProvider>
             <AIClassificationProvider>
               {children}

@@ -72,8 +72,22 @@ body {
   background-color: #333333;
 }
 
+.dark .hover\:bg-gray-100:hover {
+  background-color: #333333 !important;
+}
+
 .dark .bg-blue-50 {
   background-color: rgba(var(--accent-rgb), 0.2);
+}
+
+.dark .bg-blue-100 {
+  background-color: rgba(var(--accent-rgb), 0.3);
+}
+
+.dark .text-blue-700,
+.dark .text-blue-600,
+.dark .text-blue-500 {
+  color: var(--accent-color);
 }
 
 .dark .border-blue-200 {
@@ -357,6 +371,91 @@ button:active,
   --tabs-color: #a0a0a0;
   --tabs-hover-color: #e0e0e0;
   --tabs-active-color: var(--accent-color);
+  color: #a0a0a0;
+}
+
+/* 修复Mantine Select下拉菜单在暗黑模式下的样式 */
+.dark .mantine-Select-dropdown {
+  background-color: #2a2a2a;
+  border-color: #444444;
+  color: #e0e0e0;
+}
+
+.dark .mantine-Select-item {
+  color: #e0e0e0;
+}
+
+.dark .mantine-Select-item:hover {
+  background-color: #3a3a3a;
+}
+
+.dark .mantine-Select-item[data-selected] {
+  background-color: rgba(var(--accent-rgb), 0.2);
+  color: #ffffff;
+}
+
+/* 修复Mantine输入框在暗黑模式下的样式 */
+.dark .mantine-TextInput-input,
+.dark .mantine-Select-input {
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border-color: #444444;
+}
+
+.dark .mantine-TextInput-input::placeholder,
+.dark .mantine-Select-input::placeholder {
+  color: #909090;
+}
+
+/* 修复Mantine下拉菜单的文字颜色 */
+.dark .mantine-Combobox-dropdown {
+  background-color: #2a2a2a;
+  border-color: #444444;
+}
+
+.dark .mantine-Combobox-option {
+  color: #e0e0e0;
+}
+
+.dark .mantine-Combobox-option:hover {
+  background-color: #3a3a3a;
+}
+
+.dark .mantine-Combobox-option[data-selected] {
+  background-color: rgba(var(--accent-rgb), 0.2);
+}
+
+/* 修复Mantine Modal在暗黑模式下的样式 */
+.dark .mantine-Modal-root {
+  --modal-bg: #1e1e1e;
+  --modal-color: #e0e0e0;
+}
+
+.dark .mantine-Modal-content {
+  background-color: #1e1e1e;
+  color: #e0e0e0;
+  border-color: #444444;
+}
+
+.dark .mantine-Modal-header {
+  background-color: #1e1e1e;
+  border-bottom-color: #444444;
+}
+
+.dark .mantine-Modal-title {
+  color: #e0e0e0;
+}
+
+.dark .mantine-Modal-close {
+  color: #a0a0a0;
+}
+
+.dark .mantine-Modal-close:hover {
+  background-color: #2a2a2a;
+}
+
+.dark .mantine-Modal-overlay {
+  background-color: rgba(0, 0, 0, 0.7);
 }
 
 /* Apply accent color to Mantine components */
@@ -409,4 +508,286 @@ body {
 /* 调整虚拟列表行间距 */
 .react-window-list > div > div {
   padding: 0 !important;
+}
+
+/* 修复Shadcn UI组件在暗黑模式下的样式 */
+.dark [data-radix-popper-content-wrapper] {
+  background-color: #2a2a2a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark .bg-popover {
+  background-color: #2a2a2a !important;
+}
+
+.dark .text-popover-foreground {
+  color: #e0e0e0 !important;
+}
+
+/* 修复排序下拉菜单在暗黑模式下的样式 */
+.dark [role="listbox"] {
+  background-color: #2a2a2a !important;
+  color: #e0e0e0 !important;
+  border-color: #444444 !important;
+}
+
+.dark [role="option"] {
+  color: #e0e0e0 !important;
+}
+
+.dark [role="option"]:hover {
+  background-color: #3a3a3a !important;
+}
+
+.dark [role="option"][data-highlighted],
+.dark [role="option"][data-state="checked"] {
+  background-color: rgba(var(--accent-rgb), 0.2) !important;
+}
+
+/* 修复Mantine Tabs在暗黑模式下的样式 */
+.dark .mantine-Tabs-root {
+  color: #e0e0e0;
+}
+
+.dark .mantine-Tabs-tabsList {
+  border-color: #444444;
+}
+
+.dark .mantine-Tabs-tab {
+  color: #a0a0a0;
+  border-color: transparent;
+}
+
+.dark .mantine-Tabs-tab:hover {
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.dark .mantine-Tabs-tab[data-active] {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+/* 修复Mantine文本和标签在暗黑模式下的样式 */
+.dark .mantine-Text-root,
+.dark .mantine-Title-root,
+.dark .mantine-InputWrapper-label,
+.dark .mantine-InputWrapper-description,
+.dark .mantine-InputWrapper-error {
+  color: #e0e0e0;
+}
+
+.dark .mantine-InputWrapper-description {
+  color: #a0a0a0;
+}
+
+.dark .mantine-InputWrapper-error {
+  color: #ff6b6b;
+}
+
+/* 修复Mantine ColorInput在暗黑模式下的样式 */
+.dark .mantine-ColorInput-preview {
+  border-color: #444444;
+}
+
+.dark .mantine-ColorInput-dropdown {
+  background-color: #2a2a2a;
+  border-color: #444444;
+}
+
+.dark .mantine-ColorInput-swatch {
+  border-color: #444444;
+}
+
+.dark .mantine-ColorInput-colorInput,
+.dark .mantine-ColorInput-input {
+  background-color: #2a2a2a !important;
+  color: #e0e0e0 !important;
+  border-color: #444444 !important;
+}
+
+.dark .mantine-ColorPicker-wrapper,
+.dark .mantine-ColorPicker-body,
+.dark .mantine-ColorPicker-saturation,
+.dark .mantine-ColorPicker-sliders,
+.dark .mantine-ColorPicker-preview,
+.dark .mantine-ColorPicker-swatches {
+  background-color: #2a2a2a;
+  border-color: #444444;
+}
+
+.dark .mantine-ColorPicker-saturation {
+  border-color: #444444;
+}
+
+.dark .mantine-ColorPicker-thumb {
+  border-color: #e0e0e0;
+}
+
+.dark .mantine-ColorPicker-slider {
+  background-color: #1e1e1e;
+}
+
+.dark .mantine-ColorPicker-preview {
+  border-color: #444444;
+}
+
+/* 修复Mantine PasswordInput在暗黑模式下的样式 */
+.dark .mantine-PasswordInput-input {
+  background-color: #2a2a2a !important;
+  color: #e0e0e0 !important;
+  border-color: #444444 !important;
+}
+
+.dark .mantine-PasswordInput-innerInput {
+  color: #e0e0e0 !important;
+  background-color: transparent !important;
+}
+
+.dark .mantine-PasswordInput-visibilityToggle {
+  color: #a0a0a0;
+}
+
+.dark .mantine-PasswordInput-visibilityToggle:hover {
+  background-color: #3a3a3a;
+}
+
+/* 修复Mantine Button在禁用状态下的样式 */
+.dark .mantine-Button-root[data-disabled] {
+  background-color: #2a2a2a !important;
+  color: #666666 !important;
+  border-color: #444444 !important;
+  opacity: 0.6;
+}
+
+/* 修复Mantine NumberInput在暗黑模式下的样式 */
+.dark .mantine-NumberInput-input {
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border-color: #444444;
+}
+
+.dark .mantine-NumberInput-control {
+  color: #a0a0a0;
+  border-color: #444444;
+}
+
+.dark .mantine-NumberInput-control:hover {
+  background-color: #3a3a3a;
+}
+
+/* 修复Mantine Divider在暗黑模式下的样式 */
+.dark .mantine-Divider-root {
+  border-color: #444444;
+}
+
+/* 修复Mantine PillsInput在暗黑模式下的样式 */
+.dark .mantine-PillsInput-root {
+  background-color: #2a2a2a !important;
+  border-color: #444444 !important;
+}
+
+.dark .mantine-PillsInput-input {
+  background-color: #2a2a2a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark .mantine-PillsInput-pill {
+  background-color: #3a3a3a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark .mantine-Pill-root {
+  background-color: #3a3a3a !important;
+  color: #e0e0e0 !important;
+}
+
+.dark .mantine-Pill-remove {
+  color: #a0a0a0 !important;
+}
+
+.dark .mantine-Pill-remove:hover {
+  background-color: #444444 !important;
+}
+
+/* 修复Mantine Combobox在暗黑模式下的样式 */
+.dark .mantine-Combobox-input {
+  background-color: #2a2a2a !important;
+  color: #e0e0e0 !important;
+  border-color: #444444 !important;
+}
+
+/* 修复Mantine Drawer在暗黑模式下的样式 */
+.dark .mantine-Drawer-root {
+  --drawer-bg: #1e1e1e;
+  --drawer-color: #e0e0e0;
+}
+
+.dark .mantine-Drawer-content {
+  background-color: #1e1e1e !important;
+  color: #e0e0e0 !important;
+  border-color: #444444 !important;
+}
+
+.dark .mantine-Drawer-header {
+  background-color: #1e1e1e !important;
+  border-bottom-color: #444444 !important;
+}
+
+.dark .mantine-Drawer-title {
+  color: #e0e0e0 !important;
+}
+
+.dark .mantine-Drawer-close {
+  color: #a0a0a0 !important;
+}
+
+.dark .mantine-Drawer-close:hover {
+  background-color: #2a2a2a !important;
+}
+
+.dark .mantine-Drawer-overlay {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* 修复Drawer中的特定元素样式 */
+.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.dark .bg-green-50 {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+.dark .bg-yellow-50 {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+.dark .border-l-4.border-blue-500 {
+  border-left-color: #3b82f6 !important;
+}
+
+.dark .border-l-4.border-red-500 {
+  border-left-color: #ef4444 !important;
+}
+
+.dark .border-l-4.border-green-500 {
+  border-left-color: #10b981 !important;
+}
+
+.dark .border-l-4.border-yellow-500 {
+  border-left-color: #f59e0b !important;
+}
+
+/* 修复文件夹树在暗黑模式下的样式 */
+.dark .folder-children {
+  border-color: #444444 !important;
+}
+
+.dark .folder-item .group:hover .hover\:bg-gray-100 {
+  background-color: #333333 !important;
 }
