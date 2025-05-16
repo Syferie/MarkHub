@@ -73,7 +73,7 @@ export default function TagManager() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 mt-2">
+      <div className="flex flex-wrap gap-2 mt-2 pb-16">
         {Array.isArray(tags) &&
           tags.map((tag, index) => (
             <Badge
