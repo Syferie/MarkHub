@@ -69,6 +69,8 @@ interface BookmarkContextType {
   fetchAndStoreFavicon: (url: string, title: string) => Promise<string>
   refreshAllFavicons: () => Promise<void>
   suggestTags: (url: string) => Promise<string[]>
+  clearAllBookmarkData: () => Promise<void>
+  resetToSampleData: () => Promise<void>
 }
 
 // 简化示例数据，减少序列化大小
@@ -152,21 +154,21 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   const [currentSortOption, setCurrentSortOption] = useState<string>("newest")
   const [searchFields, setSearchFields] = useState<string[]>(defaultSearchFields)
   const [settings, setSettings] = useState<AppSettings>(defaultSettings)
-  
+
   // 添加迁移状态
   const [isMigrating, setIsMigrating] = useState(false)
   const [migrationComplete, setMigrationComplete] = useState(false)
-  
+
   // 添加数据加载状态
   const [isLoading, setIsLoading] = useState(true)
   const [isDataSaving, setIsDataSaving] = useState(false)
-  
+
   // 添加客户端状态标记
   const [isClient, setIsClient] = useState(false)
-  
+
   // 防抖定时器引用
   const saveTimeout = useRef<NodeJS.Timeout | null>(null)
-  
+
   // 确保只在客户端执行
   useEffect(() => {
     setIsClient(true)
@@ -176,20 +178,20 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // 确保只在客户端执行
     if (!isClient) return
-    
+
     // 异步加载数据函数
     const loadData = async () => {
       try {
         setIsLoading(true)
-        
+
         // 检查是否需要从 localStorage 迁移数据到 IndexedDB
         if (needMigration()) {
           console.log("开始从 localStorage 迁移数据...")
           setIsMigrating(true)
-          
+
           // 执行迁移
           const migrationSuccess = await migrateFromLocalStorage()
-          
+
           if (migrationSuccess) {
             console.log("迁移成功，清除旧数据...")
             // 迁移成功后清除 localStorage 中的旧数据
@@ -198,10 +200,10 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
           } else {
             console.error("迁移失败，使用默认数据")
           }
-          
+
           setIsMigrating(false)
         }
-        
+
         // 从 IndexedDB 加载数据
         const loadedBookmarks = await db.getAllBookmarks()
         const loadedFolders = await db.getAllFolders()
@@ -210,7 +212,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         const loadedSortOption = await db.getSortOption()
         const loadedSearchFields = await db.getSearchFields()
         const loadedSettings = await db.getAppSettings()
-        
+
         // 更新状态
         if (loadedBookmarks.length > 0) setBookmarks(loadedBookmarks)
         if (loadedFolders.length > 0) setFolders(loadedFolders)
@@ -219,7 +221,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         if (loadedSortOption) setCurrentSortOption(loadedSortOption)
         if (loadedSearchFields.length > 0) setSearchFields(loadedSearchFields)
         if (loadedSettings) setSettings(loadedSettings)
-        
+
         console.log("从 IndexedDB 加载数据完成")
       } catch (error) {
         console.error("从 IndexedDB 加载数据失败:", error)
@@ -227,46 +229,46 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         setIsLoading(false)
       }
     }
-    
+
     loadData()
   }, [isClient]) // 依赖于 isClient 变量，确保只在客户端执行
-  
+
   // 数据变更时保存到 IndexedDB (使用防抖)
   useEffect(() => {
     // 确保只在客户端执行且已加载完成
     if (!isClient || isLoading) return
-    
+
     // 清除之前的定时器
     if (saveTimeout.current) {
       clearTimeout(saveTimeout.current)
     }
-    
+
     // 设置新的防抖定时器
     saveTimeout.current = setTimeout(async () => {
       try {
         setIsDataSaving(true)
-        
+
         // 保存书签
         await db.saveBookmarks(bookmarks)
-        
+
         // 保存文件夹
         await db.saveFolders(folders)
-        
+
         // 保存标签
         await db.saveTags(tags)
-        
+
         // 保存收藏文件夹
         await db.saveFavoriteFolders(favoriteFolders)
-        
+
         // 保存排序选项
         await db.saveSortOption(currentSortOption)
-        
+
         // 保存搜索字段
         await db.saveSearchFields(searchFields)
-        
+
         // 保存应用设置
         await db.saveAppSettings(settings)
-        
+
         console.log("数据已保存到 IndexedDB")
       } catch (error) {
         console.error("保存数据到 IndexedDB 失败:", error)
@@ -274,7 +276,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         setIsDataSaving(false)
       }
     }, 300)
-    
+
     // 组件卸载时清除定时器
     return () => {
       if (saveTimeout.current) {
@@ -286,7 +288,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   // 辅助函数：防抖
   const debounce = <F extends (...args: any[]) => any>(func: F, wait: number): ((...args: Parameters<F>) => void) => {
     let timeout: NodeJS.Timeout | null = null;
-    
+
     return (...args: Parameters<F>) => {
       if (timeout) clearTimeout(timeout);
       timeout = setTimeout(() => func(...args), wait);
@@ -496,7 +498,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
 
     // 更新状态
     setBookmarks((prev) => prev.map((b) => (b.id === bookmark.id ? bookmark : b)))
-    
+
     // 保存到 IndexedDB - 因为状态更新已经触发防抖保存，这里不需要重复保存
     // await db.saveBookmark(bookmark)
 
@@ -515,10 +517,10 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     try {
       // 先直接从数据库中删除书签
       await db.deleteBookmark(id);
-      
+
       // 然后更新状态
       setBookmarks((prev) => prev.filter((b) => b.id !== id));
-      
+
       console.log(`成功删除书签: ${id}`);
     } catch (error) {
       console.error(`删除书签失败: ${id}`, error);
@@ -531,7 +533,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   const addFolder = async (folder: Folder) => {
     // 更新状态
     setFolders((prev) => [...prev, folder])
-    
+
     // 保存到 IndexedDB - 因为状态更新已经触发防抖保存，这里不需要重复保存
     // await db.saveFolder(folder)
   }
@@ -539,7 +541,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   const updateFolder = async (folder: Folder) => {
     // 更新状态
     setFolders((prev) => prev.map((f) => (f.id === folder.id ? folder : f)))
-    
+
     // 保存到 IndexedDB - 因为状态更新已经触发防抖保存，这里不需要重复保存
     // await db.saveFolder(folder)
   }
@@ -547,7 +549,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   const deleteFolder = async (id: string) => {
     // Delete folder and all its children
     const childFolderIds = getChildFolderIds(id)
-    
+
     // 更新文件夹状态
     setFolders((prev) => prev.filter((f) => f.id !== id && !childFolderIds.includes(f.id)))
 
@@ -565,7 +567,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     if (selectedFolderId === id || childFolderIds.includes(selectedFolderId || "")) {
       setSelectedFolderId(null)
     }
-    
+
     // 删除 IndexedDB 中的数据 - 因为状态更新已经触发防抖保存，这里不需要重复操作
     // await db.deleteFolder(id)
     // 子文件夹也需要删除
@@ -627,7 +629,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         }, 2)],
         { type: "application/json" }
       );
-      
+
       const url = URL.createObjectURL(blob);
 
       const a = document.createElement("a");
@@ -646,7 +648,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     try {
       // 开始导入处理
       console.log("开始导入数据...")
-      
+
       // 处理书签数据 - 使用批量处理来提高性能
       if (data.bookmarks) {
         console.log(`导入 ${data.bookmarks.length} 个书签...`)
@@ -654,32 +656,32 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         // 批量保存到 IndexedDB - 防抖机制已经处理批量保存
         // await db.saveBookmarks(data.bookmarks)
       }
-      
+
       // 处理其他数据
       if (data.folders) {
         console.log(`导入 ${data.folders.length} 个文件夹...`)
         setFolders(data.folders)
         // await db.saveFolders(data.folders)
       }
-      
+
       if (data.tags) {
         console.log(`导入 ${data.tags.length} 个标签...`)
         setTags(data.tags)
         // await db.saveTags(data.tags)
       }
-      
+
       if (data.favoriteFolders) {
         console.log(`导入 ${data.favoriteFolders.length} 个收藏文件夹...`)
         setFavoriteFolders(data.favoriteFolders)
         // await db.saveFavoriteFolders(data.favoriteFolders)
       }
-      
+
       if (data.settings) {
         console.log("导入应用设置...")
         setSettings(data.settings)
         // await db.saveAppSettings(data.settings)
       }
-      
+
       console.log("数据导入完成")
     } catch (error) {
       console.error("导入数据失败:", error)
@@ -726,6 +728,48 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 清除所有书签数据
+  const clearAllBookmarkData = async (): Promise<void> => {
+    try {
+      // 清除IndexedDB中的书签和文件夹数据
+      await db.clearAllData();
+
+      // 重置状态
+      setBookmarks([]);
+      setFolders([]);
+      setTags([]);
+      setFavoriteFolders([]);
+      setSelectedFolderId(null);
+      setSelectedTags([]);
+
+      console.log("所有书签数据已清除");
+    } catch (error) {
+      console.error("清除书签数据失败:", error);
+      throw error;
+    }
+  }
+
+  // 重置为示例数据
+  const resetToSampleData = async (): Promise<void> => {
+    try {
+      // 清除现有数据
+      await db.clearAllData();
+
+      // 重置为示例数据
+      setBookmarks(sampleBookmarks);
+      setFolders(sampleFolders);
+      setTags(sampleTags);
+      setFavoriteFolders(sampleFavoriteFolders);
+      setSelectedFolderId(null);
+      setSelectedTags([]);
+
+      console.log("数据已重置为示例数据");
+    } catch (error) {
+      console.error("重置数据失败:", error);
+      throw error;
+    }
+  }
+
   return (
     <BookmarkContext.Provider
       value={{
@@ -760,6 +804,8 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         fetchAndStoreFavicon,
         refreshAllFavicons,
         suggestTags,
+        clearAllBookmarkData,
+        resetToSampleData,
       }}
     >
       {children}

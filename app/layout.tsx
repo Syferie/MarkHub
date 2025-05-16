@@ -1,7 +1,7 @@
 import type React from "react"
 import "@mantine/core/styles.css"
 import "./globals.css"
-import { MantineProvider, ColorSchemeScript } from "@mantine/core"
+import { MantineProvider } from "@mantine/core"
 import { Inter } from "next/font/google"
 import { BookmarkProvider } from "@/context/bookmark-context"
 import { AIClassificationProvider } from "@/context/ai-classification-context"
@@ -31,10 +31,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <ColorSchemeScript />
+        {/* 移除ColorSchemeScript组件，改用Next.js的Script组件 */}
       </head>
       <body className={inter.className}>
-        <MantineProvider theme={{
+        <MantineProvider defaultColorScheme="light" theme={{
           components: {
             Modal: {
               styles: {

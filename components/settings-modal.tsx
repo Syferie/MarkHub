@@ -24,7 +24,7 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { settings, updateSettings, refreshAllFavicons } = useBookmarks()
+  const { settings, updateSettings, refreshAllFavicons, clearAllBookmarkData, resetToSampleData } = useBookmarks()
   const [localSettings, setLocalSettings] = useState({
     darkMode: false,
     accentColor: "#3b82f6",
@@ -35,6 +35,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   })
   const [hasChanges, setHasChanges] = useState(false)
   const [isRefreshingFavicons, setIsRefreshingFavicons] = useState(false)
+  const [isClearingData, setIsClearingData] = useState(false)
+  const [isResettingData, setIsResettingData] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
 
   // Initialize local settings when modal opens
@@ -78,6 +80,28 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       await refreshAllFavicons()
     } finally {
       setIsRefreshingFavicons(false)
+    }
+  }
+
+  const handleClearAllData = async () => {
+    if (window.confirm("确定要清除所有书签数据吗？此操作不可恢复！")) {
+      setIsClearingData(true)
+      try {
+        await clearAllBookmarkData()
+      } finally {
+        setIsClearingData(false)
+      }
+    }
+  }
+
+  const handleResetToSampleData = async () => {
+    if (window.confirm("确定要重置为示例数据吗？当前所有书签数据将被替换！")) {
+      setIsResettingData(true)
+      try {
+        await resetToSampleData()
+      } finally {
+        setIsResettingData(false)
+      }
     }
   }
 
@@ -263,8 +287,21 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 >
                   Refresh All Favicons
                 </Button>
-                <Button variant="light" color="red">
+                <Button
+                  variant="light"
+                  color="red"
+                  onClick={handleClearAllData}
+                  loading={isClearingData}
+                >
                   Clear All Data
+                </Button>
+                <Button
+                  variant="light"
+                  color="yellow"
+                  onClick={handleResetToSampleData}
+                  loading={isResettingData}
+                >
+                  Reset to Sample Data
                 </Button>
               </Group>
             </div>
