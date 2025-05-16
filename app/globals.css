@@ -799,3 +799,67 @@ body {
   border-color: transparent !important;
   opacity: 0.6;
 }
+
+/* 修复Alert组件在暗黑模式下的样式 */
+.dark .mantine-Alert-root {
+  background-color: #2a2a2a !important;
+  border-color: #444444 !important;
+}
+
+.dark .mantine-Alert-title {
+  color: #e0e0e0 !important;
+}
+
+.dark .mantine-Alert-message {
+  color: #e0e0e0 !important;
+}
+
+.dark .mantine-Alert-icon {
+  color: #e0e0e0 !important;
+}
+
+/* 特别处理错误Alert */
+.dark .mantine-Alert-root[data-variant="filled"][data-color="red"] {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+  border-color: #ef4444 !important;
+}
+
+.dark .mantine-Alert-root[data-variant="filled"][data-color="red"] .mantine-Alert-message,
+.dark .mantine-Alert-root[data-variant="filled"][data-color="red"] .mantine-Alert-title,
+.dark .mantine-Alert-root[data-variant="filled"][data-color="red"] .mantine-Alert-icon {
+  color: #f87171 !important;
+}
+
+/* 修复错误文本颜色 */
+.dark .text-red,
+.dark .text-red-500,
+.dark .text-red-600,
+.dark [color="red"] {
+  color: #f87171 !important;
+}
+
+/* 修复暗黑模式下的背景色 */
+.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+.dark .bg-green-50 {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+.dark .bg-yellow-50 {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: rgba(107, 114, 128, 0.2) !important;
+}
+
+/* 修复暗黑模式下的文本颜色 */
+.dark [color="dimmed"] {
+  color: #a0a0a0 !important;
+}
