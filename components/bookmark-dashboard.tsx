@@ -45,6 +45,16 @@ export default function BookmarkDashboard() {
     }
   }, [settings?.defaultView])
 
+  // 当用户通过文件夹树选择文件夹时，自动切换到"All bookmarks"标签
+  // 这解决了用户在收藏文件夹标签激活时点击左侧文件夹树导致的显示问题
+  useEffect(() => {
+    // 只有当选择了文件夹且当前活动标签不是"all"时切换
+    // 这避免了无限循环，因为Tabs组件的onChange也会更新selectedFolderId
+    if (selectedFolderId && activeTab !== "all" && !favoriteFolders.includes(selectedFolderId)) {
+      setActiveTab("all");
+    }
+  }, [selectedFolderId, activeTab, favoriteFolders]);
+
   // 使用新的 ExtensionMessageListener 组件替代直接编写在 BookmarkDashboard 中的消息处理逻辑
   // ExtensionMessageListener 组件不会渲染任何内容，只是设置事件监听器
   // 这样可以让组件职责更加清晰，AI分类任务由专门的组件处理
