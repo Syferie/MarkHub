@@ -75,7 +75,10 @@ export default function BookmarkDashboard() {
   return (
     <div className="container mx-auto p-4 max-w-6xl h-screen overflow-hidden">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">MarkHub</h1>
+        <div className="flex items-center">
+          <img src="/icon128.png" alt="MarkHub Logo" className="w-8 h-8 mr-2" />
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">MarkHub</h1>
+        </div>
         <div className="flex space-x-2">
           <AIClassificationIndicator />
           <Button
@@ -221,7 +224,7 @@ export default function BookmarkDashboard() {
                 {/* AI分类状态指示器已移至顶部导航栏 */}
               </div>
             </div>
-            
+
             <BookmarkList
               bookmarks={bookmarksToShow}
               searchQuery={searchQuery}
