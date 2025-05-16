@@ -104,21 +104,21 @@ export default function BookmarkList({
   const [tagGenerationDetails, setTagGenerationDetails] = useState<Record<string, TagGenerationStatus>>({})
   const [showTagGenerationStatus, setShowTagGenerationStatus] = useState(false)
   const [remainingBookmarkIds, setRemainingBookmarkIds] = useState<string[]>([])
-  
+
   // 批量 AI 生成文件夹相关状态
   const [bulkFolderGeneration, setBulkFolderGeneration] = useState<BulkFolderGeneration | null>(null)
   const [folderGenerationDetails, setFolderGenerationDetails] = useState<Record<string, FolderGenerationStatus>>({})
   const [showFolderGenerationStatus, setShowFolderGenerationStatus] = useState(false)
   const [remainingFolderBookmarkIds, setRemainingFolderBookmarkIds] = useState<string[]>([])
   const router = useRouter()
-  
+
   // 使用 useRef 存储关键运行时状态，确保在异步回调中可以访问最新值
   const needsRestartRef = useRef<boolean>(false)
   const bulkTagGenerationRef = useRef<BulkTagGeneration | null>(null)
   const tagGenerationDetailsRef = useRef<Record<string, TagGenerationStatus>>({})
   const remainingIdsRef = useRef<string[]>([])
   const activePromisesCountRef = useRef<number>(0)
-  
+
   // 文件夹生成的ref
   const needsFolderRestartRef = useRef<boolean>(false)
   const bulkFolderGenerationRef = useRef<BulkFolderGeneration | null>(null)
@@ -205,19 +205,19 @@ export default function BookmarkList({
   const handleBulkGenerateTags = async () => {
     // 获取并发限制
     const concurrencyLimit = getConcurrencyLimit();
-    
+
     // 初始化批量标签生成状态
     const selectedBookmarkIds = [...selectedBookmarks]
     const total = selectedBookmarkIds.length
-    
+
     // 保存剩余要处理的书签ID
     setRemainingBookmarkIds(selectedBookmarkIds)
     remainingIdsRef.current = [...selectedBookmarkIds]
-    
+
     // 重置ref状态
     needsRestartRef.current = false
     activePromisesCountRef.current = 0
-    
+
     // 创建一个新的生成状态对象，以便我们可以立即使用它，而不依赖异步状态更新
     const newGeneration = {
       total,
@@ -229,7 +229,7 @@ export default function BookmarkList({
       timestamp: Date.now(), // 添加时间戳
       concurrencyLimit, // 添加并发限制
     }
-    
+
     // 同时更新状态和ref
     setBulkTagGeneration(newGeneration)
     bulkTagGenerationRef.current = newGeneration
@@ -241,7 +241,7 @@ export default function BookmarkList({
     })
     setTagGenerationDetails(initialStatus)
     tagGenerationDetailsRef.current = initialStatus
-    
+
     // 显示状态面板
     setShowTagGenerationStatus(true)
 
@@ -254,7 +254,7 @@ export default function BookmarkList({
     // 批量操作完成后关闭批量操作面板
     setShowBulkActions(false)
   }
-  
+
   // 保存状态到 localStorage 的函数
   const saveStateToLocalStorage = (
     generation: BulkTagGeneration | null,
@@ -263,7 +263,7 @@ export default function BookmarkList({
   ) => {
     // 确保只在浏览器环境中运行
     if (typeof window === 'undefined') return;
-    
+
     try {
       if (generation) {
         localStorage.setItem(STORAGE_KEYS.BULK_GENERATION, JSON.stringify(generation))
@@ -274,7 +274,7 @@ export default function BookmarkList({
         localStorage.removeItem(STORAGE_KEYS.BULK_GENERATION)
         localStorage.removeItem(STORAGE_KEYS.TAG_DETAILS)
         localStorage.removeItem(STORAGE_KEYS.REMAINING_IDS)
-        
+
         // 同时重置ref值
         needsRestartRef.current = false;
       }
@@ -282,7 +282,7 @@ export default function BookmarkList({
       console.error("Failed to save task state to localStorage:", error)
     }
   }
-  
+
   // 获取并发处理的限制数
   const getConcurrencyLimit = (): number => {
     // 从设置中获取并发数量，默认为5
@@ -293,11 +293,11 @@ export default function BookmarkList({
   const processBookmarks = async (bookmarkIds: string[], initialGeneration?: BulkTagGeneration) => {
     // 获取并发限制
     const concurrencyLimit = getConcurrencyLimit();
-    
+
     // 重新初始化关键ref
     remainingIdsRef.current = [...bookmarkIds];
     activePromisesCountRef.current = 0;
-    
+
     // 当前处理中的书签ID集合
     let processingIds: string[] = [];
 
@@ -311,7 +311,7 @@ export default function BookmarkList({
       concurrencyLimit,
       currentBookmarkIds: [] // 清空，将在处理过程中填充
     };
-    
+
     // 同步更新ref
     bulkTagGenerationRef.current = generation;
 
@@ -324,28 +324,28 @@ export default function BookmarkList({
     const processBookmark = async (bookmarkId: string): Promise<void> => {
       // 调试日志: 开始处理书签
       console.log(`[DEBUG] processBookmark: Starting to process bookmarkId=${bookmarkId}`);
-      
+
       // 重要: 在处理前检查该书签是否已经被处理过
       const currentStatus = tagGenerationDetailsRef.current[bookmarkId]?.status;
       if (currentStatus === "completed" || currentStatus === "failed") {
         console.log(`[DEBUG] 跳过已处理过的书签: ${bookmarkId}, 状态: ${currentStatus}`);
         return;
       }
-  
+
       // 获取当前书签
       const bookmark = bookmarks.find(b => b.id === bookmarkId);
       if (!bookmark) {
         console.log(`[DEBUG] 没有找到对应的书签: ${bookmarkId}`);
         return;
       }
-      
+
       // 增加活跃任务计数
       activePromisesCountRef.current += 1;
       console.log(`[DEBUG] 增加活跃任务数: ${activePromisesCountRef.current}`);
-      
+
       // 添加到当前处理列表
       processingIds.push(bookmarkId);
-      
+
       // 更新全局状态，展示当前正在处理的书签
       setBulkTagGeneration(prev => {
         if (!prev) return null;
@@ -373,7 +373,7 @@ export default function BookmarkList({
           localStorage.setItem(STORAGE_KEYS.TAG_DETAILS, JSON.stringify(updatedDetails));
           return updatedDetails;
         });
-  
+
         // 调用 API 生成标签，传递API配置
         const generatedTags = await generateTags(
           {
@@ -405,23 +405,23 @@ export default function BookmarkList({
             apiBaseUrl: settings?.tagApiUrl
           }
         );
-        
+
         // API调用结束，记录结果
         console.log(`[DEBUG] API call completed successfully for ${bookmarkId}`);
-  
+
         // 合并新标签和现有标签
         const existingTags = bookmark.tags || [];
         const mergedTags = [...new Set([...existingTags, ...generatedTags])];
-        
+
         // 更新书签对象
         const updatedBookmark = {
           ...bookmark,
           tags: mergedTags
         };
-        
+
         // 更新全局状态
         updateBookmark(updatedBookmark);
-        
+
         // 更新成功状态
         setTagGenerationDetails(prev => {
           const updatedDetails = {
@@ -437,7 +437,7 @@ export default function BookmarkList({
           localStorage.setItem(STORAGE_KEYS.TAG_DETAILS, JSON.stringify(updatedDetails));
           return updatedDetails;
         });
-  
+
         // 更新总进度
         setBulkTagGeneration(prev => {
           if (!prev) return null;
@@ -451,10 +451,10 @@ export default function BookmarkList({
           localStorage.setItem(STORAGE_KEYS.BULK_GENERATION, JSON.stringify(updatedGeneration));
           return updatedGeneration;
         });
-  
+
       } catch (error) {
         console.error(`为书签 ${bookmark.title} 生成标签失败:`, error);
-        
+
         // 更新失败状态
         setTagGenerationDetails(prev => {
           const updatedDetails = {
@@ -470,7 +470,7 @@ export default function BookmarkList({
           localStorage.setItem(STORAGE_KEYS.TAG_DETAILS, JSON.stringify(updatedDetails));
           return updatedDetails;
         });
-        
+
         // 更新总进度
         setBulkTagGeneration(prev => {
           if (!prev) return null;
@@ -488,11 +488,11 @@ export default function BookmarkList({
       } finally {
         // 从处理中列表移除
         processingIds = processingIds.filter(id => id !== bookmarkId);
-        
+
         // 减少活跃任务计数
         activePromisesCountRef.current -= 1;
         console.log(`[DEBUG] 减少活跃任务数: ${activePromisesCountRef.current}`);
-        
+
         // 更新当前处理中的书签ID列表
         setBulkTagGeneration(prev => {
           if (!prev) return null;
@@ -506,7 +506,7 @@ export default function BookmarkList({
           localStorage.setItem(STORAGE_KEYS.BULK_GENERATION, JSON.stringify(updatedGeneration));
           return updatedGeneration;
         });
-        
+
         // 检查是否所有工作都已完成
         if (isAllWorkDone() && bulkTagGenerationRef.current?.inProgress) {
           console.log("[DEBUG] 所有任务已完成，标记为结束状态");
@@ -527,7 +527,7 @@ export default function BookmarkList({
           });
           return;
         }
-        
+
         // 如果有剩余任务且仍在进行中，继续处理
         if (remainingIdsRef.current.length > 0 &&
             activePromisesCountRef.current < concurrencyLimit &&
@@ -545,25 +545,25 @@ export default function BookmarkList({
     const startTasks = () => {
       // 调试日志: 开始任务处理
       console.log(`[DEBUG] startTasks: Running with ${remainingIdsRef.current.length} tasks pending, activePromises: ${activePromisesCountRef.current}`);
-      
+
       // 如果不再处理，则结束
       if (!bulkTagGenerationRef.current?.inProgress) {
         console.log("[DEBUG] 任务已标记为不再进行，退出处理");
         return;
       }
-      
+
       // 取出最多 (concurrencyLimit - 当前活跃数量) 个任务进行处理
       const availableSlots = concurrencyLimit - activePromisesCountRef.current;
-      
+
       if (availableSlots <= 0) {
         console.log("[DEBUG] 没有可用的并发槽位，等待现有任务完成");
         return;
       }
-      
+
       // 计算需要处理的任务数量
       const tasksToProcess = Math.min(availableSlots, remainingIdsRef.current.length);
       console.log(`[DEBUG] 准备处理 ${tasksToProcess} 个任务`);
-      
+
       if (tasksToProcess <= 0) {
         // 如果没有任务要处理且活跃任务为0，检查是否所有工作完成
         if (activePromisesCountRef.current === 0) {
@@ -588,14 +588,14 @@ export default function BookmarkList({
         }
         return;
       }
-      
+
       // 从剩余任务中取出要处理的任务
       for (let i = 0; i < tasksToProcess; i++) {
         if (remainingIdsRef.current.length === 0) break;
-        
+
         const bookmarkId = remainingIdsRef.current.shift();
         if (!bookmarkId) continue;
-        
+
         // 再次确认这个书签没有被处理过
         const status = tagGenerationDetailsRef.current[bookmarkId]?.status;
         if (status === "completed" || status === "failed") {
@@ -604,7 +604,7 @@ export default function BookmarkList({
           i--; // 减少计数，确保我们处理足够数量的任务
           continue;
         }
-        
+
         console.log(`[DEBUG] 启动处理任务: bookmarkId=${bookmarkId}`);
         // 处理书签，不需要等待它完成
         processBookmark(bookmarkId);
@@ -615,29 +615,29 @@ export default function BookmarkList({
     console.log("[DEBUG] Starting task processing");
     startTasks();
   };
-  
+
   // 批量生成文件夹建议函数
   const handleBulkSuggestFolders = async () => {
     // 获取并发限制
     const concurrencyLimit = getConcurrencyLimit();
-    
+
     // 初始化批量文件夹生成状态
     const selectedBookmarkIds = [...selectedBookmarks]
     const total = selectedBookmarkIds.length
-    
+
     // 保存剩余要处理的书签ID
     setRemainingFolderBookmarkIds(selectedBookmarkIds)
     remainingFolderIdsRef.current = [...selectedBookmarkIds]
-    
+
     // 重置ref状态
     needsFolderRestartRef.current = false
     activeFolderPromisesCountRef.current = 0
-    
+
     // 获取所有文件夹名称列表
     const folderNames = Array.isArray(folders)
       ? folders.map(folder => folder.name)
       : []
-    
+
     // 创建一个新的生成状态对象
     const newGeneration = {
       total,
@@ -649,7 +649,7 @@ export default function BookmarkList({
       timestamp: Date.now(),
       concurrencyLimit,
     }
-    
+
     // 同时更新状态和ref
     setBulkFolderGeneration(newGeneration)
     bulkFolderGenerationRef.current = newGeneration
@@ -661,7 +661,7 @@ export default function BookmarkList({
     })
     setFolderGenerationDetails(initialStatus)
     folderGenerationDetailsRef.current = initialStatus
-    
+
     // 显示状态面板
     setShowFolderGenerationStatus(true)
 
@@ -683,7 +683,7 @@ export default function BookmarkList({
   ) => {
     // 确保只在浏览器环境中运行
     if (typeof window === 'undefined') return;
-    
+
     try {
       if (generation) {
         localStorage.setItem(STORAGE_KEYS.BULK_FOLDER_GENERATION, JSON.stringify(generation))
@@ -694,7 +694,7 @@ export default function BookmarkList({
         localStorage.removeItem(STORAGE_KEYS.BULK_FOLDER_GENERATION)
         localStorage.removeItem(STORAGE_KEYS.FOLDER_DETAILS)
         localStorage.removeItem(STORAGE_KEYS.REMAINING_FOLDER_IDS)
-        
+
         // 同时重置ref值
         needsFolderRestartRef.current = false;
       }
@@ -702,16 +702,16 @@ export default function BookmarkList({
       console.error("Failed to save folder task state to localStorage:", error)
     }
   }
-  
+
   // 处理文件夹建议书签列表的函数 - 支持并行处理和取消
   const processFolderBookmarks = async (bookmarkIds: string[], initialGeneration?: BulkFolderGeneration) => {
     // 获取并发限制
     const concurrencyLimit = getConcurrencyLimit();
-    
+
     // 重新初始化关键ref
     remainingFolderIdsRef.current = [...bookmarkIds];
     activeFolderPromisesCountRef.current = 0;
-    
+
     // 当前处理中的书签ID集合
     let processingIds: string[] = [];
 
@@ -730,7 +730,7 @@ export default function BookmarkList({
       concurrencyLimit,
       currentBookmarkIds: [] // 清空，将在处理过程中填充
     };
-    
+
     // 同步更新ref
     bulkFolderGenerationRef.current = generation;
 
@@ -743,28 +743,28 @@ export default function BookmarkList({
     const processBookmark = async (bookmarkId: string): Promise<void> => {
       // 调试日志: 开始处理书签
       console.log(`[DEBUG] processBookmark folder suggest: Starting to process bookmarkId=${bookmarkId}`);
-      
+
       // 重要: 在处理前检查该书签是否已经被处理过
       const currentStatus = folderGenerationDetailsRef.current[bookmarkId]?.status;
       if (currentStatus === "completed" || currentStatus === "failed") {
         console.log(`[DEBUG] 跳过已处理过的书签: ${bookmarkId}, 状态: ${currentStatus}`);
         return;
       }
-  
+
       // 获取当前书签
       const bookmark = bookmarks.find(b => b.id === bookmarkId);
       if (!bookmark) {
         console.log(`[DEBUG] 没有找到对应的书签: ${bookmarkId}`);
         return;
       }
-      
+
       // 增加活跃任务计数
       activeFolderPromisesCountRef.current += 1;
       console.log(`[DEBUG] 增加活跃文件夹任务数: ${activeFolderPromisesCountRef.current}`);
-      
+
       // 添加到当前处理列表
       processingIds.push(bookmarkId);
-      
+
       // 更新全局状态，展示当前正在处理的书签
       setBulkFolderGeneration(prev => {
         if (!prev) return null;
@@ -792,7 +792,7 @@ export default function BookmarkList({
           localStorage.setItem(STORAGE_KEYS.FOLDER_DETAILS, JSON.stringify(updatedDetails));
           return updatedDetails;
         });
-  
+
         // 调用 API 生成文件夹建议，传递API配置
         const suggestedFolder = await suggestFolder(
           {
@@ -824,10 +824,10 @@ export default function BookmarkList({
             apiBaseUrl: settings?.tagApiUrl
           }
         );
-        
+
         // API调用结束，记录结果
         console.log(`[DEBUG] Folder API call completed successfully for ${bookmarkId}`);
-  
+
         // 确认文件夹存在
         if (suggestedFolder) {
           const matchedFolder = folders.find(folder => folder.name === suggestedFolder);
@@ -837,10 +837,10 @@ export default function BookmarkList({
               ...bookmark,
               folderId: matchedFolder.id
             };
-            
+
             // 更新全局状态
             updateBookmark(updatedBookmark);
-            
+
             // 更新成功状态
             setFolderGenerationDetails(prev => {
               const updatedDetails = {
@@ -872,7 +872,7 @@ export default function BookmarkList({
               localStorage.setItem(STORAGE_KEYS.FOLDER_DETAILS, JSON.stringify(updatedDetails));
               return updatedDetails;
             });
-            
+
             // 增加失败计数
             setBulkFolderGeneration(prev => {
               if (!prev) return null;
@@ -903,7 +903,7 @@ export default function BookmarkList({
             localStorage.setItem(STORAGE_KEYS.FOLDER_DETAILS, JSON.stringify(updatedDetails));
             return updatedDetails;
           });
-          
+
           // 增加失败计数
           setBulkFolderGeneration(prev => {
             if (!prev) return null;
@@ -918,7 +918,7 @@ export default function BookmarkList({
             return updatedGeneration;
           });
         }
-  
+
         // 更新总进度
         setBulkFolderGeneration(prev => {
           if (!prev) return null;
@@ -932,10 +932,10 @@ export default function BookmarkList({
           localStorage.setItem(STORAGE_KEYS.BULK_FOLDER_GENERATION, JSON.stringify(updatedGeneration));
           return updatedGeneration;
         });
-  
+
       } catch (error) {
         console.error(`为书签 ${bookmark.title} 生成文件夹建议失败:`, error);
-        
+
         // 更新失败状态
         setFolderGenerationDetails(prev => {
           const updatedDetails = {
@@ -951,7 +951,7 @@ export default function BookmarkList({
           localStorage.setItem(STORAGE_KEYS.FOLDER_DETAILS, JSON.stringify(updatedDetails));
           return updatedDetails;
         });
-        
+
         // 更新总进度
         setBulkFolderGeneration(prev => {
           if (!prev) return null;
@@ -969,11 +969,11 @@ export default function BookmarkList({
       } finally {
         // 从处理中列表移除
         processingIds = processingIds.filter(id => id !== bookmarkId);
-        
+
         // 减少活跃任务计数
         activeFolderPromisesCountRef.current -= 1;
         console.log(`[DEBUG] 减少活跃文件夹任务数: ${activeFolderPromisesCountRef.current}`);
-        
+
         // 更新当前处理中的书签ID列表
         setBulkFolderGeneration(prev => {
           if (!prev) return null;
@@ -987,7 +987,7 @@ export default function BookmarkList({
           localStorage.setItem(STORAGE_KEYS.BULK_FOLDER_GENERATION, JSON.stringify(updatedGeneration));
           return updatedGeneration;
         });
-        
+
         // 检查是否所有工作都已完成
         if (isAllWorkDone() && bulkFolderGenerationRef.current?.inProgress) {
           console.log("[DEBUG] 所有文件夹任务已完成，标记为结束状态");
@@ -1008,7 +1008,7 @@ export default function BookmarkList({
           });
           return;
         }
-        
+
         // 如果有剩余任务且仍在进行中，继续处理
         if (remainingFolderIdsRef.current.length > 0 &&
             activeFolderPromisesCountRef.current < concurrencyLimit &&
@@ -1026,25 +1026,25 @@ export default function BookmarkList({
     const startTasks = () => {
       // 调试日志: 开始任务处理
       console.log(`[DEBUG] startTasks folder: Running with ${remainingFolderIdsRef.current.length} tasks pending, activePromises: ${activeFolderPromisesCountRef.current}`);
-      
+
       // 如果不再处理，则结束
       if (!bulkFolderGenerationRef.current?.inProgress) {
         console.log("[DEBUG] 文件夹任务已标记为不再进行，退出处理");
         return;
       }
-      
+
       // 取出最多 (concurrencyLimit - 当前活跃数量) 个任务进行处理
       const availableSlots = concurrencyLimit - activeFolderPromisesCountRef.current;
-      
+
       if (availableSlots <= 0) {
         console.log("[DEBUG] 没有可用的并发槽位，等待现有任务完成");
         return;
       }
-      
+
       // 计算需要处理的任务数量
       const tasksToProcess = Math.min(availableSlots, remainingFolderIdsRef.current.length);
       console.log(`[DEBUG] 准备处理 ${tasksToProcess} 个文件夹任务`);
-      
+
       if (tasksToProcess <= 0) {
         // 如果没有任务要处理且活跃任务为0，检查是否所有工作完成
         if (activeFolderPromisesCountRef.current === 0) {
@@ -1069,14 +1069,14 @@ export default function BookmarkList({
         }
         return;
       }
-      
+
       // 从剩余任务中取出要处理的任务
       for (let i = 0; i < tasksToProcess; i++) {
         if (remainingFolderIdsRef.current.length === 0) break;
-        
+
         const bookmarkId = remainingFolderIdsRef.current.shift();
         if (!bookmarkId) continue;
-        
+
         // 再次确认这个书签没有被处理过
         const status = folderGenerationDetailsRef.current[bookmarkId]?.status;
         if (status === "completed" || status === "failed") {
@@ -1085,7 +1085,7 @@ export default function BookmarkList({
           i--; // 减少计数，确保我们处理足够数量的任务
           continue;
         }
-        
+
         console.log(`[DEBUG] 启动处理文件夹任务: bookmarkId=${bookmarkId}`);
         // 处理书签，不需要等待它完成
         processBookmark(bookmarkId);
@@ -1100,27 +1100,27 @@ export default function BookmarkList({
   // 取消文件夹生成
   const handleCancelFolderGeneration = () => {
     console.log("[DEBUG] handleCancelFolderGeneration: Canceling folder generation");
-    
+
     // 重置ref值
     needsFolderRestartRef.current = false;
-    
+
     // 将状态设置为已取消
     setBulkFolderGeneration(prev => {
       if (!prev) return null
-      
+
       const updatedGeneration = {
         ...prev,
         inProgress: false,
         isCancelled: true,
         currentBookmarkIds: []
       }
-      
+
       // 清理 localStorage
       saveFolderStateToLocalStorage(null)
-      
+
       return updatedGeneration
     })
-    
+
     // 清空剩余待处理书签
     setRemainingFolderBookmarkIds([])
   }
@@ -1128,27 +1128,27 @@ export default function BookmarkList({
   // 取消标签生成
   const handleCancelGeneration = () => {
     console.log("[DEBUG] handleCancelGeneration: Canceling tag generation");
-    
+
     // 重置ref值
     needsRestartRef.current = false;
-    
+
     // 将状态设置为已取消
     setBulkTagGeneration(prev => {
       if (!prev) return null
-      
+
       const updatedGeneration = {
         ...prev,
         inProgress: false,
         isCancelled: true,
         currentBookmarkIds: []
       }
-      
+
       // 清理 localStorage
       saveStateToLocalStorage(null)
-      
+
       return updatedGeneration
     })
-    
+
     // 清空剩余待处理书签
     setRemainingBookmarkIds([])
   }
@@ -1157,12 +1157,12 @@ export default function BookmarkList({
   // 当任务处理状态变化时监听
   useEffect(() => {
     console.log(`[DEBUG] BulkTagGeneration state changed: inProgress=${bulkTagGeneration?.inProgress}, completed=${bulkTagGeneration?.completed}/${bulkTagGeneration?.total}, isCancelled=${bulkTagGeneration?.isCancelled}`);
-    
+
     // 同步状态到ref
     if (bulkTagGeneration !== bulkTagGenerationRef.current) {
       bulkTagGenerationRef.current = bulkTagGeneration;
     }
-    
+
     // 当任务完成时自动隐藏状态面板
     if (bulkTagGeneration &&
         !bulkTagGeneration.inProgress &&
@@ -1173,25 +1173,25 @@ export default function BookmarkList({
           setShowTagGenerationStatus(false)
           setBulkTagGeneration(null)
           bulkTagGenerationRef.current = null
-          
+
           // 清理 localStorage
           saveStateToLocalStorage(null)
         }
       }, 5000) // 5秒后自动隐藏
-      
+
       return () => clearTimeout(timer)
     }
   }, [bulkTagGeneration])
-  
+
   // 在文件夹生成任务完成后一段时间自动隐藏状态面板
   useEffect(() => {
     console.log(`[DEBUG] BulkFolderGeneration state changed: inProgress=${bulkFolderGeneration?.inProgress}, completed=${bulkFolderGeneration?.completed}/${bulkFolderGeneration?.total}, isCancelled=${bulkFolderGeneration?.isCancelled}`);
-    
+
     // 同步状态到ref
     if (bulkFolderGeneration !== bulkFolderGenerationRef.current) {
       bulkFolderGenerationRef.current = bulkFolderGeneration;
     }
-    
+
     // 当任务完成时自动隐藏状态面板
     if (bulkFolderGeneration &&
         !bulkFolderGeneration.inProgress &&
@@ -1202,12 +1202,12 @@ export default function BookmarkList({
           setShowFolderGenerationStatus(false)
           setBulkFolderGeneration(null)
           bulkFolderGenerationRef.current = null
-          
+
           // 清理 localStorage
           saveFolderStateToLocalStorage(null)
         }
       }, 5000) // 5秒后自动隐藏
-      
+
       return () => clearTimeout(timer)
     }
   }, [bulkFolderGeneration])
@@ -1216,7 +1216,7 @@ export default function BookmarkList({
   useEffect(() => {
     // 只在浏览器环境下运行
     if (typeof window === 'undefined') return;
-    
+
     // 页面刷新/关闭前的处理函数
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       // 仅在任务正在进行时显示警告
@@ -1228,43 +1228,43 @@ export default function BookmarkList({
         return message;
       }
     };
-    
+
     // 添加事件监听器
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
     // 组件卸载时移除事件监听器
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       needsRestartRef.current = false;
     };
   }, [bulkTagGeneration]);
-  
+
   // 从 localStorage 恢复任务状态的单独 useEffect
   useEffect(() => {
     // 确保只在浏览器环境中运行
     if (typeof window === 'undefined') return;
-    
+
     try {
       // 检查 localStorage 中是否有未完成的任务数据
       const storedGeneration = localStorage.getItem(STORAGE_KEYS.BULK_GENERATION)
       if (storedGeneration) {
         const parsedGeneration = JSON.parse(storedGeneration) as BulkTagGeneration
-        
+
         // 如果存储的任务已经完成或太旧（超过12小时），则清理并不恢复
         const isTaskTooOld = parsedGeneration.timestamp &&
                             (Date.now() - parsedGeneration.timestamp > 12 * 60 * 60 * 1000)
-        
+
         if (!parsedGeneration.inProgress || isTaskTooOld) {
           saveStateToLocalStorage(null)
           return
         }
-        
+
         // 获取详细状态信息，用于日志记录
         const storedDetails = localStorage.getItem(STORAGE_KEYS.TAG_DETAILS)
         const storedRemainingIds = localStorage.getItem(STORAGE_KEYS.REMAINING_IDS)
-        
+
         console.log("检测到页面刷新时有未完成任务，标记为已取消")
-        
+
         // 创建新的状态对象，标记为已取消
         const newGeneration = {
           ...parsedGeneration,
@@ -1272,11 +1272,11 @@ export default function BookmarkList({
           isCancelled: true,
           currentBookmarkIds: []
         }
-        
+
         // 设置已取消状态
         setBulkTagGeneration(newGeneration)
         bulkTagGenerationRef.current = newGeneration
-        
+
         // 恢复其他引用状态
         if (storedDetails) {
           try {
@@ -1286,10 +1286,10 @@ export default function BookmarkList({
             console.error("解析存储的任务详情失败:", e);
           }
         }
-        
+
         // 显示状态面板
         setShowTagGenerationStatus(true)
-        
+
         // 清理localStorage中的任务状态
         saveStateToLocalStorage(null)
       }
@@ -1362,14 +1362,13 @@ export default function BookmarkList({
     const isFavorite = bookmark.isFavorite
     const isSelected = selectedBookmarks.includes(bookmark.id)
 
-    // 修改样式，减少间距
+    // 使用固定高度和一致的间距
     return (
       <div
         style={{
           ...style,
-          height: "auto", // 允许内容决定高度
-          paddingTop: "4px",
-          paddingBottom: "4px",
+          height: "130px", // 使用固定高度
+          padding: "6px 0", // 上下统一的内边距
         }}
         className={`${index % 2 === 0 ? "bg-gray-50 dark:bg-gray-800" : ""}`}
       >
@@ -1407,7 +1406,7 @@ export default function BookmarkList({
                 {highlightText(bookmark.url || "", searchQuery)}
               </Text>
 
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="flex flex-wrap gap-2 mt-2 max-h-[40px] overflow-y-auto">
                 <Tooltip label="Added date" withArrow>
                   <Badge size="sm" color="gray" variant="outline" leftSection={<IconClock size={12} />}>
                     {formatDate(bookmark.createdAt)}
@@ -1494,22 +1493,21 @@ export default function BookmarkList({
       selectedBookmarks.includes(nextProps.bookmark.id)
     );
   });
-  
+
   // 创建虚拟列表的记忆化组件
   const MemoizedVirtualList = React.memo(({ bookmarks }: { bookmarks: ExtendedBookmark[] }) => {
-    // 动态调整项目大小，减少内存占用
+    // 使用固定高度，确保一致的间距
     const getItemSize = (index: number) => {
-      const bookmark = bookmarks[index];
-      // 基础高度 + 根据标签数量增加高度
-      return 120 + (bookmark?.tags?.length || 0) * 5;
+      // 使用固定高度，不再根据标签数量动态调整
+      return 130; // 固定高度，足够容纳标签
     };
-    
+
     // 为虚拟列表组件定义类型
     interface ListChildComponentProps {
       index: number;
       style: React.CSSProperties;
     }
-    
+
     // 使用变量渲染列表，减少嵌套组件数量
     return (
       // @ts-ignore - 忽略类型检查，因为我们无法安装类型声明包
@@ -1523,8 +1521,8 @@ export default function BookmarkList({
             itemCount={bookmarks.length}
             // 使用动态计算的高度，VariableSizeList支持函数形式的itemSize
             itemSize={getItemSize}
-            // 减少overscanCount以减少内存使用
-            overscanCount={3}
+            // 适当增加overscanCount以提高滚动体验
+            overscanCount={5}
           >
             {({ index, style }: ListChildComponentProps) => (
               <BookmarkItem
@@ -1542,7 +1540,7 @@ export default function BookmarkList({
     if (prevProps.bookmarks.length !== nextProps.bookmarks.length) {
       return false;
     }
-    
+
     // 检查ID是否变化（简化比较逻辑，只比较ID，减少深度比较导致的性能问题）
     const prevIds = prevProps.bookmarks.map(b => b.id).join(',');
     const nextIds = nextProps.bookmarks.map(b => b.id).join(',');
@@ -1569,7 +1567,7 @@ export default function BookmarkList({
     const { total, completed, failed, inProgress } = bulkFolderGeneration;
     const successCount = completed - failed;
     const progress = total > 0 ? (completed / total) * 100 : 0;
-    
+
     // 确定按钮颜色
     let color = "blue";
     if (completed === total) {
@@ -1597,24 +1595,24 @@ export default function BookmarkList({
       </Button>
     );
   };
-  
+
   // 详细的文件夹生成状态抽屉组件
   const FolderGenerationStatusDrawer = () => {
     if (!bulkFolderGeneration) return null;
-    
+
     const { total, completed, failed, inProgress, isCancelled } = bulkFolderGeneration;
     const successCount = completed - failed;
-    
+
     // 获取各种状态的书签
     const waitingBookmarks = Object.entries(folderGenerationDetails)
       .filter(([_, status]) => status.status === "waiting")
       .map(([id]) => bookmarks.find(b => b.id === id))
       .filter(Boolean);
-      
+
     // 获取当前正在处理的书签
     const processingBookmarks = bulkFolderGeneration.currentBookmarkIds && bulkFolderGeneration.currentBookmarkIds.length > 0 ?
       bulkFolderGeneration.currentBookmarkIds.map(id => bookmarks.find(b => b.id === id)).filter(Boolean) : [];
-      
+
     const successBookmarks = Object.entries(folderGenerationDetails)
       .filter(([_, status]) => status.status === "completed")
       .map(([id]) => ({
@@ -1622,7 +1620,7 @@ export default function BookmarkList({
         folder: folderGenerationDetails[id].suggestedFolder || ""
       }))
       .filter(item => item.bookmark);
-      
+
     const failedBookmarks = Object.entries(folderGenerationDetails)
       .filter(([_, status]) => status.status === "failed")
       .map(([id]) => ({
@@ -1630,7 +1628,7 @@ export default function BookmarkList({
         error: folderGenerationDetails[id].errorMessage || "Unknown error"
       }))
       .filter(item => item.bookmark);
-    
+
     return (
       <Drawer
         opened={showFolderGenerationStatus}
@@ -1660,7 +1658,7 @@ export default function BookmarkList({
               <span>Failed: {failed}</span>
               <span>Pending: {total - completed}</span>
             </div>
-            
+
             {/* 警告提示文本 */}
             {inProgress && (
               <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
@@ -1672,7 +1670,7 @@ export default function BookmarkList({
                 </div>
               </div>
             )}
-            
+
             {/* 控制按钮 */}
             <div className="mt-4 flex justify-end space-x-2">
               {inProgress && (
@@ -1682,7 +1680,7 @@ export default function BookmarkList({
               )}
             </div>
           </div>
-          
+
           {/* 当前处理中的书签 */}
           {processingBookmarks.length > 0 && (
             <div className="border-l-4 border-blue-500 pl-3 py-2">
@@ -1706,7 +1704,7 @@ export default function BookmarkList({
               </div>
             </div>
           )}
-          
+
           {/* 成功的书签 */}
           {successBookmarks.length > 0 && (
             <div className="border-l-4 border-green-500 pl-3 py-2">
@@ -1726,7 +1724,7 @@ export default function BookmarkList({
               </div>
             </div>
           )}
-          
+
           {/* 失败的书签 */}
           {failedBookmarks.length > 0 && (
             <div className="border-l-4 border-red-500 pl-3 py-2">
@@ -1742,7 +1740,7 @@ export default function BookmarkList({
               </div>
             </div>
           )}
-          
+
           {/* 等待中的书签 */}
           {waitingBookmarks.length > 0 && (
             <div className="border-l-4 border-gray-300 pl-3 py-2">
@@ -1761,7 +1759,7 @@ export default function BookmarkList({
       </Drawer>
     );
   };
-  
+
   // 标签生成状态按钮组件
   const TagGenerationStatusButton = () => {
     if (!bulkTagGeneration) return null;
@@ -1769,7 +1767,7 @@ export default function BookmarkList({
     const { total, completed, failed, inProgress } = bulkTagGeneration;
     const successCount = completed - failed;
     const progress = total > 0 ? (completed / total) * 100 : 0;
-    
+
     // 确定按钮颜色
     let color = "blue";
     if (completed === total) {
@@ -1801,20 +1799,20 @@ export default function BookmarkList({
   // 详细的标签生成状态抽屉组件
   const TagGenerationStatusDrawer = () => {
     if (!bulkTagGeneration) return null;
-    
+
     const { total, completed, failed, inProgress, isCancelled } = bulkTagGeneration;
     const successCount = completed - failed;
-    
+
     // 获取各种状态的书签
     const waitingBookmarks = Object.entries(tagGenerationDetails)
       .filter(([_, status]) => status.status === "waiting")
       .map(([id]) => bookmarks.find(b => b.id === id))
       .filter(Boolean);
-      
+
     // 获取当前正在处理的书签
     const processingBookmarks = bulkTagGeneration.currentBookmarkIds && bulkTagGeneration.currentBookmarkIds.length > 0 ?
       bulkTagGeneration.currentBookmarkIds.map(id => bookmarks.find(b => b.id === id)).filter(Boolean) : [];
-      
+
     const successBookmarks = Object.entries(tagGenerationDetails)
       .filter(([_, status]) => status.status === "completed")
       .map(([id]) => ({
@@ -1822,7 +1820,7 @@ export default function BookmarkList({
         tags: tagGenerationDetails[id].tags || []
       }))
       .filter(item => item.bookmark);
-      
+
     const failedBookmarks = Object.entries(tagGenerationDetails)
       .filter(([_, status]) => status.status === "failed")
       .map(([id]) => ({
@@ -1830,7 +1828,7 @@ export default function BookmarkList({
         error: tagGenerationDetails[id].errorMessage || "Unknown error"
       }))
       .filter(item => item.bookmark);
-    
+
     return (
       <Drawer
         opened={showTagGenerationStatus}
@@ -1860,7 +1858,7 @@ export default function BookmarkList({
               <span>Failed: {failed}</span>
               <span>Pending: {total - completed}</span>
             </div>
-            
+
             {/* 警告提示文本 */}
             {inProgress && (
               <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
@@ -1872,7 +1870,7 @@ export default function BookmarkList({
                 </div>
               </div>
             )}
-            
+
             {/* 控制按钮 */}
             <div className="mt-4 flex justify-end space-x-2">
               {inProgress && (
@@ -1882,7 +1880,7 @@ export default function BookmarkList({
               )}
             </div>
           </div>
-          
+
           {/* 当前处理中的书签 */}
           {processingBookmarks.length > 0 && (
             <div className="border-l-4 border-blue-500 pl-3 py-2">
@@ -1906,7 +1904,7 @@ export default function BookmarkList({
               </div>
             </div>
           )}
-          
+
           {/* 成功的书签 */}
           {successBookmarks.length > 0 && (
             <div className="border-l-4 border-green-500 pl-3 py-2">
@@ -1928,7 +1926,7 @@ export default function BookmarkList({
               </div>
             </div>
           )}
-          
+
           {/* 失败的书签 */}
           {failedBookmarks.length > 0 && (
             <div className="border-l-4 border-red-500 pl-3 py-2">
@@ -1944,7 +1942,7 @@ export default function BookmarkList({
               </div>
             </div>
           )}
-          
+
           {/* 等待中的书签 */}
           {waitingBookmarks.length > 0 && (
             <div className="border-l-4 border-gray-300 pl-3 py-2">
@@ -2091,7 +2089,7 @@ export default function BookmarkList({
           onClose={() => setEditingBookmark(null)}
         />
       )}
-      
+
       <TagGenerationStatusDrawer />
       <FolderGenerationStatusDrawer />
     </div>
