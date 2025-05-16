@@ -13,7 +13,7 @@ MarkHub 是一个功能全面的现代书签管理应用，结合了本地存储
 - **样式**: Tailwind CSS 和 Mantine 组件库
 - **UI 组件**: Radix UI、Mantine Core
 - **状态管理**: React Context API
-- **数据存储**: localStorage（本地存储）
+- **数据存储**: IndexedDB（本地浏览器数据库）
 - **性能优化**: 虚拟列表渲染 (react-window, react-virtualized-auto-sizer)
 - **搜索功能**: Fuse.js（模糊搜索）
 - **表单处理**: react-hook-form 和 zod 验证
@@ -103,8 +103,10 @@ MarkHub 是一个功能全面的现代书签管理应用，结合了本地存储
 
 ### 2. 数据持久化
 
-- 使用 localStorage 存储数据
-- 针对大型数据集进行分块存储优化
+- 使用 IndexedDB 存储数据，支持更大容量和结构化查询
+- 创建书签、文件夹和设置的对象存储
+- 为常用查询建立索引，提高性能
+- 支持从 localStorage 迁移数据
 - 使用防抖函数减少频繁存储操作
 - WebDAV 同步实现云存储
 
@@ -238,7 +240,7 @@ markhub/
 ├── lib/                      # 工具库
 │   ├── folder-api.ts         # 文件夹建议 API 客户端
 │   ├── tag-api.ts            # 标签生成 API 客户端
-│   ├── db.ts                 # 数据库操作
+│   ├── db.ts                 # IndexedDB 数据库操作
 │   └── utils.ts              # 通用工具函数
 │
 ├── public/                   # 静态资源
@@ -283,7 +285,7 @@ MarkHub 书签管理器采用了清晰的分层架构设计，主要包括以下
 ## 数据流
 
 ```
-用户操作 → 组件事件处理 → Context Actions → 状态更新 → 组件重渲染 → localStorage 存储 → (可选) WebDAV 同步
+用户操作 → 组件事件处理 → Context Actions → 状态更新 → 组件重渲染 → IndexedDB 存储 → (可选) WebDAV 同步
 ```
 
 ## 开发与部署

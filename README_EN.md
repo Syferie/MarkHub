@@ -13,7 +13,7 @@ The project is built on a modern front-end technology stack:
 - **Styling**: Tailwind CSS and Mantine component library
 - **UI Components**: Radix UI, Mantine Core
 - **State Management**: React Context API
-- **Data Storage**: localStorage (local storage)
+- **Data Storage**: IndexedDB (local browser database)
 - **Performance Optimization**: Virtual list rendering (react-window, react-virtualized-auto-sizer)
 - **Search Functionality**: Fuse.js (fuzzy search)
 - **Form Handling**: react-hook-form and zod validation
@@ -103,8 +103,10 @@ The project uses React Context API for state management, centralizing all bookma
 
 ### 2. Data Persistence
 
-- Uses localStorage for data storage
-- Chunk storage optimization for large datasets
+- Uses IndexedDB for data storage, supporting larger capacity and structured queries
+- Creates object stores for bookmarks, folders, and settings
+- Establishes indexes for common queries to improve performance
+- Supports data migration from localStorage
 - Uses debounce functions to reduce frequent storage operations
 - WebDAV synchronization for cloud storage
 
@@ -238,7 +240,7 @@ markhub/
 ├── lib/                      # Utility libraries
 │   ├── folder-api.ts         # Folder suggestion API client
 │   ├── tag-api.ts            # Tag generation API client
-│   ├── db.ts                 # Database operations
+│   ├── db.ts                 # IndexedDB database operations
 │   └── utils.ts              # Common utility functions
 │
 ├── public/                   # Static resources
@@ -283,7 +285,7 @@ The overall architecture follows the principles of componentization and modulari
 ## Data Flow
 
 ```
-User Operation → Component Event Handling → Context Actions → State Update → Component Re-rendering → localStorage Storage → (Optional) WebDAV Synchronization
+User Operation → Component Event Handling → Context Actions → State Update → Component Re-rendering → IndexedDB Storage → (Optional) WebDAV Synchronization
 ```
 
 ## Development and Deployment
