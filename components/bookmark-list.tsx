@@ -1501,17 +1501,28 @@ export default function BookmarkList({
       </div>
     )
   }, (prevProps, nextProps) => {
-    // 优化重新渲染逻辑，只有在这些属性改变时才重新渲染
-    return (
-      prevProps.bookmark.id === nextProps.bookmark.id &&
-      prevProps.bookmark.title === nextProps.bookmark.title &&
-      prevProps.bookmark.url === nextProps.bookmark.url &&
-      prevProps.bookmark.isFavorite === nextProps.bookmark.isFavorite &&
-      prevProps.bookmark.folderId === nextProps.bookmark.folderId &&
-      prevProps.style === nextProps.style &&
-      selectedBookmarks.includes(prevProps.bookmark.id) ===
-      selectedBookmarks.includes(nextProps.bookmark.id)
-    );
+    // 优化重新渲染逻辑，但减少过度优化以确保UI更新
+    // 只有在特定属性没有变化时跳过渲染
+    if (prevProps.bookmark.id !== nextProps.bookmark.id) return false;
+    if (prevProps.bookmark.title !== nextProps.bookmark.title) return false;
+    if (prevProps.bookmark.url !== nextProps.bookmark.url) return false;
+    if (prevProps.bookmark.isFavorite !== nextProps.bookmark.isFavorite) return false;
+    if (prevProps.bookmark.folderId !== nextProps.bookmark.folderId) return false;
+    if (prevProps.style !== nextProps.style) return false;
+    
+    // 检查标签数组是否变化
+    const prevTags = prevProps.bookmark.tags || [];
+    const nextTags = nextProps.bookmark.tags || [];
+    if (prevTags.length !== nextTags.length) return false;
+    for (let i = 0; i < prevTags.length; i++) {
+      if (prevTags[i] !== nextTags[i]) return false;
+    }
+    
+    // 检查是否在选择状态中
+    if (selectedBookmarks.includes(prevProps.bookmark.id) !==
+        selectedBookmarks.includes(nextProps.bookmark.id)) return false;
+        
+    return true;
   });
 
   // 创建虚拟列表的记忆化组件
@@ -1559,15 +1570,29 @@ export default function BookmarkList({
       </AutoSizer>
     );
   }, (prevProps, nextProps) => {
-    // 只在书签列表长度变化或书签ID列表变化时才重新渲染
+    // 大幅简化比较逻辑，确保UI更新，只在完全相同的情况下才不重新渲染
     if (prevProps.bookmarks.length !== nextProps.bookmarks.length) {
       return false;
     }
-
-    // 检查ID是否变化（简化比较逻辑，只比较ID，减少深度比较导致的性能问题）
-    const prevIds = prevProps.bookmarks.map(b => b.id).join(',');
-    const nextIds = nextProps.bookmarks.map(b => b.id).join(',');
-    return prevIds === nextIds;
+    
+    // 更严格检查书签内容变化，包括标签和文件夹变化
+    for (let i = 0; i < prevProps.bookmarks.length; i++) {
+      const prev = prevProps.bookmarks[i];
+      const next = nextProps.bookmarks[i];
+      
+      if (prev.id !== next.id) return false;
+      if (prev.title !== next.title) return false;
+      if (prev.url !== next.url) return false;
+      if (prev.folderId !== next.folderId) return false;
+      if (prev.isFavorite !== next.isFavorite) return false;
+      
+      // 比较标签数组
+      const prevTags = prev.tags || [];
+      const nextTags = next.tags || [];
+      if (prevTags.length !== nextTags.length) return false;
+    }
+    
+    return true;
   });
 
   if (!Array.isArray(bookmarks) || bookmarks.length === 0) {

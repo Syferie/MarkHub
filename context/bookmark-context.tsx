@@ -544,6 +544,12 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
 
   // 添加客户端状态标记
   const [isClient, setIsClient] = useState(false)
+  
+  // 添加更新计数器，用于触发UI更新
+  const bookmarkUpdateCounter = useRef<number>(0)
+  
+  // 添加数据已加载标志，解决刷新后使用初始数据问题
+  const dataLoadedOnce = useRef<boolean>(false)
 
   // 防抖定时器引用
   const saveTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -592,14 +598,33 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         const loadedSearchFields = await db.getSearchFields()
         const loadedSettings = await db.getAppSettings()
 
-        // 更新状态
-        if (loadedBookmarks.length > 0) setBookmarks(loadedBookmarks)
-        if (loadedFolders.length > 0) setFolders(loadedFolders)
-        if (loadedTags.length > 0) setTags(loadedTags)
-        if (loadedFavoriteFolders.length > 0) setFavoriteFolders(loadedFavoriteFolders)
-        if (loadedSortOption) setCurrentSortOption(loadedSortOption)
-        if (loadedSearchFields.length > 0) setSearchFields(loadedSearchFields)
-        if (loadedSettings) setSettings(loadedSettings)
+        // 更新状态，但只在有数据或者之前从未加载过数据时才设置（避免刷新回到初始状态）
+        if (loadedBookmarks.length > 0 || !dataLoadedOnce.current) {
+          setBookmarks(loadedBookmarks.length > 0 ? loadedBookmarks : bookmarks)
+          // 增加更新计数器，确保UI更新
+          bookmarkUpdateCounter.current += 1
+        }
+        
+        if (loadedFolders.length > 0 || !dataLoadedOnce.current)
+          setFolders(loadedFolders.length > 0 ? loadedFolders : folders)
+          
+        if (loadedTags.length > 0 || !dataLoadedOnce.current)
+          setTags(loadedTags.length > 0 ? loadedTags : tags)
+          
+        if (loadedFavoriteFolders.length > 0 || !dataLoadedOnce.current)
+          setFavoriteFolders(loadedFavoriteFolders.length > 0 ? loadedFavoriteFolders : favoriteFolders)
+          
+        if (loadedSortOption || !dataLoadedOnce.current)
+          setCurrentSortOption(loadedSortOption || currentSortOption)
+          
+        if (loadedSearchFields.length > 0 || !dataLoadedOnce.current)
+          setSearchFields(loadedSearchFields.length > 0 ? loadedSearchFields : searchFields)
+          
+        if (loadedSettings || !dataLoadedOnce.current)
+          setSettings(loadedSettings || settings)
+
+        // 标记数据已加载过一次
+        dataLoadedOnce.current = true
 
         console.log("从 IndexedDB 加载数据完成")
       } catch (error) {
@@ -824,14 +849,14 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     childFolderIdsCache.current = {};
   }, [folders]);
 
-  // 使用useMemo优化的filteredBookmarks函数
+  // 使用useMemo优化的filteredBookmarks函数，但添加更新计数器避免缓存问题
   const filteredBookmarksCache = useRef<Record<string, Bookmark[]>>({});
   const filteredBookmarksCacheKey = useRef<string>('');
 
   // Filter bookmarks based on selected folder, tags, and search query
   const filteredBookmarks = (activeTab: string, searchQuery: string, fields: string[] = searchFields) => {
-    // 创建缓存键
-    const cacheKey = `${activeTab}_${selectedFolderId || 'null'}_${selectedTags.join(',')}_${searchQuery}_${fields.join(',')}_${currentSortOption}`;
+    // 创建缓存键，添加更新计数器确保在数据变化时缓存失效
+    const cacheKey = `${activeTab}_${selectedFolderId || 'null'}_${selectedTags.join(',')}_${searchQuery}_${fields.join(',')}_${currentSortOption}_${bookmarkUpdateCounter.current}`;
 
     // 如果缓存键与上次相同，直接返回缓存结果
     if (cacheKey === filteredBookmarksCacheKey.current && filteredBookmarksCache.current[cacheKey]) {
@@ -904,6 +929,9 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
 
     // 更新状态
     setBookmarks((prev) => [...prev, bookmark])
+    
+    // 增加更新计数器，确保UI更新
+    bookmarkUpdateCounter.current += 1;
 
     // 保存到 IndexedDB - 因为状态更新已经触发防抖保存，这里不需要重复保存
     // await db.saveBookmark(bookmark)
@@ -932,6 +960,9 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
 
     // 更新状态
     setBookmarks((prev) => prev.map((b) => (b.id === bookmark.id ? bookmark : b)))
+    
+    // 增加更新计数器，确保UI更新
+    bookmarkUpdateCounter.current += 1;
 
     // 保存到 IndexedDB - 因为状态更新已经触发防抖保存，这里不需要重复保存
     // await db.saveBookmark(bookmark)
@@ -954,12 +985,18 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
 
       // 然后更新状态
       setBookmarks((prev) => prev.filter((b) => b.id !== id));
+      
+      // 增加更新计数器，确保UI更新
+      bookmarkUpdateCounter.current += 1;
 
       console.log(`成功删除书签: ${id}`);
     } catch (error) {
       console.error(`删除书签失败: ${id}`, error);
       // 删除失败，但仍然尝试更新UI状态，提供更好的用户体验
       setBookmarks((prev) => prev.filter((b) => b.id !== id));
+      
+      // 依然增加更新计数器，确保UI更新
+      bookmarkUpdateCounter.current += 1;
     }
   }
 
