@@ -4,6 +4,22 @@ MarkHub 是一个功能全面的现代书签管理应用，结合了本地存储
 
 [English Version](README_EN.md)
 
+## 快速开始
+
+### 官方网站
+
+MarkHub已部署官方站点，访问 [markhub.app](https://markhub.app) 即可开始使用，无需安装。
+
+### Chrome扩展
+
+我们提供Chrome浏览器扩展，方便您在浏览任何网页时一键添加书签到MarkHub：
+
+- 功能：直接从任何网页添加书签，快速打开MarkHub官方网站
+- 兼容性：目前仅支持与官方站点协作使用
+- 下载方式：
+  - [直接下载链接](https://github.com/Syferie/MarkHub/releases/download/v1.0/markhub-extension.crx)
+  - 或在GitHub项目的Releases页面下载
+
 ## 技术栈
 
 项目基于现代前端技术栈构建：

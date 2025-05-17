@@ -4,6 +4,22 @@ MarkHub is a comprehensive modern bookmark management application that combines 
 
 [中文版本](README.md)
 
+## Quick Start
+
+### Official Website
+
+MarkHub is deployed on an official website. Visit [markhub.app](https://markhub.app) to start using it immediately without installation.
+
+### Chrome Extension
+
+We offer a Chrome browser extension that makes it easy to add bookmarks to MarkHub while browsing any webpage:
+
+- Features: Add bookmarks directly from any webpage, quickly open the MarkHub official website
+- Compatibility: Currently only works with the official website
+- Download options:
+  - [Direct download link](https://github.com/Syferie/MarkHub/releases/download/v1.0/markhub-extension.crx)
+  - Or download from the Releases page on GitHub
+
 ## Tech Stack
 
 The project is built on a modern front-end technology stack:
