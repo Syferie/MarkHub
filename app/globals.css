@@ -729,6 +729,31 @@ body {
   border-color: #444444 !important;
 }
 
+/* 为白天模式定义 PillsInput 和 Pill 样式 */
+.mantine-PillsInput-root {
+  background-color: var(--mantine-color-body); /* 适应白天模式背景 */
+  border-color: var(--mantine-color-gray-4); /* 适应白天模式边框 */
+}
+
+.mantine-PillsInput-input {
+  background-color: var(--mantine-color-body); /* 适应白天模式背景 */
+  color: var(--mantine-color-text); /* 适应白天模式文字颜色 */
+}
+
+.mantine-Pill-root {
+  background-color: #f1f3f5 !important; /* 白天模式下浅灰色背景 */
+  color: #495057 !important; /* 白天模式下深灰色文字 */
+  border: none !important; /* 移除边框 */
+}
+
+.mantine-Pill-remove {
+  color: #868e96 !important; /* 移除按钮颜色 */
+}
+
+.mantine-Pill-remove:hover {
+  background-color: #e9ecef !important; /* 悬停时的背景色 */
+}
+
 /* 修复Mantine Drawer在暗黑模式下的样式 */
 .dark .mantine-Drawer-root {
   --drawer-bg: #1e1e1e;

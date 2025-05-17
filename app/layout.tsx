@@ -6,6 +6,7 @@ import { Inter } from "next/font/google"
 import { BookmarkProvider } from "@/context/bookmark-context"
 import { AIClassificationProvider } from "@/context/ai-classification-context"
 import { LanguageProvider } from "@/context/language-context"
+import FirstVisitHandler from "@/components/first-visit-handler"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -53,12 +54,6 @@ export default function RootLayout({
             Button: {
               styles: {
                 root: {
-                  '&[data-disabled]': {
-                    backgroundColor: 'var(--mantine-color-gray-2)',
-                    color: 'var(--mantine-color-gray-5)',
-                    borderColor: 'var(--mantine-color-gray-3)',
-                    opacity: 0.6
-                  },
                   '&[dataDisabled]': {
                     backgroundColor: 'var(--mantine-color-gray-2)',
                     color: 'var(--mantine-color-gray-5)',
@@ -111,8 +106,15 @@ export default function RootLayout({
             Pill: {
               styles: {
                 root: {
-                  backgroundColor: 'var(--mantine-color-dark-5)',
-                  color: 'var(--mantine-color-text)'
+                  backgroundColor: '#f1f3f5',
+                  color: '#495057',
+                  border: 'none'
+                },
+                remove: {
+                  color: '#868e96',
+                  '&:hover': {
+                    backgroundColor: '#e9ecef'
+                  }
                 }
               }
             },
@@ -137,7 +139,9 @@ export default function RootLayout({
           <LanguageProvider>
             <BookmarkProvider>
               <AIClassificationProvider>
-                {children}
+                <FirstVisitHandler>
+                  {children}
+                </FirstVisitHandler>
               </AIClassificationProvider>
             </BookmarkProvider>
           </LanguageProvider>
