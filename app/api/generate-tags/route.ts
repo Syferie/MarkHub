@@ -1,4 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  generateSignature,
+  verifySignature,
+  containsSuspiciousContent,
+  encryptData,
+  decryptData
+} from '@/lib/security';
+
+// 从环境变量中获取安全密钥
+const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY || '';
+
+// 如果环境变量未设置，记录警告
+if (!SECRET_KEY) {
+  console.warn('警告: NEXT_PUBLIC_SECRET_KEY 环境变量未设置。请在生产环境中设置此变量以确保安全性。');
+}
 
 /**
  * API响应类型
@@ -41,6 +56,11 @@ function getApiSettings(request: Request) {
  * 此代理路由将接收来自前端的请求，转发到实际的后端API以启动标签生成任务，
  * 并将后端API返回的任务ID返回给前端
  */
+// 为Vercel添加配置
+export const config = {
+  runtime: 'edge',
+};
+
 export async function POST(request: NextRequest) {
   try {
     // 解析请求体
@@ -177,11 +197,51 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 获取并转发任务状态响应
+    // 获取任务状态响应
     const taskStatus = await statusResponse.json() as TaskStatusResponse;
 
+    // 验证响应内容，检测是否被篡改
+    if (taskStatus.status === 'completed' && taskStatus.tags) {
+      // 检查标签内容是否包含不适当内容
+      if (containsSuspiciousContent(taskStatus.tags)) {
+        console.error('API响应包含可疑标签，可能被篡改', {
+          tags: taskStatus.tags
+        });
+        return NextResponse.json(
+          { error: 'API响应可能被篡改，请联系管理员' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 添加响应签名
+    const responseWithSignature = {
+      ...taskStatus,
+      _signature: generateSignature(taskStatus, SECRET_KEY)
+    };
+
+    // 对敏感数据进行加密（如果有标签）
+    if (responseWithSignature.tags && responseWithSignature.tags.length > 0) {
+      // 加密标签数据
+      const encryptedTags = encryptData(responseWithSignature.tags, SECRET_KEY);
+
+      // 替换原始标签数据为加密数据
+      const secureResponse = {
+        ...responseWithSignature,
+        tags: undefined, // 移除明文标签
+        _encryptedTags: encryptedTags, // 添加加密标签
+      };
+
+      // 转发加密的响应
+      return NextResponse.json(
+        secureResponse,
+        { status: 200 }
+      );
+    }
+
+    // 转发验证后的任务状态响应（带签名）
     return NextResponse.json(
-      taskStatus,
+      responseWithSignature,
       { status: 200 }
     );
   } catch (error) {

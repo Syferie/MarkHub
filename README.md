@@ -330,6 +330,10 @@ npm install
 # 或
 pnpm install
 
+# 配置环境变量
+cp .env.example .env
+# 然后编辑 .env 文件，填入您的实际值
+
 # 开发模式
 npm run dev
 # 或
@@ -345,6 +349,20 @@ npm run start
 # 或
 pnpm start
 ```
+
+### 环境变量配置
+
+项目使用环境变量来存储敏感信息。在部署到生产环境之前，请确保设置以下环境变量：
+
+- `NEXT_PUBLIC_SECRET_KEY`: 用于API响应签名验证和数据加密/解密的密钥（建议至少32个字符）
+
+这个密钥会同时用于服务端和客户端，使用`NEXT_PUBLIC_`前缀确保在客户端代码中也能访问。可以使用以下命令生成强随机密钥：
+
+```bash
+openssl rand -base64 32
+```
+
+在Vercel上部署时，可以在项目设置的"Environment Variables"部分添加此变量。
 
 ## 许可证
 

@@ -4,6 +4,21 @@
  * 提供与标签生成服务交互的TypeScript函数
  */
 
+import {
+  verifySignature,
+  verifyUrlMatch,
+  containsSuspiciousContent,
+  decryptData
+} from './security';
+
+// 从环境变量中获取安全密钥
+const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY || '';
+
+// 如果环境变量未设置，记录警告
+if (!SECRET_KEY) {
+  console.warn('警告: NEXT_PUBLIC_SECRET_KEY 环境变量未设置。请在生产环境中设置此变量以确保安全性。');
+}
+
 // API响应类型
 export interface TaskSubmissionResponse {
   task_id: string;
@@ -270,12 +285,65 @@ export async function getTaskStatus(
     // 解析响应
     const taskStatus = await response.json();
 
-    // 如果任务已完成并包含标签，转换为前端期望的格式
+    // 验证响应内容，检测是否被篡改
     if (taskStatus.status === 'completed') {
+      // 验证响应签名（如果存在）
+      if (taskStatus._signature) {
+        const { _signature, ...dataWithoutSignature } = taskStatus;
+        if (!verifySignature(dataWithoutSignature, _signature, SECRET_KEY)) {
+          console.error('API响应签名验证失败，可能被篡改');
+          throw new ApiError('API响应签名验证失败，可能被篡改', 400);
+        }
+      }
+
+      // 验证URL是否匹配
+      if (!verifyUrlMatch(options.url, taskStatus.url)) {
+        console.error('API响应URL与请求URL不匹配，可能被篡改', {
+          requestUrl: options.url,
+          responseUrl: taskStatus.url
+        });
+        throw new ApiError('API响应可能被篡改，请联系管理员', 400);
+      }
+
+      // 处理加密的标签数据（如果存在）
+      let tags: string[] = [];
+      if (taskStatus._encryptedTags) {
+        try {
+          // 解密标签数据
+          const decryptedTags = decryptData(taskStatus._encryptedTags, SECRET_KEY);
+
+          // 验证解密后的数据是否为数组
+          if (Array.isArray(decryptedTags)) {
+            tags = decryptedTags;
+
+            // 检查解密后的标签内容是否包含不适当内容
+            if (containsSuspiciousContent(tags)) {
+              console.error('解密后的标签包含可疑内容，可能被篡改', { tags });
+              throw new ApiError('API响应可能被篡改，请联系管理员', 400);
+            }
+          } else {
+            console.error('解密后的标签不是数组格式');
+            throw new ApiError('标签格式无效', 400);
+          }
+        } catch (error) {
+          console.error('解密标签数据失败:', error);
+          throw new ApiError('解密标签数据失败', 400);
+        }
+      } else if (taskStatus.tags) {
+        // 如果有未加密的标签，直接使用
+        tags = taskStatus.tags;
+
+        // 检查标签内容是否包含不适当内容
+        if (containsSuspiciousContent(tags)) {
+          console.error('API响应包含可疑标签，可能被篡改', { tags });
+          throw new ApiError('API响应可能被篡改，请联系管理员', 400);
+        }
+      }
+
       return {
         task_id: taskId,
         status: 'completed',
-        tags: taskStatus.tags || [],
+        tags: tags,
         url: options.url,
         completed_at: new Date().toISOString()
       } as TaskStatusCompleted;

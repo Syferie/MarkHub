@@ -9,7 +9,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // 添加自定义 headers 配置，移除 browsing-topics
+  // 确保正确处理路由
+  output: 'standalone',
+  trailingSlash: false,
+  // 添加自定义 headers 配置，包括内容安全策略
   async headers() {
     return [
       {
@@ -18,12 +21,36 @@ const nextConfig = {
           {
             key: 'Permissions-Policy',
             value: 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()'
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://api.markhub.app; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none';"
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY'
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block'
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin'
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload'
           }
         ]
       }
     ];
   },
-  webpack: (config, { dev, isServer }) => {
+  webpack: (config, { dev }) => {
     // 生产环境下的优化
     if (!dev) {
       // 添加缓存组优化
