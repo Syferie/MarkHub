@@ -10,10 +10,10 @@ import FirstVisitHandler from "@/components/first-visit-handler"
 
 const inter = Inter({ subsets: ["latin"] })
 
-// 扩展 metadata，使用新的图标文件
+// 扩展 metadata，使用新的图标文件并添加Open Graph协议支持
 export const metadata = {
   title: "MarkHub",
-  description: "A modern bookmark manager",
+  description: "A modern bookmark manager with AI-powered tag generation and folder recommendations",
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -22,7 +22,40 @@ export const metadata = {
     apple: [
       { url: '/apple-icon.png', sizes: '128x128', type: 'image/png' }
     ]
+  },
+  // Open Graph协议元数据
+  openGraph: {
+    title: "MarkHub - 现代书签管理应用",
+    description: "结合本地存储与云同步功能，通过AI智能标签和文件夹推荐，高效管理您的书签",
+    url: "https://markhub.app",
+    siteName: "MarkHub",
+    images: [
+      {
+        url: "/og-image.png", // 使用专门为社交媒体分享创建的大尺寸图片
+        width: 1200,
+        height: 630,
+        alt: "MarkHub Logo"
+      }
+    ],
+    locale: "zh_CN",
+    type: "website"
+  },
+  // Twitter卡片元数据
+  twitter: {
+    card: "summary_large_image",
+    title: "MarkHub - Modern Bookmark Manager",
+    description: "Efficiently manage your bookmarks with AI-powered tag generation and folder recommendations",
+    images: ["/og-image.png"],
+    creator: "@markhub_app"
   }
+}
+
+// 添加额外的元数据，用于其他平台和搜索引擎
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#3b82f6'
 }
 
 export default function RootLayout({
@@ -35,6 +68,28 @@ export default function RootLayout({
       {/* TODO: Ideally, lang attribute should reflect the current language from context */}
       <head>
         {/* 移除ColorSchemeScript组件，改用Next.js的Script组件 */}
+        <link rel="canonical" href="https://markhub.app" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              "name": "MarkHub",
+              "url": "https://markhub.app",
+              "description": "现代书签管理应用，结合本地存储与云同步功能，通过AI智能标签和文件夹推荐，高效管理您的书签",
+              "applicationCategory": "Productivity",
+              "operatingSystem": "Any",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              },
+              "screenshot": "https://markhub.app/og-image.png",
+              "featureList": "书签管理,文件夹组织,标签分类,AI智能推荐,WebDAV同步,多语言支持"
+            })
+          }}
+        />
       </head>
       <body className={inter.className}>
         <MantineProvider defaultColorScheme="light" theme={{

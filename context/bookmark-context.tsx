@@ -791,6 +791,9 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     setBookmarks((prev) =>
       prev.map((bookmark) => (bookmark.id === id ? { ...bookmark, isFavorite: !bookmark.isFavorite } : bookmark)),
     )
+    
+    // 增加更新计数器，确保UI更新
+    bookmarkUpdateCounter.current += 1;
   }
 
   // Toggle search field
