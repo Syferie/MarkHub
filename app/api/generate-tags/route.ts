@@ -8,11 +8,16 @@ import {
 } from '@/lib/security';
 
 // 从环境变量中获取安全密钥
-const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY || '';
+const CLIENT_INTEGRITY_KEY = process.env.NEXT_PUBLIC_INTEGRITY_KEY || '';
+const SERVER_SECRET_KEY = process.env.SERVER_SECRET_KEY || '';
 
 // 如果环境变量未设置，记录警告
-if (!SECRET_KEY) {
-  console.warn('警告: NEXT_PUBLIC_SECRET_KEY 环境变量未设置。请在生产环境中设置此变量以确保安全性。');
+if (!CLIENT_INTEGRITY_KEY) {
+  console.warn('警告: NEXT_PUBLIC_INTEGRITY_KEY 环境变量未设置。请在生产环境中设置此变量以确保基本安全性。');
+}
+
+if (!SERVER_SECRET_KEY) {
+  console.error('严重警告: SERVER_SECRET_KEY 环境变量未设置。这会导致服务器端验证失效，系统安全性严重受损。');
 }
 
 /**
@@ -28,6 +33,7 @@ interface TaskStatusResponse {
   task_id: string;
   status: "pending" | "processing" | "completed" | "failed";
   tags?: string[];
+  url?: string;
   error?: string;
 }
 
@@ -95,7 +101,8 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        'X-Original-Url': url // 添加原始URL到请求头，用于后续验证
       },
       body: JSON.stringify(backendRequestBody)
     });
@@ -153,6 +160,7 @@ export async function GET(request: NextRequest) {
     // 从URL获取任务ID
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get('taskId');
+    const originalUrl = request.headers.get('X-Original-Url'); // 获取原始URL
 
     if (!taskId) {
       return NextResponse.json(
@@ -200,7 +208,24 @@ export async function GET(request: NextRequest) {
     // 获取任务状态响应
     const taskStatus = await statusResponse.json() as TaskStatusResponse;
 
-    // 验证响应内容，检测是否被篡改
+    // 服务器端URL验证 - 检测URL篡改
+    if (taskStatus.status === 'completed' &&
+        taskStatus.url &&
+        originalUrl &&
+        taskStatus.url !== originalUrl) {
+      console.error('检测到URL篡改尝试', {
+        requestUrl: originalUrl,
+        responseUrl: taskStatus.url
+      });
+
+      // 直接拒绝可疑响应
+      return NextResponse.json({
+        status: 'failed',
+        error: '安全验证失败: 检测到可能的响应篡改'
+      }, { status: 403 });
+    }
+
+    // 验证响应内容，检测是否包含可疑内容
     if (taskStatus.status === 'completed' && taskStatus.tags) {
       // 检查标签内容是否包含不适当内容
       if (containsSuspiciousContent(taskStatus.tags)) {
@@ -214,16 +239,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 添加响应签名
+    // 添加双重签名 - 客户端和服务器端
     const responseWithSignature = {
       ...taskStatus,
-      _signature: generateSignature(taskStatus, SECRET_KEY)
+      _serverVerified: true, // 添加服务器验证标记
+      _signature: generateSignature(taskStatus, CLIENT_INTEGRITY_KEY), // 客户端验证签名
+      _integrity: generateSignature(taskStatus, SERVER_SECRET_KEY) // 服务器端强验证签名
     };
 
     // 对敏感数据进行加密（如果有标签）
     if (responseWithSignature.tags && responseWithSignature.tags.length > 0) {
-      // 加密标签数据
-      const encryptedTags = encryptData(responseWithSignature.tags, SECRET_KEY);
+      // 使用服务器密钥加密标签数据
+      const encryptedTags = encryptData(responseWithSignature.tags, SERVER_SECRET_KEY);
 
       // 替换原始标签数据为加密数据
       const secureResponse = {
@@ -235,14 +262,28 @@ export async function GET(request: NextRequest) {
       // 转发加密的响应
       return NextResponse.json(
         secureResponse,
-        { status: 200 }
+        {
+          status: 200,
+          headers: {
+            // 添加内容完整性标头
+            'Content-Security-Policy': "require-sri-for script style",
+            'X-Content-Integrity': generateSignature(secureResponse, SERVER_SECRET_KEY)
+          }
+        }
       );
     }
 
-    // 转发验证后的任务状态响应（带签名）
+    // 转发验证后的任务状态响应（带双重签名）
     return NextResponse.json(
       responseWithSignature,
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          // 添加内容完整性标头
+          'Content-Security-Policy': "require-sri-for script style",
+          'X-Content-Integrity': generateSignature(responseWithSignature, SERVER_SECRET_KEY)
+        }
+      }
     );
   } catch (error) {
     console.error('Error getting task status:', error);

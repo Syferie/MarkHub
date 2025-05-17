@@ -11,12 +11,12 @@ import {
   decryptData
 } from './security';
 
-// 从环境变量中获取安全密钥
-const SECRET_KEY = process.env.NEXT_PUBLIC_SECRET_KEY || '';
+// 从环境变量中获取客户端完整性检查密钥
+const INTEGRITY_KEY = process.env.NEXT_PUBLIC_INTEGRITY_KEY || '';
 
 // 如果环境变量未设置，记录警告
-if (!SECRET_KEY) {
-  console.warn('警告: NEXT_PUBLIC_SECRET_KEY 环境变量未设置。请在生产环境中设置此变量以确保安全性。');
+if (!INTEGRITY_KEY) {
+  console.warn('警告: NEXT_PUBLIC_INTEGRITY_KEY 环境变量未设置。请在生产环境中设置此变量以确保基本安全性。');
 }
 
 // API响应类型
@@ -197,7 +197,8 @@ export async function submitTagGenerationTask(
       headers: {
         'Content-Type': 'application/json',
         'X-Api-Base-Url': apiBaseUrl,
-        'X-Api-Key': apiKey
+        'X-Api-Key': apiKey,
+        'X-Original-Url': options.url // 添加原始URL到请求头，用于后续验证
       },
       body: JSON.stringify({
         url: options.url,
@@ -290,10 +291,15 @@ export async function getTaskStatus(
       // 验证响应签名（如果存在）
       if (taskStatus._signature) {
         const { _signature, ...dataWithoutSignature } = taskStatus;
-        if (!verifySignature(dataWithoutSignature, _signature, SECRET_KEY)) {
+        if (!verifySignature(dataWithoutSignature, _signature, INTEGRITY_KEY)) {
           console.error('API响应签名验证失败，可能被篡改');
           throw new ApiError('API响应签名验证失败，可能被篡改', 400);
         }
+      }
+
+      // 检查服务器端验证标记
+      if (taskStatus._serverVerified !== true) {
+        console.warn('响应缺少服务器端验证标记，可能存在安全风险');
       }
 
       // 验证URL是否匹配
@@ -310,7 +316,7 @@ export async function getTaskStatus(
       if (taskStatus._encryptedTags) {
         try {
           // 解密标签数据
-          const decryptedTags = decryptData(taskStatus._encryptedTags, SECRET_KEY);
+          const decryptedTags = decryptData(taskStatus._encryptedTags, INTEGRITY_KEY);
 
           // 验证解密后的数据是否为数组
           if (Array.isArray(decryptedTags)) {

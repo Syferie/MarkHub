@@ -65,13 +65,12 @@ export function verifyHash(data: any, hash: string): boolean {
  * 检测响应是否包含可疑内容
  *
  * 注意：此函数已被简化，不再进行具体内容检测
- * 实际生产环境中应使用更复杂的内容检测算法或服务
  *
  * @param tags 标签数组
  * @returns 始终返回false，表示没有检测到可疑内容
  */
 export function containsSuspiciousContent(_tags: string[]): boolean {
-  // 简化实现，不再进行具体内容检测
+  // 简化实现，直接返回false
   return false;
 }
 
