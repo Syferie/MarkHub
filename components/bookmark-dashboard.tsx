@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { Tabs, ActionIcon, TextInput, Button, Badge, Checkbox } from "@mantine/core"
 import { IconSearch, IconPlus, IconAdjustments, IconFolder, IconSettings, IconStar, IconX } from "@tabler/icons-react"
 import { AIClassificationIndicator } from "./ai-classification-indicator"
@@ -85,8 +86,11 @@ export default function BookmarkDashboard() {
           .filter(Boolean)
       : []
 
+  // 使用移动设备检测hook
+  const isMobile = useIsMobile();
+  
   return (
-    <div className="container mx-auto p-4 max-w-6xl h-screen overflow-hidden">
+    <div className="container mx-auto p-4 max-w-6xl h-screen overflow-auto">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
           <img src="/icon128.png" alt="MarkHub Logo" className="w-8 h-8 mr-2" />
@@ -98,8 +102,9 @@ export default function BookmarkDashboard() {
             leftSection={<IconPlus size={16} />}
             onClick={() => setIsAddModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-700"
+            size={isMobile ? "xs" : "md"}
           >
-            {t("dashboard.addBookmark")}
+            {isMobile ? "+" : t("dashboard.addBookmark")}
           </Button>
           <ActionIcon
             variant="light"
@@ -112,136 +117,284 @@ export default function BookmarkDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-[calc(100vh-100px)]">
-        <div className="md:col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
-          <h2 className="text-lg font-semibold mb-4 text-gray-700">{t("dashboard.collections")}</h2>
-          <FolderTree />
-
-          <h2 className="text-lg font-semibold mb-4 mt-6 text-gray-700">{t("dashboard.tags")}</h2>
-          <TagManager />
-        </div>
-
-        <div className="md:col-span-3 flex flex-col h-full">
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="flex items-center space-x-2 mb-4">
-              <TextInput
-                placeholder={t("dashboard.search")}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-grow"
-                leftSection={<IconSearch size={16} />}
-              />
-              <ActionIcon
-                variant={showSearchFilters ? "filled" : "light"}
-                color={showSearchFilters ? "blue" : "gray"}
-                aria-label="Search settings"
-                onClick={() => setShowSearchFilters(!showSearchFilters)}
-              >
-                <IconAdjustments size={20} />
-              </ActionIcon>
-            </div>
-
-            {showSearchFilters && (
-              <div className="mb-4 p-3 border border-gray-200 rounded-md bg-gray-50 slide-in">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium text-sm">{t("dashboard.searchFilters")}</span>
-                  <ActionIcon size="sm" onClick={() => setShowSearchFilters(false)}>
-                    <IconX size={16} />
+      {/* 移动端使用选项卡切换文件夹/标签和书签列表 */}
+      {isMobile ? (
+        <div className="flex flex-col h-[calc(100vh-100px)]">
+          <Tabs defaultValue="bookmarks">
+            <Tabs.List>
+              <Tabs.Tab value="folders" leftSection={<IconFolder size={16} />}>
+                {t("dashboard.collections")}
+              </Tabs.Tab>
+              <Tabs.Tab value="bookmarks" leftSection={<IconPlus size={16} />}>
+                {t("dashboard.allBookmarks")}
+              </Tabs.Tab>
+            </Tabs.List>
+            
+            <Tabs.Panel value="folders" className="h-[calc(100vh-150px)] overflow-auto">
+              <div className="bg-white rounded-lg shadow p-4 mb-4 mt-2">
+                <h2 className="text-lg font-semibold mb-4 text-gray-700">{t("dashboard.collections")}</h2>
+                <FolderTree />
+    
+                <h2 className="text-lg font-semibold mb-4 mt-6 text-gray-700">{t("dashboard.tags")}</h2>
+                <TagManager />
+              </div>
+            </Tabs.Panel>
+            
+            <Tabs.Panel value="bookmarks" className="h-[calc(100vh-150px)] overflow-auto">
+              <div className="bg-white rounded-lg shadow p-4 mb-4 mt-2">
+                <div className="flex items-center space-x-2 mb-4">
+                  <TextInput
+                    placeholder={t("dashboard.search")}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="flex-grow"
+                    leftSection={<IconSearch size={16} />}
+                  />
+                  <ActionIcon
+                    variant={showSearchFilters ? "filled" : "light"}
+                    color={showSearchFilters ? "blue" : "gray"}
+                    aria-label="Search settings"
+                    onClick={() => setShowSearchFilters(!showSearchFilters)}
+                  >
+                    <IconAdjustments size={20} />
                   </ActionIcon>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <Checkbox
-                    label={t("dashboard.title")}
-                    checked={Array.isArray(searchFields) && searchFields.includes("title")}
-                    onChange={() => toggleSearchField && toggleSearchField("title")}
-                  />
-                  <Checkbox
-                    label={t("dashboard.url")}
-                    checked={Array.isArray(searchFields) && searchFields.includes("url")}
-                    onChange={() => toggleSearchField && toggleSearchField("url")}
-                  />
-                  <Checkbox
-                    label={t("dashboard.tagsField")}
-                    checked={Array.isArray(searchFields) && searchFields.includes("tags")}
-                    onChange={() => toggleSearchField && toggleSearchField("tags")}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* 始终显示过滤器区域，避免UI浮动 */}
-            <div className="mb-3 flex flex-wrap items-center gap-2 min-h-[32px]">
-              {selectedFolderId || (Array.isArray(selectedTags) && selectedTags.length > 0) ? (
-                <>
-                  <span className="text-sm text-gray-500">{t("dashboard.filteredBy")}</span>
-
-                  {folderName && (
-                    <Badge color="blue" variant="light" size="lg">
-                      {t("dashboard.folder")} {folderName}
-                    </Badge>
+    
+                {showSearchFilters && (
+                  <div className="mb-4 p-3 border border-gray-200 rounded-md bg-gray-50 slide-in">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-medium text-sm">{t("dashboard.searchFilters")}</span>
+                      <ActionIcon size="sm" onClick={() => setShowSearchFilters(false)}>
+                        <IconX size={16} />
+                      </ActionIcon>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Checkbox
+                        label={t("dashboard.title")}
+                        checked={Array.isArray(searchFields) && searchFields.includes("title")}
+                        onChange={() => toggleSearchField && toggleSearchField("title")}
+                      />
+                      <Checkbox
+                        label={t("dashboard.url")}
+                        checked={Array.isArray(searchFields) && searchFields.includes("url")}
+                        onChange={() => toggleSearchField && toggleSearchField("url")}
+                      />
+                      <Checkbox
+                        label={t("dashboard.tagsField")}
+                        checked={Array.isArray(searchFields) && searchFields.includes("tags")}
+                        onChange={() => toggleSearchField && toggleSearchField("tags")}
+                      />
+                    </div>
+                  </div>
+                )}
+    
+                {/* 始终显示过滤器区域，避免UI浮动 */}
+                <div className="mb-3 flex flex-wrap items-center gap-2 min-h-[32px]">
+                  {selectedFolderId || (Array.isArray(selectedTags) && selectedTags.length > 0) ? (
+                    <>
+                      <span className="text-sm text-gray-500">{t("dashboard.filteredBy")}</span>
+    
+                      {folderName && (
+                        <Badge color="blue" variant="light" size="lg">
+                          {t("dashboard.folder")} {folderName}
+                        </Badge>
+                      )}
+    
+                      {Array.isArray(selectedTags) &&
+                        selectedTags.map((tag) => (
+                          <Badge key={tag} color="green" variant="light" size="lg">
+                            {t("dashboard.tag")} {tag}
+                          </Badge>
+                        ))}
+    
+                      <Button
+                        variant="subtle"
+                        size="xs"
+                        onClick={() => {
+                          setSelectedFolderId && setSelectedFolderId(null)
+                          setSelectedTags && setSelectedTags([])
+                          setActiveTab("all") // 重置活动标签为"all"
+                        }}
+                      >
+                        {t("dashboard.clearFilters")}
+                      </Button>
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-400">{t("dashboard.noFilters")}</span>
                   )}
-
-                  {Array.isArray(selectedTags) &&
-                    selectedTags.map((tag) => (
-                      <Badge key={tag} color="green" variant="light" size="lg">
-                        {t("dashboard.tag")} {tag}
-                      </Badge>
-                    ))}
-
-                  <Button
-                    variant="subtle"
-                    size="xs"
-                    onClick={() => {
+                </div>
+    
+                <Tabs
+                  value={activeTab}
+                  onChange={(value) => {
+                    setActiveTab(value || "all")
+                    // If selecting a folder tab, set the selectedFolderId
+                    if (value !== "all" && value !== "favorites") {
+                      setSelectedFolderId && setSelectedFolderId(value)
+                    } else if (value === "all") {
                       setSelectedFolderId && setSelectedFolderId(null)
-                      setSelectedTags && setSelectedTags([])
-                      setActiveTab("all") // 重置活动标签为"all"
-                    }}
-                  >
-                    {t("dashboard.clearFilters")}
-                  </Button>
-                </>
-              ) : (
-                <span className="text-sm text-gray-400">{t("dashboard.noFilters")}</span>
-              )}
-            </div>
-
-            <Tabs
-              value={activeTab}
-              onChange={(value) => {
-                setActiveTab(value || "all")
-                // If selecting a folder tab, set the selectedFolderId
-                if (value !== "all" && value !== "favorites") {
-                  setSelectedFolderId && setSelectedFolderId(value)
-                } else if (value === "all") {
-                  setSelectedFolderId && setSelectedFolderId(null)
-                }
-              }}
-            >
-              <Tabs.List>
-                <Tabs.Tab value="all">{t("dashboard.allBookmarks")}</Tabs.Tab>
-                <Tabs.Tab value="favorites" leftSection={<IconStar size={14} />}>
-                  {t("dashboard.favorites")}
-                </Tabs.Tab>
-                {favoriteFolderTabs.map((folder) => (
-                  <Tabs.Tab key={folder!.id} value={folder!.id} leftSection={<IconFolder size={14} />}>
-                    {folder!.name}
-                  </Tabs.Tab>
-                ))}
-              </Tabs.List>
-            </Tabs>
+                    }
+                  }}
+                >
+                  <Tabs.List className="overflow-x-auto pb-2">
+                    <Tabs.Tab value="all">{t("dashboard.allBookmarks")}</Tabs.Tab>
+                    <Tabs.Tab value="favorites" leftSection={<IconStar size={14} />}>
+                      {t("dashboard.favorites")}
+                    </Tabs.Tab>
+                    {favoriteFolderTabs.map((folder) => (
+                      <Tabs.Tab key={folder!.id} value={folder!.id} leftSection={<IconFolder size={14} />}>
+                        {folder!.name}
+                      </Tabs.Tab>
+                    ))}
+                  </Tabs.List>
+                </Tabs>
+              </div>
+    
+              <div className="bg-white rounded-lg shadow p-4 flex-grow overflow-hidden">
+                <BookmarkList
+                  bookmarks={bookmarksToShow}
+                  searchQuery={searchQuery}
+                  sortOptions={sortOptions}
+                  currentSortOption={currentSortOption}
+                  setCurrentSortOption={setCurrentSortOption}
+                />
+              </div>
+            </Tabs.Panel>
+          </Tabs>
+        </div>
+      ) : (
+        // 桌面端使用原来的网格布局
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-[calc(100vh-100px)]">
+          <div className="md:col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
+            <h2 className="text-lg font-semibold mb-4 text-gray-700">{t("dashboard.collections")}</h2>
+            <FolderTree />
+  
+            <h2 className="text-lg font-semibold mb-4 mt-6 text-gray-700">{t("dashboard.tags")}</h2>
+            <TagManager />
           </div>
-
-          <div className="bg-white rounded-lg shadow p-4 flex-grow overflow-hidden">
-            <BookmarkList
-              bookmarks={bookmarksToShow}
-              searchQuery={searchQuery}
-              sortOptions={sortOptions}
-              currentSortOption={currentSortOption}
-              setCurrentSortOption={setCurrentSortOption}
-            />
+  
+          <div className="md:col-span-3 flex flex-col h-full">
+            <div className="bg-white rounded-lg shadow p-4 mb-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <TextInput
+                  placeholder={t("dashboard.search")}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-grow"
+                  leftSection={<IconSearch size={16} />}
+                />
+                <ActionIcon
+                  variant={showSearchFilters ? "filled" : "light"}
+                  color={showSearchFilters ? "blue" : "gray"}
+                  aria-label="Search settings"
+                  onClick={() => setShowSearchFilters(!showSearchFilters)}
+                >
+                  <IconAdjustments size={20} />
+                </ActionIcon>
+              </div>
+  
+              {showSearchFilters && (
+                <div className="mb-4 p-3 border border-gray-200 rounded-md bg-gray-50 slide-in">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-sm">{t("dashboard.searchFilters")}</span>
+                    <ActionIcon size="sm" onClick={() => setShowSearchFilters(false)}>
+                      <IconX size={16} />
+                    </ActionIcon>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Checkbox
+                      label={t("dashboard.title")}
+                      checked={Array.isArray(searchFields) && searchFields.includes("title")}
+                      onChange={() => toggleSearchField && toggleSearchField("title")}
+                    />
+                    <Checkbox
+                      label={t("dashboard.url")}
+                      checked={Array.isArray(searchFields) && searchFields.includes("url")}
+                      onChange={() => toggleSearchField && toggleSearchField("url")}
+                    />
+                    <Checkbox
+                      label={t("dashboard.tagsField")}
+                      checked={Array.isArray(searchFields) && searchFields.includes("tags")}
+                      onChange={() => toggleSearchField && toggleSearchField("tags")}
+                    />
+                  </div>
+                </div>
+              )}
+  
+              {/* 始终显示过滤器区域，避免UI浮动 */}
+              <div className="mb-3 flex flex-wrap items-center gap-2 min-h-[32px]">
+                {selectedFolderId || (Array.isArray(selectedTags) && selectedTags.length > 0) ? (
+                  <>
+                    <span className="text-sm text-gray-500">{t("dashboard.filteredBy")}</span>
+  
+                    {folderName && (
+                      <Badge color="blue" variant="light" size="lg">
+                        {t("dashboard.folder")} {folderName}
+                      </Badge>
+                    )}
+  
+                    {Array.isArray(selectedTags) &&
+                      selectedTags.map((tag) => (
+                        <Badge key={tag} color="green" variant="light" size="lg">
+                          {t("dashboard.tag")} {tag}
+                        </Badge>
+                      ))}
+  
+                    <Button
+                      variant="subtle"
+                      size="xs"
+                      onClick={() => {
+                        setSelectedFolderId && setSelectedFolderId(null)
+                        setSelectedTags && setSelectedTags([])
+                        setActiveTab("all") // 重置活动标签为"all"
+                      }}
+                    >
+                      {t("dashboard.clearFilters")}
+                    </Button>
+                  </>
+                ) : (
+                  <span className="text-sm text-gray-400">{t("dashboard.noFilters")}</span>
+                )}
+              </div>
+  
+              <Tabs
+                value={activeTab}
+                onChange={(value) => {
+                  setActiveTab(value || "all")
+                  // If selecting a folder tab, set the selectedFolderId
+                  if (value !== "all" && value !== "favorites") {
+                    setSelectedFolderId && setSelectedFolderId(value)
+                  } else if (value === "all") {
+                    setSelectedFolderId && setSelectedFolderId(null)
+                  }
+                }}
+              >
+                <Tabs.List className="overflow-x-auto pb-1">
+                  <Tabs.Tab value="all">{t("dashboard.allBookmarks")}</Tabs.Tab>
+                  <Tabs.Tab value="favorites" leftSection={<IconStar size={14} />}>
+                    {t("dashboard.favorites")}
+                  </Tabs.Tab>
+                  {favoriteFolderTabs.map((folder) => (
+                    <Tabs.Tab key={folder!.id} value={folder!.id} leftSection={<IconFolder size={14} />}>
+                      {folder!.name}
+                    </Tabs.Tab>
+                  ))}
+                </Tabs.List>
+              </Tabs>
+            </div>
+  
+            <div className="bg-white rounded-lg shadow p-4 flex-grow overflow-hidden">
+              <BookmarkList
+                bookmarks={bookmarksToShow}
+                searchQuery={searchQuery}
+                sortOptions={sortOptions}
+                currentSortOption={currentSortOption}
+                setCurrentSortOption={setCurrentSortOption}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <AddBookmarkModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />

@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useCallback } from "react"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { ActionIcon, TextInput, Button, Tooltip } from "@mantine/core"
 import {
   IconFolder,
@@ -20,6 +21,7 @@ import { useLanguage } from "@/context/language-context"
 import type { Folder } from "@/types"
 
 export default function FolderTree() {
+  const isMobile = useIsMobile();
   const {
     folders,
     addFolder,
@@ -198,39 +200,65 @@ export default function FolderTree() {
             >
               <IconFolder size={18} className={isSelected ? "text-blue-600 mr-2" : "text-blue-500 mr-2"} />
               <span className="text-sm truncate flex-1 min-w-0">{folder.name}</span>
+              
+              {/* 在移动端时始终显示收藏图标 */}
+              {isMobile && (
+                <ActionIcon
+                  variant="subtle"
+                  size="sm"
+                  color={isFavorite ? "yellow" : "gray"}
+                  onClick={(e) => handleToggleFavorite(folder.id, e)}
+                  className="ml-1"
+                >
+                  {isFavorite ? <IconStarFilled size={14} /> : <IconStar size={14} />}
+                </ActionIcon>
+              )}
             </div>
           )}
 
-          <div className="hidden group-hover:flex items-center flex-shrink-0">
-            <Tooltip label={isFavorite ? t("bookmarks.removeFromFavorites") : t("bookmarks.addToFavorites")} withArrow position="top">
+          {/* 在桌面端使用hover显示操作按钮，在移动端使用长按菜单 */}
+          {!isMobile ? (
+            <div className="hidden group-hover:flex items-center flex-shrink-0">
+              <Tooltip label={isFavorite ? t("bookmarks.removeFromFavorites") : t("bookmarks.addToFavorites")} withArrow position="top">
+                <ActionIcon
+                  variant="subtle"
+                  size="sm"
+                  color={isFavorite ? "yellow" : "gray"}
+                  onClick={(e) => handleToggleFavorite(folder.id, e)}
+                >
+                  {isFavorite ? <IconStarFilled size={14} /> : <IconStar size={14} />}
+                </ActionIcon>
+              </Tooltip>
+              <ActionIcon variant="subtle" size="sm" onClick={(e) => startEditingFolder(folder, e)}>
+                <IconPencil size={14} />
+              </ActionIcon>
               <ActionIcon
                 variant="subtle"
                 size="sm"
-                color={isFavorite ? "yellow" : "gray"}
-                onClick={(e) => handleToggleFavorite(folder.id, e)}
+                color="red"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  deleteFolder && deleteFolder(folder.id)
+                }}
               >
-                {isFavorite ? <IconStarFilled size={14} /> : <IconStar size={14} />}
+                <IconTrash size={14} />
               </ActionIcon>
-            </Tooltip>
-            <ActionIcon variant="subtle" size="sm" onClick={(e) => startEditingFolder(folder, e)}>
-              <IconPencil size={14} />
-            </ActionIcon>
+            </div>
+          ) : (
+            // 移动端显示编辑按钮，其他操作通过点击处理
             <ActionIcon
               variant="subtle"
               size="sm"
-              color="red"
-              onClick={(e) => {
-                e.stopPropagation()
-                deleteFolder && deleteFolder(folder.id)
-              }}
+              onClick={(e) => startEditingFolder(folder, e)}
+              className="ml-1"
             >
-              <IconTrash size={14} />
+              <IconPencil size={14} />
             </ActionIcon>
-          </div>
+          )}
         </div>
 
         <div
-          className={`ml-6 mt-1 border-l-2 border-gray-100 pl-2 folder-children ${
+          className={`${isMobile ? 'ml-4' : 'ml-6'} mt-1 border-l-2 border-gray-100 pl-2 folder-children ${
             isExpanded && childFolders.length > 0 ? "expanded" : ""
           }`}
           style={{

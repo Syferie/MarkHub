@@ -1,6 +1,7 @@
 "use client"
 
 import React, { type ReactNode, useState, MouseEvent, useEffect, useRef } from "react"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { ActionIcon, Badge, Text, Tooltip, Checkbox, Button, Group, Select, Progress, Popover, Drawer } from "@mantine/core"
 import { useRouter } from "next/navigation"
 import {
@@ -93,6 +94,7 @@ export default function BookmarkList({
   currentSortOption = "newest",
   setCurrentSortOption,
 }: BookmarkListProps) {
+  const isMobile = useIsMobile();
   const { deleteBookmark, updateBookmark, folders, tags, setSelectedFolderId, setSelectedTags, toggleFavoriteBookmark, settings } =
     useBookmarks()
   const { t } = useLanguage()
@@ -1380,7 +1382,7 @@ export default function BookmarkList({
     const isFavorite = bookmark.isFavorite
     const isSelected = selectedBookmarks.includes(bookmark.id)
 
-    // 移除外层容器的固定高度，让内容决定高度
+    // 根据设备调整书签项布局
     return (
       <div
         style={{
@@ -1391,7 +1393,7 @@ export default function BookmarkList({
         className={`${index % 2 === 0 ? "bg-gray-50 dark:bg-gray-800" : ""}`}
       >
         <div
-          className={`flex items-start justify-between p-3 pb-2 border border-gray-100 rounded-lg hover:bg-gray-50 transition-all duration-200 bookmark-item hover:shadow-sm ${
+          className={`flex ${isMobile ? 'flex-col' : 'items-start justify-between'} p-3 pb-2 border border-gray-100 rounded-lg hover:bg-gray-50 transition-all duration-200 bookmark-item hover:shadow-sm ${
             isSelected ? "bg-blue-50 border-blue-200" : ""
           }`}
         >
@@ -1468,8 +1470,9 @@ export default function BookmarkList({
             </div>
           </div>
 
+          {/* 移动端在下方显示操作按钮 */}
           {!bulkMode && (
-            <div className="flex space-x-1">
+            <div className={`flex ${isMobile ? 'mt-2 justify-end' : 'space-x-1'}`}>
               <Tooltip label={isFavorite ? "Remove from favorites" : "Add to favorites"} withArrow>
                 <ActionIcon
                   variant="subtle"
@@ -1527,12 +1530,16 @@ export default function BookmarkList({
 
   // 创建虚拟列表的记忆化组件
   const MemoizedVirtualList = React.memo(({ bookmarks }: { bookmarks: ExtendedBookmark[] }) => {
-    // 根据标签数量动态调整高度，但设置最小高度
+    // 根据标签数量和移动设备状态动态调整高度
     const getItemSize = (index: number) => {
       const bookmark = bookmarks[index];
       // 基础高度 + 根据标签数量调整高度
       const tagsCount = bookmark?.tags?.length || 0;
-      // 如果有标签，给予更多空间；如果没有标签，使用较小的高度
+      // 移动端需要更高的卡片高度，因为使用垂直布局
+      if (isMobile) {
+        return tagsCount > 0 ? 160 : 130;
+      }
+      // 桌面端使用原来的高度计算
       return tagsCount > 0 ? 110 : 90;
     };
 
@@ -1683,7 +1690,7 @@ export default function BookmarkList({
         onClose={() => setShowFolderGenerationStatus(false)}
         title={t("ai.folderSuggestionStatus")}
         position="right"
-        size="md"
+        size={isMobile ? "100%" : "md"}
       >
         <div className="space-y-6">
           {/* 总体进度 */}
@@ -1883,7 +1890,7 @@ export default function BookmarkList({
         onClose={() => setShowTagGenerationStatus(false)}
         title={t("ai.tagGenerationStatus")}
         position="right"
-        size="md"
+        size={isMobile ? "100%" : "md"}
       >
         <div className="space-y-6">
           {/* 总体进度 */}
@@ -2022,11 +2029,14 @@ export default function BookmarkList({
             </Text>
           )}
         </div>
-        <Group gap="xs">
+        {/* 移动端和桌面端使用不同的按钮布局 */}
+        <Group gap={isMobile ? "xs" : "sm"} className={isMobile ? "flex-wrap justify-end" : ""}>
           {bulkMode ? (
             <>
-              <Button size="xs" variant="outline" onClick={toggleAllBookmarks} leftSection={<IconCheck size={14} />}>
-                {selectedBookmarks.length === bookmarks.length ? t("bookmarks.deselectAll") : t("bookmarks.selectAll")}
+              <Button size="xs" variant="outline" onClick={toggleAllBookmarks} leftSection={!isMobile && <IconCheck size={14} />}>
+                {selectedBookmarks.length === bookmarks.length ?
+                  (isMobile ? t("bookmarks.deselectAll").substr(0, 4) : t("bookmarks.deselectAll")) :
+                  (isMobile ? t("bookmarks.selectAll").substr(0, 4) : t("bookmarks.selectAll"))}
               </Button>
 
               <Button
@@ -2036,7 +2046,7 @@ export default function BookmarkList({
                 onClick={() => setShowBulkActions(!showBulkActions)}
                 disabled={selectedBookmarks.length === 0}
               >
-                {t("bookmarks.actions")}
+                {isMobile ? t("bookmarks.actions").substr(0, 3) : t("bookmarks.actions")}
               </Button>
 
               <Button
@@ -2048,13 +2058,13 @@ export default function BookmarkList({
                   setShowBulkActions(false)
                 }}
               >
-                {t("bookmarks.cancel")}
+                {isMobile ? t("bookmarks.cancel").substr(0, 2) : t("bookmarks.cancel")}
               </Button>
             </>
           ) : (
             <>
               <Button size="xs" variant="light" onClick={() => setBulkMode(true)}>
-                {t("bookmarks.bulkEdit")}
+                {isMobile ? t("bookmarks.bulkEdit").substr(0, 4) : t("bookmarks.bulkEdit")}
               </Button>
               {Array.isArray(sortOptions) && sortOptions.length > 0 && setCurrentSortOption && (
                 <Select
@@ -2062,8 +2072,8 @@ export default function BookmarkList({
                   data={sortOptions}
                   value={currentSortOption}
                   onChange={(value) => setCurrentSortOption(value || "newest")}
-                  leftSection={<IconSortAscending size={14} />}
-                  placeholder={t("bookmarks.sortBy")}
+                  leftSection={!isMobile && <IconSortAscending size={14} />}
+                  placeholder={isMobile ? t("bookmarks.sortBy").substr(0, 4) : t("bookmarks.sortBy")}
                 />
               )}
             </>
@@ -2079,53 +2089,55 @@ export default function BookmarkList({
               <IconX size={16} />
             </ActionIcon>
           </div>
-          <Group gap="xs">
+          {/* 在移动端显示为网格布局 */}
+          <div className={isMobile ? "grid grid-cols-2 gap-2" : ""}>
             <Button
               size="xs"
               variant="light"
-              leftSection={<IconSparkles size={14} />}
+              leftSection={!isMobile && <IconSparkles size={14} />}
               onClick={handleBulkGenerateTags}
             >
-              {t("bookmarks.generateTags")}
+              {isMobile ? t("bookmarks.generateTags").split(" ")[1] : t("bookmarks.generateTags")}
             </Button>
             <Button
               size="xs"
               variant="light"
-              leftSection={<IconFolder size={14} />}
+              leftSection={!isMobile && <IconFolder size={14} />}
               onClick={handleBulkSuggestFolders}
             >
-              {t("bookmarks.suggestFolder")}
+              {isMobile ? t("bookmarks.suggestFolder").split(" ")[1] : t("bookmarks.suggestFolder")}
             </Button>
             <Button
               size="xs"
               variant="light"
-              leftSection={<IconStarFilled size={14} />}
+              leftSection={!isMobile && <IconStarFilled size={14} />}
               onClick={() => handleBulkFavorite(true)}
             >
-              {t("bookmarks.addToFavorites")}
+              {isMobile ? "+" + t("bookmarks.addToFavorites").split(" ").pop() : t("bookmarks.addToFavorites")}
             </Button>
             <Button
               size="xs"
               variant="light"
-              leftSection={<IconStar size={14} />}
+              leftSection={!isMobile && <IconStar size={14} />}
               onClick={() => handleBulkFavorite(false)}
             >
-              {t("bookmarks.removeFromFavorites")}
+              {isMobile ? "-" + t("bookmarks.removeFromFavorites").split(" ").pop() : t("bookmarks.removeFromFavorites")}
             </Button>
             <Button
               size="xs"
               variant="light"
               color="red"
-              leftSection={<IconTrash size={14} />}
+              leftSection={!isMobile && <IconTrash size={14} />}
               onClick={handleBulkDelete}
+              className={isMobile ? "col-span-2" : ""}
             >
               {t("bookmarks.delete")}
             </Button>
-          </Group>
+          </div>
         </div>
       )}
 
-      <div className="h-[calc(100vh-300px)] w-full">
+      <div className={`${isMobile ? 'h-[calc(100vh-200px)]' : 'h-[calc(100vh-300px)]'} w-full`}>
         {/* 使用React.memo优化组件渲染 */}
         <MemoizedVirtualList bookmarks={bookmarks} />
       </div>
