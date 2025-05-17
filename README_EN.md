@@ -175,7 +175,7 @@ The following is an architecture diagram of the MarkHub application, showing the
 ```mermaid
 flowchart TD
     User[User] -->|Interaction| Dashboard[BookmarkDashboard]
-    
+
     %% State Management Layer
     subgraph Context["State Management (Context)"]
         BP[BookmarkProvider] -->|Provides state| BC[bookmark-context]
@@ -183,7 +183,7 @@ flowchart TD
         BC -->|Read/Write| LS[(localStorage)]
         BC -->|Sync| WebDAV[(WebDAV Server)]
     end
-    
+
     %% View Layer
     subgraph Views["View Components"]
         Dashboard -->|Renders| BL[BookmarkList]
@@ -195,7 +195,7 @@ flowchart TD
         Modal -->|Contains| SM[SettingsModal]
         Modal -->|Contains| WS[WebDAVSync]
     end
-    
+
     %% API Interaction Layer
     subgraph API["API Interaction"]
         TA[tag-api.ts] -->|Requests| NR[Next.js API Routes]
@@ -203,7 +203,7 @@ flowchart TD
         NR -->|Proxy| ES[External Services]
         HFS[hierarchical-folder-select]
     end
-    
+
     %% Data Flow
     Dashboard -->|Uses| BC
     Dashboard -->|Uses| LG
@@ -340,6 +340,21 @@ npm run start
 # or
 pnpm start
 ```
+
+## License
+
+MarkHub is licensed under the CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International) license. The main points are as follows:
+
+- You are free to share and adapt the project
+- You must provide appropriate attribution
+- You may not use the material for commercial purposes
+- For derivative versions intended for other users:
+  - Must remain open source
+  - Must clearly indicate in the user interface and documentation that it is a derivative work based on MarkHub
+  - Must include a link to the original project
+  - Must use the same license terms
+
+For detailed terms, please see the [LICENSE](LICENSE) file or visit [CC BY-NC 4.0 License](https://creativecommons.org/licenses/by-nc/4.0/).
 
 ---
 

@@ -147,6 +147,19 @@ const translations: Record<Language, Record<string, string>> = {
     "settings.apiResponseFormat": "Completed response format",
     "settings.apiAuthHeader": "All requests include the header",
 
+    // 关于页面
+    "settings.about": "About",
+    "settings.aboutTitle": "About MarkHub",
+    "settings.aboutDescription": "MarkHub is a modern bookmark management application that combines local storage with cloud synchronization capabilities.",
+    "settings.licenseTitle": "License",
+    "settings.licenseDescription": "MarkHub is licensed under the CC BY-NC 4.0 License:",
+    "settings.viewFullLicense": "View Full License",
+    "settings.versionTitle": "Version",
+    "settings.versionInfo": "Version",
+    "settings.linksTitle": "Links",
+    "settings.githubRepo": "GitHub Repository",
+    "settings.officialWebsite": "Official Website",
+
     // WebDAV同步
     "webdav.configure": "Configure WebDAV",
     "webdav.serverUrl": "Server URL",
@@ -366,6 +379,19 @@ const translations: Record<Language, Record<string, string>> = {
     "settings.apiTaskIdInfo": "成功后，将返回任务ID，系统将自动轮询任务状态直至完成",
     "settings.apiResponseFormat": "完成响应格式",
     "settings.apiAuthHeader": "所有请求都包含头部",
+
+    // 关于页面
+    "settings.about": "关于",
+    "settings.aboutTitle": "关于 MarkHub",
+    "settings.aboutDescription": "MarkHub 是一个现代书签管理应用，结合了本地存储的便捷性和云同步的灵活性。",
+    "settings.licenseTitle": "许可证",
+    "settings.licenseDescription": "MarkHub 使用 CC BY-NC 4.0 知识共享署名-非商业性使用许可证：",
+    "settings.viewFullLicense": "查看完整许可证",
+    "settings.versionTitle": "版本",
+    "settings.versionInfo": "版本",
+    "settings.linksTitle": "链接",
+    "settings.githubRepo": "GitHub 仓库",
+    "settings.officialWebsite": "官方网站",
 
     // WebDAV同步
     "webdav.configure": "配置WebDAV",

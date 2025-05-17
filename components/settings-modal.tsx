@@ -12,8 +12,10 @@ import {
   TextInput,
   PasswordInput,
   Divider,
+  Text,
+  Anchor,
 } from "@mantine/core"
-import { IconPalette, IconCloud, IconFileExport, IconRefresh, IconApi, IconLanguage } from "@tabler/icons-react"
+import { IconPalette, IconCloud, IconFileExport, IconRefresh, IconApi, IconLanguage, IconInfoCircle } from "@tabler/icons-react"
 import ImportExport from "./import-export"
 import WebDAVSync from "./webdav-sync"
 import { useBookmarks } from "@/context/bookmark-context"
@@ -131,6 +133,9 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </Tabs.Tab>
           <Tabs.Tab value="data" leftSection={<IconFileExport size={16} />}>
             {t("settings.data")}
+          </Tabs.Tab>
+          <Tabs.Tab value="about" leftSection={<IconInfoCircle size={16} />}>
+            {t("settings.about") || "About"}
           </Tabs.Tab>
         </Tabs.List>
 
@@ -331,6 +336,60 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   {t("settings.resetData")}
                 </Button>
               </Group>
+            </div>
+          </div>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="about" pt="md">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium mb-2">{t("settings.aboutTitle") || "About MarkHub"}</h3>
+              <p className="text-sm mb-4">
+                {t("settings.aboutDescription") || "MarkHub is a modern bookmark management application that combines local storage with cloud synchronization capabilities."}
+              </p>
+
+              <Divider my="md" />
+
+              <h4 className="text-md font-medium mb-2">{t("settings.licenseTitle") || "License"}</h4>
+              <p className="text-sm mb-2">
+                {t("settings.licenseDescription") || "MarkHub is licensed under the CC BY-NC 4.0 License:"}
+              </p>
+
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-md text-sm mb-4">
+                <p className="mb-2"><strong>CC BY-NC 4.0 License</strong></p>
+                <p className="mb-2">Copyright (c) 2024 MarkHub</p>
+
+                <p className="mb-2">Main terms:</p>
+                <ul className="list-disc pl-5 mb-2">
+                  <li>You are free to share and adapt the project</li>
+                  <li>You must provide appropriate attribution</li>
+                  <li>You may not use the material for commercial purposes</li>
+                  <li>Derivative works must remain open source</li>
+                  <li>Must clearly indicate it is a derivative work based on MarkHub</li>
+                  <li>Must include a link to the original project</li>
+                </ul>
+
+                <Anchor href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer">
+                  {t("settings.viewFullLicense") || "View Full License"}
+                </Anchor>
+              </div>
+
+              <Divider my="md" />
+
+              <h4 className="text-md font-medium mb-2">{t("settings.versionTitle") || "Version"}</h4>
+              <p className="text-sm mb-4">
+                {t("settings.versionInfo") || "Version"}: 1.0.0
+              </p>
+
+              <h4 className="text-md font-medium mb-2">{t("settings.linksTitle") || "Links"}</h4>
+              <div className="flex flex-col space-y-2">
+                <Anchor href="https://github.com/Syferie/MarkHub" target="_blank" rel="noopener noreferrer">
+                  {t("settings.githubRepo") || "GitHub Repository"}
+                </Anchor>
+                <Anchor href="https://markhub.app" target="_blank" rel="noopener noreferrer">
+                  {t("settings.officialWebsite") || "Official Website"}
+                </Anchor>
+              </div>
             </div>
           </div>
         </Tabs.Panel>

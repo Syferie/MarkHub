@@ -86,10 +86,13 @@ export default function RootLayout({
                 "priceCurrency": "USD"
               },
               "screenshot": "https://markhub.app/og-image.png",
-              "featureList": "书签管理,文件夹组织,标签分类,AI智能推荐,WebDAV同步,多语言支持"
+              "featureList": "书签管理,文件夹组织,标签分类,AI智能推荐,WebDAV同步,多语言支持",
+              "license": "https://creativecommons.org/licenses/by-nc/4.0/"
             })
           }}
         />
+        {/* 版权和许可声明 */}
+        <meta name="copyright" content="© 2024 MarkHub. Licensed under CC BY-NC 4.0." />
       </head>
       <body className={inter.className}>
         <MantineProvider defaultColorScheme="light" theme={{

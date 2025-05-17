@@ -175,7 +175,7 @@ MarkHub已部署官方站点，访问 [markhub.app](https://markhub.app) 即可�
 ```mermaid
 flowchart TD
     User[用户] -->|交互| Dashboard[BookmarkDashboard]
-    
+
     %% 状态管理层
     subgraph Context["状态管理 (Context)"]
         BP[BookmarkProvider] -->|提供状态| BC[bookmark-context]
@@ -183,7 +183,7 @@ flowchart TD
         BC -->|读写| LS[(localStorage)]
         BC -->|同步| WebDAV[(WebDAV服务器)]
     end
-    
+
     %% 视图层
     subgraph Views["视图组件"]
         Dashboard -->|渲染| BL[BookmarkList]
@@ -195,7 +195,7 @@ flowchart TD
         Modal -->|包含| SM[SettingsModal]
         Modal -->|包含| WS[WebDAVSync]
     end
-    
+
     %% API交互层
     subgraph API["API交互"]
         TA[tag-api.ts] -->|请求| NR[Next.js API路由]
@@ -203,7 +203,7 @@ flowchart TD
         NR -->|代理| ES[外部服务]
         HFS[hierarchical-folder-select]
     end
-    
+
     %% 数据流动
     Dashboard -->|使用| BC
     Dashboard -->|使用| LG
@@ -340,6 +340,21 @@ npm run start
 # 或
 pnpm start
 ```
+
+## 许可证
+
+MarkHub 使用 CC BY-NC 4.0 (知识共享署名-非商业性使用 4.0 国际) 许可证。主要内容如下：
+
+- 允许分享和改编本项目
+- 必须提供适当的署名
+- 禁止将本项目用于商业目的
+- 对于面向其他用户的二次开发版本：
+  - 必须保持开源
+  - 必须在用户界面和文档中明确标明是基于 MarkHub 的衍生作品
+  - 必须包含指向原项目的链接
+  - 必须使用相同的许可条款
+
+详细条款请查看 [LICENSE](LICENSE) 文件或访问 [CC BY-NC 4.0 许可证](https://creativecommons.org/licenses/by-nc/4.0/)。
 
 ---
 
