@@ -3,9 +3,6 @@
   "buildCommand": "next build",
   "cleanUrls": true,
   "regions": ["hnd1"],
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/$1" }
-  ],
   "headers": [
     {
       "source": "/(.*)",

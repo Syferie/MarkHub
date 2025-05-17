@@ -62,7 +62,10 @@ function getApiSettings(request: Request) {
  * 此代理路由将接收来自前端的请求，转发到实际的后端API以启动标签生成任务，
  * 并将后端API返回的任务ID返回给前端
  */
-// 移除Edge Runtime配置以解决Vercel部署问题
+// 为Vercel添加配置
+export const config = {
+  runtime: 'edge',
+};
 
 export async function POST(request: NextRequest) {
   try {
