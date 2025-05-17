@@ -388,7 +388,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
   }
 
   return (
-    <Modal opened={isOpen} onClose={onClose} title={t("bookmarkModal.addTitle")} centered>
+    <Modal opened={isOpen} onClose={onClose} title={t("bookmarkModal.addTitle")} centered classNames={{ header: 'border-none' }}>
       <div className="space-y-4">
         <TextInput
           label={t("bookmarkModal.title")}

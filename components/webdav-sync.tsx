@@ -25,13 +25,13 @@ export const getWebDAVStatus = async () => {
     const transaction = db_connection.transaction(["appSettings"], "readonly");
     const store = transaction.objectStore("appSettings");
     const request = store.get("webdav_config");
-    
+
     // 等待请求完成
     const result: { key: string; value: any } | undefined = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    
+
     // 判断WebDAV状态
     if (result && result.value) {
       const config = result.value;
@@ -41,7 +41,7 @@ export const getWebDAVStatus = async () => {
   } catch (e) {
     console.error('Error getting WebDAV status from IndexedDB:', e);
   }
-  
+
   return { isEnabled: false };
 };
 
@@ -53,20 +53,20 @@ export const getWebDAVConfig = async () => {
     const transaction = db_connection.transaction(["appSettings"], "readonly");
     const store = transaction.objectStore("appSettings");
     const request = store.get("webdav_config");
-    
+
     // 等待请求完成
     const result: { key: string; value: any } | undefined = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    
+
     if (result && result.value) {
       return result.value;
     }
   } catch (e) {
     console.error('Error getting WebDAV config from IndexedDB:', e);
   }
-  
+
   return {
     serverUrl: "",
     username: "",
@@ -103,53 +103,53 @@ export const generateTimestampStr = (): string => {
 // 导出上传函数，供添加和编辑书签时使用
 export async function uploadBookmarksToWebDAV() {
   console.log("uploadBookmarksToWebDAV 被调用 - 验证过程开始");
-  
+
   try {
     // 1. 从IndexedDB加载WebDAV配置
     const db_connection = await db.openDB();
     const transaction = db_connection.transaction(["appSettings"], "readonly");
     const store = transaction.objectStore("appSettings");
     const request = store.get("webdav_config");
-    
+
     // 等待请求完成
     const result: { key: string; value: any } | undefined = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    
+
     // 2. 检查配置是否有效
     console.log("从IndexedDB加载的WebDAV配置:", result ? {
       ...result.value,
       password: result.value?.password ? "******" : null
     } : "未找到配置");
-    
+
     if (!result || !result.value) {
       console.log("未找到WebDAV配置，跳过上传");
       return false;
     }
-    
+
     const config = result.value;
     const isEnabled = !!config.serverUrl && !!config.username && !!config.password && !!config.autoSync;
-    
+
     if (!isEnabled) {
       console.log("WebDAV未启用或配置不完整，跳过上传");
       return false;
     }
-    
+
     if (!config.autoSync) {
       console.log("WebDAV auto-sync未启用，跳过上传");
       return false;
     }
-    
+
     console.log("WebDAV auto-sync已启用，开始准备上传...");
-    
+
     // 3. 准备上传数据 - 直接加载数据而不依赖组件引用
     const bookmarks = await db.getAllBookmarks();
     const folders = await db.getAllFolders();
     const tags = await db.getTags();
     const favoriteFolders = await db.getFavoriteFolders();
     const settings = await db.getAppSettings();
-    
+
     console.log("从数据库加载的数据:", {
       bookmarksCount: bookmarks.length,
       foldersCount: folders.length,
@@ -157,7 +157,7 @@ export async function uploadBookmarksToWebDAV() {
       favoriteFoldersCount: favoriteFolders?.length || 0,
       hasSettings: !!settings
     });
-    
+
     // 4. 准备API请求数据
     const data = {
       bookmarks,
@@ -167,11 +167,11 @@ export async function uploadBookmarksToWebDAV() {
       settings,
       syncDate: new Date().toISOString(),
     };
-    
+
     // 5. 生成上传文件路径
     const fileName = normalizePathWithTimestamp(config.storagePath);
     console.log(`准备上传到文件: ${fileName}`);
-    
+
     // 6. 执行上传请求
     const requestBody: any = {
       operation: 'upload',
@@ -181,7 +181,7 @@ export async function uploadBookmarksToWebDAV() {
       storagePath: config.storagePath,
       data: data
     };
-    
+
     // 解析路径获取文件名
     if (fileName && fileName.includes('bookmarks_')) {
       const pathParts = fileName.split('/');
@@ -190,7 +190,7 @@ export async function uploadBookmarksToWebDAV() {
         requestBody.fileName = fileNamePart;
       }
     }
-    
+
     console.log(`准备向API代理发送upload请求...`);
     console.log('请求体信息:', {
       operation: requestBody.operation,
@@ -201,7 +201,7 @@ export async function uploadBookmarksToWebDAV() {
       hasFileName: !!requestBody.fileName,
       dataIncluded: !!requestBody.data
     });
-    
+
     // 7. 发送请求
     const response = await fetch('/api/webdav', {
       method: 'POST',
@@ -210,20 +210,20 @@ export async function uploadBookmarksToWebDAV() {
       },
       body: JSON.stringify(requestBody)
     });
-    
+
     console.log(`API代理响应状态: ${response.status} ${response.statusText}`);
-    
+
     if (!response.ok) {
       throw new Error(`API proxy error: ${response.status} ${response.statusText}`);
     }
-    
+
     const responseData = await response.json();
-    
+
     // 8. 处理响应
     if (responseData.error) {
       throw new Error(`WebDAV operation failed: ${responseData.error}`);
     }
-    
+
     if (responseData.success) {
       console.log(`Bookmarks uploaded with timestamped filename: ${fileName}`);
       return true;
@@ -258,13 +258,13 @@ export default function WebDAVSync() {
         console.log("正在从IndexedDB加载WebDAV配置...")
         // 打开 IndexedDB 连接
         const db_connection = await db.openDB()
-        
+
         // 获取 WebDAV 配置
         const transaction = db_connection.transaction(["appSettings"], "readonly")
         const store = transaction.objectStore("appSettings")
-        
+
         const request = store.get("webdav_config")
-        
+
         request.onsuccess = () => {
           if (request.result) {
             const config = request.result.value
@@ -284,7 +284,7 @@ export default function WebDAVSync() {
             console.log("IndexedDB中没有找到WebDAV配置")
           }
         }
-        
+
         request.onerror = () => {
           console.error("Error loading WebDAV config from IndexedDB:", request.error)
         }
@@ -292,7 +292,7 @@ export default function WebDAVSync() {
         console.error("Failed to load WebDAV config:", error)
       }
     }
-    
+
     loadWebDAVConfig()
   }, [])
 
@@ -306,26 +306,26 @@ export default function WebDAVSync() {
       storagePath,
       autoSync,
     }
-    
+
     console.log("保存WebDAV配置到IndexedDB...", { ...config, password: password ? "******" : null })
-    
+
     try {
       // 打开 IndexedDB 连接
       const db_connection = await db.openDB()
-      
+
       // 保存 WebDAV 配置
       const transaction = db_connection.transaction(["appSettings"], "readwrite")
       const store = transaction.objectStore("appSettings")
-      
+
       const request = store.put({
         key: "webdav_config",
         value: config
       })
-      
+
       request.onsuccess = () => {
         console.log("WebDAV 配置已成功保存到IndexedDB")
       }
-      
+
       request.onerror = () => {
         console.error("Error saving WebDAV config to IndexedDB:", request.error)
       }
@@ -356,7 +356,7 @@ export default function WebDAVSync() {
     }
     return path + (withTimestamp ? `bookmarks_${generateTimestamp()}.json` : "bookmarks.json")
   }
-  
+
   // Helper function to generate timestamp YYYYMMDDHHMMSS
   const generateTimestamp = () => {
     const now = new Date()
@@ -382,7 +382,7 @@ export default function WebDAVSync() {
       } else {
         operation = 'upload';
       }
-      
+
       console.log(`WebDAV操作类型: ${operation}`);
 
       const requestBody: any = {
@@ -392,7 +392,7 @@ export default function WebDAVSync() {
         password,
         storagePath
       }
-      
+
       // 如果路径中包含文件名且不仅仅是基础路径，将其作为fileName参数传递
       if (path && path.includes('bookmarks_')) {
         const pathParts = path.split('/');
@@ -419,7 +419,7 @@ export default function WebDAVSync() {
         hasFileName: !!requestBody.fileName,
         dataIncluded: !!data
       });
-      
+
       const response = await fetch('/api/webdav', {
         method: 'POST',
         headers: {
@@ -427,7 +427,7 @@ export default function WebDAVSync() {
         },
         body: JSON.stringify(requestBody)
       })
-      
+
       console.log(`API代理响应状态: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
@@ -449,7 +449,7 @@ export default function WebDAVSync() {
           throw new Error(`WebDAV download failed: ${responseData.error || 'Unknown error'}`);
         }
       }
-      
+
       // 处理检查文件操作的响应
       if (method === 'PROPFIND') {
         return responseData;
@@ -471,10 +471,10 @@ export default function WebDAVSync() {
   const checkFileExists = async () => {
     try {
       console.log("Checking if file exists using API proxy...")
-      
+
       // 使用PROPFIND方法通过API代理检查文件是否存在
       const response = await webdavRequest("PROPFIND", normalizePath(storagePath))
-      
+
       // API代理会返回一个包含exists字段的对象
       return response.exists === true
     } catch (error) {
@@ -484,7 +484,7 @@ export default function WebDAVSync() {
   }
 
   // 移除组件引用逻辑，因为我们已经重构了uploadBookmarksToWebDAV函数，不再依赖它
-  
+
   // 更新WebDAV状态和配置时，确保同步保存到IndexedDB
   useEffect(() => {
     // 这个效果只会在表单状态改变时触发保存
@@ -492,7 +492,7 @@ export default function WebDAVSync() {
     const isEnabled = !!serverUrl && !!username && !!password && autoSync;
     console.log("WebDAV状态更新:", {isEnabled});
   }, [serverUrl, username, password, storagePath, autoSync]);
-  
+
   // Upload bookmarks to WebDAV - 改进了错误处理和调试信息
   const uploadBookmarks = async () => {
     console.log("组件内uploadBookmarks函数被调用");
@@ -511,7 +511,7 @@ export default function WebDAVSync() {
     // 在上传前保存WebDAV配置，确保最新配置被存储
     await saveWebDAVConfig()
     console.log("WebDAV configuration updated before upload")
-    
+
     console.log("当前书签数据状态:", {
       bookmarksCount: bookmarks.length,
       foldersCount: folders.length,
@@ -551,16 +551,16 @@ export default function WebDAVSync() {
       console.log("Starting data upload to WebDAV server...")
       setSyncProgress(50)
       setMessage("Uploading data...")
-      
+
       // 使用带时间戳的文件名进行上传
       const fileName = normalizePath(storagePath, true)
       console.log(`准备上传到文件: ${fileName}`)
-      
+
       try {
         console.log("发起webdavRequest...");
         const result = await webdavRequest("PUT", fileName, data)
         console.log("webdavRequest返回结果:", result);
-        
+
         console.log(`Bookmarks uploaded with timestamped filename: ${fileName}`)
         setSyncProgress(100)
         setMessage("Upload complete!")
@@ -572,7 +572,7 @@ export default function WebDAVSync() {
       }
     } catch (error) {
       console.error("Error uploading bookmarks:", error)
-      
+
       // 提供更详细的错误信息
       let errorMessage = "Upload failed: "
       if (error instanceof Error) {
@@ -581,7 +581,7 @@ export default function WebDAVSync() {
       } else {
         errorMessage += String(error)
       }
-      
+
       // 添加更有用的错误提示
       if (errorMessage.includes("Failed to fetch") || errorMessage.includes("Network error")) {
         errorMessage += ". Please check your network connection and WebDAV server address."
@@ -592,7 +592,7 @@ export default function WebDAVSync() {
       } else if (errorMessage.includes("CORS")) {
         errorMessage += ". The WebDAV server may not allow cross-domain requests from this application."
       }
-      
+
       setSyncError(errorMessage)
       setSyncProgress(0)
       return false
@@ -653,9 +653,9 @@ export default function WebDAVSync() {
           settings: any;
           syncDate?: string;
         };
-        
+
         const typedData = data as BackupData;
-        
+
         console.log("Importing downloaded bookmark data", {
           bookmarksCount: typedData.bookmarks?.length || 0,
           foldersCount: typedData.folders?.length || 0,
@@ -671,7 +671,7 @@ export default function WebDAVSync() {
       }
     } catch (error) {
       console.error("Error downloading bookmarks:", error)
-      
+
       // 提供更详细的错误信息
       let errorMessage = "Download failed: "
       if (error instanceof Error) {
@@ -680,7 +680,7 @@ export default function WebDAVSync() {
       } else {
         errorMessage += String(error)
       }
-      
+
       // 添加更有用的错误提示
       if (errorMessage.includes("Failed to fetch") || errorMessage.includes("Network error")) {
         errorMessage += ". Please check your network connection and WebDAV server address."
@@ -693,7 +693,7 @@ export default function WebDAVSync() {
       } else if (errorMessage.includes("parse")) {
         errorMessage += ". The data format returned by the server may be incorrect."
       }
-      
+
       setSyncError(errorMessage)
       setSyncProgress(0)
       return false
@@ -711,7 +711,7 @@ export default function WebDAVSync() {
         {t("webdav.configure")}
       </Button>
 
-      <Modal opened={syncModalOpen} onClose={() => setSyncModalOpen(false)} title={t("webdav.configure")} centered size="lg">
+      <Modal opened={syncModalOpen} onClose={() => setSyncModalOpen(false)} title={t("webdav.configure")} centered size="lg" classNames={{ header: 'border-none' }}>
         <div className="space-y-4">
           <Text size="sm" color="dimmed">
             {t("webdav.webdavDescription")}

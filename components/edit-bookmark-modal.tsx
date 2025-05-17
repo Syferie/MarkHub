@@ -393,7 +393,7 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
   }
 
   return (
-    <Modal opened={isOpen} onClose={onClose} title={t("bookmarkModal.editTitle")} centered>
+    <Modal opened={isOpen} onClose={onClose} title={t("bookmarkModal.editTitle")} centered classNames={{ header: 'border-none' }}>
       <div className="space-y-4">
         <TextInput
           label={t("bookmarkModal.title")}

@@ -243,7 +243,7 @@ export default function ImportExport() {
         </Button>
       </Group>
 
-      <Modal opened={importModalOpen} onClose={closeModal} title={t("importExport.importBookmarks")} centered size="lg">
+      <Modal opened={importModalOpen} onClose={closeModal} title={t("importExport.importBookmarks")} centered size="lg" classNames={{ header: 'border-none' }}>
         <Tabs value={activeTab} onChange={setActiveTab}>
           <Tabs.List>
             <Tabs.Tab value="upload">{t("importExport.uploadFile")}</Tabs.Tab>

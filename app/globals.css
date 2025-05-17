@@ -389,8 +389,7 @@ button:active,
   background-color: #3a3a3a;
 }
 
-.dark .mantine-Select-item[data-selected],
-.dark .mantine-Select-item[dataSelected] {
+.dark .mantine-Select-item[data-selected] {
   background-color: rgba(var(--accent-rgb), 0.2);
   color: #ffffff;
 }
@@ -422,8 +421,7 @@ button:active,
   background-color: #3a3a3a;
 }
 
-.dark .mantine-Combobox-option[data-selected],
-.dark .mantine-Combobox-option[dataSelected] {
+.dark .mantine-Combobox-option[data-selected] {
   background-color: rgba(var(--accent-rgb), 0.2);
 }
 
@@ -439,8 +437,7 @@ button:active,
   border-color: #444444;
 }
 
-.dark .mantine-Modal-content[data-with-border],
-.dark .mantine-Modal-content[dataWithBorder] {
+.dark .mantine-Modal-content {
   border-color: #444444;
 }
 
@@ -470,14 +467,12 @@ button:active,
   background-color: var(--accent-color) !important;
 }
 
-.mantine-Tabs-tab[data-active],
-.mantine-Tabs-tab[dataActive] {
+.mantine-Tabs-tab[data-active] {
   color: var(--accent-color) !important;
   border-color: var(--accent-color) !important;
 }
 
-.mantine-Switch-track[data-checked],
-.mantine-Switch-track[dataChecked] {
+.mantine-Switch-track[data-checked] {
   background-color: var(--accent-color) !important;
 }
 
@@ -486,8 +481,7 @@ button:active,
   border-color: var(--accent-color) !important;
 }
 
-.mantine-ActionIcon-root[data-variant="filled"],
-.mantine-ActionIcon-root[dataVariant="filled"] {
+.mantine-ActionIcon-root[data-variant="filled"] {
   background-color: var(--accent-color) !important;
 }
 
@@ -573,8 +567,7 @@ body {
   color: #e0e0e0;
 }
 
-.dark .mantine-Tabs-tab[data-active],
-.dark .mantine-Tabs-tab[dataActive] {
+.dark .mantine-Tabs-tab[data-active] {
   color: var(--accent-color);
   border-color: var(--accent-color);
 }

@@ -9,6 +9,20 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // 添加自定义 headers 配置，移除 browsing-topics
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()'
+          }
+        ]
+      }
+    ];
+  },
   webpack: (config, { dev, isServer }) => {
     // 生产环境下的优化
     if (!dev) {
@@ -44,14 +58,14 @@ const nextConfig = {
           },
         },
       };
-      
+
       // 生产环境下启用压缩
       config.optimization.minimize = true;
     }
-    
+
     return config;
   },
-  
+
   // 优化构建过程
   experimental: {
     // 改进代码拆分

@@ -42,9 +42,6 @@ export default function RootLayout({
             Modal: {
               styles: {
                 content: {
-                  '&[data-with-border]': {
-                    border: '1px solid var(--mantine-color-gray-3)',
-                  },
                   '&[dataWithBorder]': {
                     border: '1px solid var(--mantine-color-gray-3)',
                   }
