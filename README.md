@@ -17,7 +17,7 @@ MarkHub已部署官方站点，访问 [markhub.app](https://markhub.app) 即可�
 - 功能：直接从任何网页添加书签，快速打开MarkHub官方网站
 - 兼容性：目前仅支持与官方站点协作使用
 - 下载方式：
-  - [直接下载链接](https://github.com/Syferie/MarkHub/releases/download/v1.0/markhub-extension.crx)
+  - [直接下载链接](https://github.com/Syferie/MarkHub/releases/download/v1.0/markhub-extension.zip)
   - 或在GitHub项目的Releases页面下载
 
 ## 技术栈

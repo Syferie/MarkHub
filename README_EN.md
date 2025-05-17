@@ -17,7 +17,7 @@ We offer a Chrome browser extension that makes it easy to add bookmarks to MarkH
 - Features: Add bookmarks directly from any webpage, quickly open the MarkHub official website
 - Compatibility: Currently only works with the official website
 - Download options:
-  - [Direct download link](https://github.com/Syferie/MarkHub/releases/download/v1.0/markhub-extension.crx)
+  - [Direct download link](https://github.com/Syferie/MarkHub/releases/download/v1.0/markhub-extension.zip)
   - Or download from the Releases page on GitHub
 
 ## Tech Stack
