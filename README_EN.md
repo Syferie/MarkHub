@@ -65,6 +65,8 @@ The project is built on a modern front-end technology stack:
 ### 5. AI Smart Tag Generation
 
 - Automatically generate tag suggestions for bookmarks through an external API
+- **Smart matching with existing tags**: AI only recommends tags from the existing tag collection in the application, ensuring consistency and tidiness of the classification system
+- Does not create new tags, avoiding tag system chaos and maintaining the organizational structure established by the user
 - Asynchronous task processing model (task submission, status polling)
 - User interface integration:
   - Use via "AI Suggest Tags" button in the add/edit bookmark modal
@@ -80,6 +82,9 @@ The project is built on a modern front-end technology stack:
 ### 6. AI Smart Folder Recommendation
 
 - Intelligently recommend appropriate folder names based on bookmark content
+- **Smart matching with existing folders**: AI only recommends from the folder structure already created by the user, without creating new folders
+- Maintains consistency of folder structure, avoiding creation of redundant or unnecessary folders
+- Helps users quickly categorize new bookmarks while maintaining existing organizational structure
 - Support for single bookmark and bulk bookmark processing
 - User interface integration:
   - Use via "AI Suggest Folder" button in the add/edit bookmark modal
