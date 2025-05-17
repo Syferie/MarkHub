@@ -117,46 +117,49 @@ export function AIClassificationProvider({ children }: { children: ReactNode }) 
     setTaskQueue(prevQueue => [...prevQueue, newTask])
   }
 
-  // 批量添加任务
+  // 批量添加任务 - 针对小批量书签优化版本
   const addTasks = (bookmarksData: BookmarkData[]) => {
-    const newTasks: AIClassificationTask[] = []
-
-    for (const bookmarkData of bookmarksData) {
-      // 生成任务的唯一标识符，结合URL和添加时间
-      const bookmarkKey = `${bookmarkData.url}_${bookmarkData.addedAt}`
-
-      // 检查是否已经在处理中或已处理过，避免重复任务
+    
+    if (!bookmarksData.length) return;
+    
+    // 创建一个新任务数组
+    const newTasks: AIClassificationTask[] = [];
+    const timestamp = Date.now(); // 使用单一时间戳，避免多次调用Date.now()
+    
+    // 处理每个书签数据
+    for (let i = 0; i < bookmarksData.length; i++) {
+      const bookmarkData = bookmarksData[i];
+      const bookmarkKey = `${bookmarkData.url}_${bookmarkData.addedAt}`;
+      
+      // 检查任务是否已存在
       if (processedBookmarks.current.has(bookmarkKey)) {
-        console.log(`任务已存在，跳过: ${bookmarkKey}`)
-        continue
+        continue;
       }
-
-      // 生成任务ID
-      const taskId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-
-      // 添加到已处理集合，值为任务ID
-      processedBookmarks.current.set(bookmarkKey, taskId)
-
-      // 创建新任务，使用前面生成的唯一ID
-      const newTask: AIClassificationTask = {
+      
+      // 创建唯一ID (使用索引作为区分，减少随机数生成开销)
+      const taskId = `${timestamp}-${i}-${Math.random().toString(36).substring(2, 5)}`;
+      
+      // 添加到已处理集合
+      processedBookmarks.current.set(bookmarkKey, taskId);
+      
+      // 创建新任务
+      newTasks.push({
         id: taskId,
         url: bookmarkData.url,
         title: bookmarkData.title,
         addedAt: bookmarkData.addedAt,
         tags: bookmarkData.tags || [],
         description: bookmarkData.description || "",
-
+        
         tagStatus: 'pending',
         folderStatus: 'pending',
         overallStatus: 'pending'
-      }
-
-      newTasks.push(newTask)
+      });
     }
-
-    // 批量添加到队列
+    
+    // 如果有新任务，一次性更新状态
     if (newTasks.length > 0) {
-      setTaskQueue(prevQueue => [...prevQueue, ...newTasks])
+      setTaskQueue(prevQueue => [...prevQueue, ...newTasks]);
     }
   }
 
@@ -392,119 +395,97 @@ export function AIClassificationProvider({ children }: { children: ReactNode }) 
     }
   }
 
-  // 将任务分类结果持久化到书签数据库的函数
+  // 将任务分类结果持久化到书签数据库的函数 - 优化版本
   const persistClassificationResult = async (task: AIClassificationTask, status: TaskStatus) => {
-    // 首先检查任务ID是否已在持久化集合中
-    if (persistingTaskIdsRef.current.has(task.id)) {
-      console.log(`Task ${task.id} is already being persisted, skipping duplicate save.`);
+    // 防止重复保存
+    if (persistingTaskIdsRef.current.has(task.id) || task.isPersisting || task.isPersisted) {
       return;
     }
 
     try {
-      // 将任务ID添加到持久化集合中
+      // 标记为正在持久化
       persistingTaskIdsRef.current.add(task.id);
-
-      // 检查任务是否正在保存中，如果是，则跳过（保留原有检查）
-      if (task.isPersisting) {
-        console.log(`书签 ${task.title} (ID: ${task.id}) 已经在保存过程中，跳过重复保存`);
-        return;
-      }
-
-      console.log(`正在保存书签: ${task.title} (ID: ${task.id})`);
-
-      // 检查任务是否已经保存过，通过在processedBookmarks中查找
-      // 我们通过检查Map中存储的任务ID是否与当前任务的ID相同来判断
-      const bookmarkKey = `${task.url}_${task.addedAt}`;
-      const storedTaskId = processedBookmarks.current.get(bookmarkKey);
-
-      // 如果这个任务已经保存过（已处理的任务ID与当前任务ID不同），则跳过保存
-      if (storedTaskId && storedTaskId !== task.id) {
-        console.log(`书签 ${task.title} 已经被其他任务处理过 (原任务ID: ${storedTaskId})，跳过保存`);
-        return;
-      }
-
-      // 设置任务为正在保存状态
-      setTaskQueue(prevQueue =>
-        prevQueue.map(t =>
-          t.id === task.id ? { ...t, isPersisting: true } : t
-        )
-      );
-
-      // 1. 从任务中提取核心信息
-      const { url, title, description, tags: originalTags, addedAt } = task;
-
-      // 2. 处理标签
-      // 如果标签生成成功，使用生成的标签；如果失败，使用原始标签或空数组
-      const tags = task.tagStatus === 'tags_generated' && task.generatedTags
-        ? task.generatedTags
-        : (originalTags || []);
-
-      // 3. 处理文件夹
-      let folderId: string | null = null;
-
-      if (task.folderStatus === 'folder_suggested' && task.suggestedFolder) {
-        // 查找建议的文件夹是否存在
-        const suggestedFolderName = task.suggestedFolder.trim();
-        const matchingFolder = folders.find(f => f.name.toLowerCase() === suggestedFolderName.toLowerCase());
-
-        if (matchingFolder) {
-          // 如果文件夹存在，使用它的ID
-          folderId = matchingFolder.id;
-          console.log(`找到匹配的文件夹 "${suggestedFolderName}", ID: ${folderId}`);
-        } else {
-          // 方案A: 使用默认文件夹（根目录，folderId = null）
-          folderId = null;
-          console.log(`未找到文件夹 "${suggestedFolderName}", 使用默认文件夹`);
-
-          // 方案B (不实现): 创建新文件夹并使用它
-          // 如果将来需要实现方案B，可以调用 addFolder 创建新文件夹
-        }
-      }
-
-      // 4. 构建符合 Bookmark 类型的对象
-      const bookmarkData: Bookmark = {
-        id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        title: title,
-        url: url,
-        folderId: folderId,
-        tags: tags,
-        createdAt: addedAt || new Date().toISOString(),
-        favicon: "",  // 默认空字符串，favicon会在addBookmark函数中自动获取
-        isFavorite: false  // 默认不是收藏
+      
+      // 使用 requestIdleCallback 在浏览器空闲时执行持久化操作
+      // 这样可以避免阻塞主线程，优化性能
+      const saveTask = () => {
+        // 设置任务为正在保存状态（使用单一状态更新）
+        setTaskQueue(prevQueue =>
+          prevQueue.map(t => t.id === task.id ? { ...t, isPersisting: true } : t)
+        );
+        
+        // 异步执行保存操作
+        (async () => {
+          try {
+            // 从任务中提取核心信息
+            const { url, title, description, tags: originalTags, addedAt } = task;
+            
+            // 处理标签
+            const tags = task.tagStatus === 'tags_generated' && task.generatedTags
+              ? task.generatedTags
+              : (originalTags || []);
+            
+            // 处理文件夹
+            let folderId: string | null = null;
+            
+            if (task.folderStatus === 'folder_suggested' && task.suggestedFolder) {
+              const suggestedFolderName = task.suggestedFolder.trim();
+              const matchingFolder = folders.find(f =>
+                f.name.toLowerCase() === suggestedFolderName.toLowerCase()
+              );
+              
+              if (matchingFolder) {
+                folderId = matchingFolder.id;
+              } else {
+                folderId = null;
+              }
+            }
+            
+            // 构建书签数据对象
+            const bookmarkData: Bookmark = {
+              id: `bookmark-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+              title: title,
+              url: url,
+              folderId: folderId,
+              tags: tags,
+              createdAt: addedAt || new Date().toISOString(),
+              favicon: "",
+              isFavorite: false
+            };
+            
+            // 调用 BookmarkContext 的 addBookmark 方法保存书签
+            await addBookmark(bookmarkData);
+            
+            // 完成后更新任务状态（使用单一状态更新，避免多次更新）
+            setTaskQueue(prevQueue =>
+              prevQueue.map(t => t.id === task.id ? {
+                ...t,
+                isPersisting: false,
+                isPersisted: true
+              } : t)
+            );
+          } catch (error) {
+            console.error(`保存书签数据失败:`, error);
+            
+            // 出错时恢复任务状态
+            setTaskQueue(prevQueue =>
+              prevQueue.map(t => t.id === task.id ? { ...t, isPersisting: false } : t)
+            );
+          } finally {
+            // 清理持久化集合
+            persistingTaskIdsRef.current.delete(task.id);
+          }
+        })();
       };
-
-      // 5. 调用 BookmarkContext 的 addBookmark 方法保存书签
-      await addBookmark(bookmarkData);
-
-      console.log(`Bookmark "${title}" has been successfully saved to the database`);
-
-      // 注意: 由于已经使用了 BookmarkContext 的 addBookmark，
-      // BookmarkContext 会自动通知依赖它的组件更新，不需要额外通知
-
-      // 更新任务的 isPersisted 状态为 true
-      setTaskQueue(prevQueue =>
-        prevQueue.map(t =>
-          t.id === task.id ? { ...t, isPersisted: true } : t
-        )
-      );
-
-      // 6. 处理已完成的任务 (可选，根据需要)
-      // 在这个示例中，我们不从队列中移除任务，而是保持其最终状态
-      // 这样用户可以看到处理历史，但可以通过clearCompletedTasks手动清除
-
+      
+      // 使用 requestIdleCallback 或降级到 setTimeout
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(saveTask);
+      } else {
+        setTimeout(saveTask, 10);
+      }
     } catch (error) {
-      console.error(`保存书签数据失败:`, error);
-      throw error; // 重新抛出错误，让调用方处理
-    } finally {
-      // 无论成功还是失败，都将任务的isPersisting状态重置为false
-      // 这是为了防止任务状态卡在isPersisting=true，从而永远无法再次保存
-      setTaskQueue(prevQueue =>
-        prevQueue.map(t =>
-          t.id === task.id ? { ...t, isPersisting: false } : t
-        )
-      );
-
-      // 从持久化中任务ID集合中移除当前任务ID
+      console.error(`安排保存任务失败:`, error);
       persistingTaskIdsRef.current.delete(task.id);
     }
   };

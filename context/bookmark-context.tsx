@@ -795,45 +795,100 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 用于缓存子文件夹ID的映射
+  const childFolderIdsCache = useRef<Record<string, string[]>>({});
+
+  // 优化的getChildFolderIds函数，使用缓存避免重复计算
+  const getChildFolderIds = (folderId: string): string[] => {
+    // 如果缓存中已有结果，直接返回
+    if (childFolderIdsCache.current[folderId]) {
+      return childFolderIdsCache.current[folderId];
+    }
+
+    const directChildren = folders.filter((f) => f.parentId === folderId);
+    const childIds = directChildren.map((f) => f.id);
+
+    // 递归获取所有子文件夹ID
+    const allChildIds = [...childIds];
+    for (const childId of childIds) {
+      allChildIds.push(...getChildFolderIds(childId));
+    }
+
+    // 缓存结果
+    childFolderIdsCache.current[folderId] = allChildIds;
+    return allChildIds;
+  }
+
+  // 当文件夹结构变化时，清除缓存
+  useEffect(() => {
+    childFolderIdsCache.current = {};
+  }, [folders]);
+
+  // 使用useMemo优化的filteredBookmarks函数
+  const filteredBookmarksCache = useRef<Record<string, Bookmark[]>>({});
+  const filteredBookmarksCacheKey = useRef<string>('');
+
   // Filter bookmarks based on selected folder, tags, and search query
   const filteredBookmarks = (activeTab: string, searchQuery: string, fields: string[] = searchFields) => {
-    let filtered = [...bookmarks]
+    // 创建缓存键
+    const cacheKey = `${activeTab}_${selectedFolderId || 'null'}_${selectedTags.join(',')}_${searchQuery}_${fields.join(',')}_${currentSortOption}`;
 
+    // 如果缓存键与上次相同，直接返回缓存结果
+    if (cacheKey === filteredBookmarksCacheKey.current && filteredBookmarksCache.current[cacheKey]) {
+      return filteredBookmarksCache.current[cacheKey];
+    }
+
+    // 更新缓存键
+    filteredBookmarksCacheKey.current = cacheKey;
+
+    // 开始过滤
+    let filtered = [...bookmarks];
+
+    // 使用更高效的过滤方式
     // Filter by active tab
     if (activeTab === "favorites") {
-      filtered = filtered.filter((bookmark) => bookmark.isFavorite)
+      filtered = filtered.filter((bookmark) => bookmark.isFavorite);
     } else if (activeTab !== "all") {
-      filtered = filtered.filter((bookmark) => bookmark.folderId === activeTab)
+      filtered = filtered.filter((bookmark) => bookmark.folderId === activeTab);
     }
 
-    // Filter by selected folder
+    // Filter by selected folder - 使用缓存的子文件夹ID
     if (selectedFolderId) {
-      const childFolderIds = getChildFolderIds(selectedFolderId)
+      const childFolderIds = getChildFolderIds(selectedFolderId);
+      // 创建一个Set以提高includes的性能
+      const folderIdSet = new Set([selectedFolderId, ...childFolderIds]);
       filtered = filtered.filter(
-        (bookmark) => bookmark.folderId === selectedFolderId || childFolderIds.includes(bookmark.folderId || ""),
-      )
+        (bookmark) => bookmark.folderId && folderIdSet.has(bookmark.folderId)
+      );
     }
 
-    // Filter by selected tags
+    // Filter by selected tags - 使用Set提高性能
     if (selectedTags.length > 0) {
+      const tagSet = new Set(selectedTags);
       filtered = filtered.filter(
-        (bookmark) => bookmark.tags && selectedTags.some((tag) => bookmark.tags?.includes(tag)),
-      )
+        (bookmark) => bookmark.tags && bookmark.tags.some((tag) => tagSet.has(tag))
+      );
     }
 
     // Filter by search query using fuzzy search
     if (searchQuery) {
+      // 只有当搜索查询不为空时才创建Fuse实例，避免不必要的计算
       const fuse = new Fuse(filtered, {
         keys: fields,
         threshold: 0.4,
         ignoreLocation: true,
-      })
-      const result = fuse.search(searchQuery)
-      filtered = result.map((item) => item.item)
+      });
+      const result = fuse.search(searchQuery);
+      filtered = result.map((item) => item.item);
     }
 
     // Sort the filtered bookmarks
-    return sortBookmarks(filtered)
+    const sortedResult = sortBookmarks(filtered);
+
+    // 缓存结果
+    filteredBookmarksCache.current[cacheKey] = sortedResult;
+
+    return sortedResult;
   }
 
   // Bookmark operations
@@ -955,13 +1010,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     // }
   }
 
-  // Helper to get all child folder IDs recursively
-  const getChildFolderIds = (folderId: string): string[] => {
-    const directChildren = folders.filter((f) => f.parentId === folderId)
-    const childIds = directChildren.map((f) => f.id)
-
-    return [...childIds, ...childIds.flatMap((id) => getChildFolderIds(id))]
-  }
+  // 这个函数已经被上面优化的版本替代
 
   // Tag operations
   const addTag = (tag: string) => {

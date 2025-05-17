@@ -1156,63 +1156,79 @@ export default function BookmarkList({
   }
 
   // 在标签生成任务完成后一段时间自动隐藏状态面板
-  // 当任务处理状态变化时监听
+  // 优化: 合并两个效果函数，减少重复逻辑和状态变化的监听器数量
   useEffect(() => {
-    console.log(`[DEBUG] BulkTagGeneration state changed: inProgress=${bulkTagGeneration?.inProgress}, completed=${bulkTagGeneration?.completed}/${bulkTagGeneration?.total}, isCancelled=${bulkTagGeneration?.isCancelled}`);
+    // 使用防抖处理状态同步，避免短时间内多次触发
+    const syncTagGenerationState = () => {
+      if (!bulkTagGeneration) return;
 
-    // 同步状态到ref
-    if (bulkTagGeneration !== bulkTagGenerationRef.current) {
-      bulkTagGenerationRef.current = bulkTagGeneration;
-    }
+      // 使用 requestIdleCallback 延迟处理状态同步，避免阻塞主线程
+      const scheduleUpdate = window.requestIdleCallback || ((cb) => setTimeout(cb, 50));
 
-    // 当任务完成时自动隐藏状态面板
-    if (bulkTagGeneration &&
-        !bulkTagGeneration.inProgress &&
-        bulkTagGeneration.completed === bulkTagGeneration.total) {
-      const timer = setTimeout(() => {
-        // 只有在全部处理完成且不再有失败的情况下，才自动隐藏
-        if (bulkTagGeneration.failed === 0) {
-          setShowTagGenerationStatus(false)
-          setBulkTagGeneration(null)
-          bulkTagGenerationRef.current = null
-
-          // 清理 localStorage
-          saveStateToLocalStorage(null)
+      scheduleUpdate(() => {
+        // 同步状态到ref，不再打印调试日志
+        if (bulkTagGeneration !== bulkTagGenerationRef.current) {
+          bulkTagGenerationRef.current = bulkTagGeneration;
         }
-      }, 5000) // 5秒后自动隐藏
 
-      return () => clearTimeout(timer)
-    }
-  }, [bulkTagGeneration])
+        // 当任务完成时自动隐藏状态面板
+        if (!bulkTagGeneration.inProgress &&
+            bulkTagGeneration.completed === bulkTagGeneration.total &&
+            bulkTagGeneration.failed === 0) {
+          // 使用延迟隐藏，不立即清理状态
+          const timer = setTimeout(() => {
+            setShowTagGenerationStatus(false);
+            // 使用函数式更新，减少依赖状态变化
+            setBulkTagGeneration(() => null);
+            bulkTagGenerationRef.current = null;
 
-  // 在文件夹生成任务完成后一段时间自动隐藏状态面板
-  useEffect(() => {
-    console.log(`[DEBUG] BulkFolderGeneration state changed: inProgress=${bulkFolderGeneration?.inProgress}, completed=${bulkFolderGeneration?.completed}/${bulkFolderGeneration?.total}, isCancelled=${bulkFolderGeneration?.isCancelled}`);
+            // 异步清理 localStorage，避免同步IO阻塞
+            setTimeout(() => saveStateToLocalStorage(null), 0);
+          }, 5000); // 5秒后自动隐藏
 
-    // 同步状态到ref
-    if (bulkFolderGeneration !== bulkFolderGenerationRef.current) {
-      bulkFolderGenerationRef.current = bulkFolderGeneration;
-    }
-
-    // 当任务完成时自动隐藏状态面板
-    if (bulkFolderGeneration &&
-        !bulkFolderGeneration.inProgress &&
-        bulkFolderGeneration.completed === bulkFolderGeneration.total) {
-      const timer = setTimeout(() => {
-        // 只有在全部处理完成且不再有失败的情况下，才自动隐藏
-        if (bulkFolderGeneration.failed === 0) {
-          setShowFolderGenerationStatus(false)
-          setBulkFolderGeneration(null)
-          bulkFolderGenerationRef.current = null
-
-          // 清理 localStorage
-          saveFolderStateToLocalStorage(null)
+          return () => clearTimeout(timer);
         }
-      }, 5000) // 5秒后自动隐藏
+      });
+    };
 
-      return () => clearTimeout(timer)
-    }
-  }, [bulkFolderGeneration])
+    // 处理文件夹生成状态
+    const syncFolderGenerationState = () => {
+      if (!bulkFolderGeneration) return;
+
+      // 使用 requestIdleCallback 延迟处理状态同步
+      const scheduleUpdate = window.requestIdleCallback || ((cb) => setTimeout(cb, 50));
+
+      scheduleUpdate(() => {
+        // 同步状态到ref，不再打印调试日志
+        if (bulkFolderGeneration !== bulkFolderGenerationRef.current) {
+          bulkFolderGenerationRef.current = bulkFolderGeneration;
+        }
+
+        // 当任务完成时自动隐藏状态面板
+        if (!bulkFolderGeneration.inProgress &&
+            bulkFolderGeneration.completed === bulkFolderGeneration.total &&
+            bulkFolderGeneration.failed === 0) {
+          // 使用延迟隐藏，不立即清理状态
+          const timer = setTimeout(() => {
+            setShowFolderGenerationStatus(false);
+            // 使用函数式更新，减少依赖状态变化
+            setBulkFolderGeneration(() => null);
+            bulkFolderGenerationRef.current = null;
+
+            // 异步清理 localStorage，避免同步IO阻塞
+            setTimeout(() => saveFolderStateToLocalStorage(null), 0);
+          }, 5000); // 5秒后自动隐藏
+
+          return () => clearTimeout(timer);
+        }
+      });
+    };
+
+    // 执行状态同步
+    if (bulkTagGeneration) syncTagGenerationState();
+    if (bulkFolderGeneration) syncFolderGenerationState();
+
+  }, [bulkTagGeneration, bulkFolderGeneration]);
 
   // 添加刷新/关闭前警告
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Tabs, ActionIcon, TextInput, Button, Badge, Checkbox } from "@mantine/core"
 import { IconSearch, IconPlus, IconAdjustments, IconFolder, IconSettings, IconStar, IconX } from "@tabler/icons-react"
 import { AIClassificationIndicator } from "./ai-classification-indicator"
@@ -69,8 +69,10 @@ export default function BookmarkDashboard() {
     setFolderName(getFolderName())
   }, [selectedFolderId, folders])
 
-  // Get filtered bookmarks based on active tab, search query, selected folder, and selected tags
-  const bookmarksToShow = filteredBookmarks ? filteredBookmarks(activeTab, searchQuery, searchFields) : []
+  // 使用useMemo优化过滤书签的计算，避免不必要的重新计算
+  const bookmarksToShow = useMemo(() => {
+    return filteredBookmarks ? filteredBookmarks(activeTab, searchQuery, searchFields) : [];
+  }, [filteredBookmarks, activeTab, searchQuery, searchFields, selectedFolderId, selectedTags, currentSortOption]);
 
   // Get favorite folders for tabs
   const favoriteFolderTabs =

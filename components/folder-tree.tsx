@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { ActionIcon, TextInput, Button, Tooltip } from "@mantine/core"
 import {
   IconFolder,
@@ -62,17 +62,26 @@ export default function FolderTree() {
     }
   }, [selectedFolderId, folders])
 
-  const toggleFolder = (folderId: string, e: React.MouseEvent) => {
-    e.stopPropagation()
+  // 使用useCallback优化文件夹展开/折叠函数
+  const toggleFolder = useCallback((folderId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setExpandedFolders((prev) => ({
       ...prev,
       [folderId]: !prev[folderId],
-    }))
-  }
+    }));
+  }, []);
 
-  const selectFolder = (folderId: string) => {
-    setSelectedFolderId && setSelectedFolderId(selectedFolderId === folderId ? null : folderId)
-  }
+  // 使用useCallback优化文件夹选择函数，避免不必要的重新创建
+  const selectFolder = useCallback((folderId: string) => {
+    // 如果点击的是当前已选中的文件夹，则取消选择
+    if (selectedFolderId === folderId) {
+      setSelectedFolderId && setSelectedFolderId(null);
+      return;
+    }
+
+    // 否则选择新文件夹
+    setSelectedFolderId && setSelectedFolderId(folderId);
+  }, [selectedFolderId, setSelectedFolderId]);
 
   const handleAddFolder = () => {
     if (newFolderName.trim() && addFolder) {

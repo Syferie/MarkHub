@@ -117,7 +117,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }
 
   return (
-    <Modal opened={isOpen} onClose={onClose} title={t("settings.title")} size="lg" centered>
+    <Modal opened={isOpen} onClose={onClose} title={t("settings.title")} size="lg" centered classNames={{ header: 'border-none' }}>
       <Tabs defaultValue="appearance">
         <Tabs.List>
           <Tabs.Tab value="appearance" leftSection={<IconPalette size={16} />}>
