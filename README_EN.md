@@ -72,6 +72,10 @@ The project is built on a modern front-end technology stack:
 - Technical implementation:
   - Backend API route: `app/api/generate-tags/route.ts`
   - Frontend API client: `lib/tag-api.ts`
+- Official API support:
+  - Base URL: `https://api.markhub.app`
+  - API Key: `linuxdo`
+  - Configure these details in the API tab of the settings panel to use the official AI service
 
 ### 6. AI Smart Folder Recommendation
 
@@ -83,6 +87,8 @@ The project is built on a modern front-end technology stack:
 - Technical implementation:
   - Backend API route: `app/api/suggest-folder/route.ts`
   - Frontend API client: `lib/folder-api.ts`
+- Official API support:
+  - Uses the same API settings as tag generation. This is completely free service
 
 ### 7. Multi-language Support (i18n)
 
@@ -297,6 +303,11 @@ The overall architecture follows the principles of componentization and modulari
 5. **Cloud Synchronization**: Support for synchronizing data across multiple devices via WebDAV
 6. **AI Assistance**: Smart tag generation and folder recommendation features improve user efficiency
 7. **Multi-language Support**: Built-in internationalization functionality makes the application accessible to global users
+8. **Mobile Optimization**: Responsive design optimized for mobile devices, including:
+   - Adaptive layout: Using tabbed interface on small screens instead of grid layout
+   - Touch-friendly interface: Optimized button sizes and spacing for touch operations
+   - Folder tree optimization: Simplified folder operations for mobile devices
+   - Bookmark list improvements: Enhanced card layout for better readability on small screens
 
 ## Data Flow
 
