@@ -194,6 +194,7 @@ export default function BookmarkDashboard() {
                     onClick={() => {
                       setSelectedFolderId && setSelectedFolderId(null)
                       setSelectedTags && setSelectedTags([])
+                      setActiveTab("all") // 重置活动标签为"all"
                     }}
                   >
                     {t("dashboard.clearFilters")}
