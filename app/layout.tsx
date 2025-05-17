@@ -23,30 +23,30 @@ export const metadata = {
       { url: '/apple-icon.png', sizes: '128x128', type: 'image/png' }
     ]
   },
-  // Open Graph协议元数据
+  // Open Graph协议元数据 - 已更新为官网提供的代码
   openGraph: {
-    title: "MarkHub - 现代书签管理应用",
-    description: "结合本地存储与云同步功能，通过AI智能标签和文件夹推荐，高效管理您的书签",
     url: "https://markhub.app",
+    type: "website",
+    title: "MarkHub",
+    description: "A modern bookmark manager with AI-powered tag generation and folder recommendations",
     siteName: "MarkHub",
     images: [
       {
-        url: "/og-image.png", // 使用专门为社交媒体分享创建的大尺寸图片
+        url: "https://s2.loli.net/2025/05/17/DkOxnl49tdqIGXy.png",
         width: 1200,
         height: 630,
         alt: "MarkHub Logo"
       }
-    ],
-    locale: "zh_CN",
-    type: "website"
+    ]
   },
-  // Twitter卡片元数据
+  // Twitter卡片元数据 - 已更新为官网提供的代码
   twitter: {
     card: "summary_large_image",
-    title: "MarkHub - Modern Bookmark Manager",
-    description: "Efficiently manage your bookmarks with AI-powered tag generation and folder recommendations",
-    images: ["/og-image.png"],
-    creator: "@markhub_app"
+    domain: "markhub.app",
+    url: "https://markhub.app",
+    title: "MarkHub",
+    description: "A modern bookmark manager with AI-powered tag generation and folder recommendations",
+    images: ["https://s2.loli.net/2025/05/17/DkOxnl49tdqIGXy.png"]
   }
 }
 
