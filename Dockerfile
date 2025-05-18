@@ -1,4 +1,4 @@
-# 使用Node.js 22 alpine作为基础镜像，确保使用最新的LTS版本
+# 使用Node.js 22 alpine作为基础镜像
 FROM node:22-alpine AS base
 
 # 设置工作目录
@@ -6,22 +6,27 @@ WORKDIR /app
 
 # 安装依赖阶段
 FROM base AS deps
-# 安装构建工具，用于某些依赖的原生编译
-RUN apk add --no-cache libc6-compat
+# 安装构建工具和git（有些包可能需要git）
+RUN apk add --no-cache libc6-compat git
 
-# 复制package.json和pnpm-lock.yaml
-COPY package.json pnpm-lock.yaml ./
+# 复制包管理和配置文件
+COPY package.json pnpm-lock.yaml* ./
+COPY tsconfig.json next.config.mjs ./
 
-# 安装依赖 - 使用pnpm以优化依赖树和安装速度
-# 使用--frozen-lockfile确保依赖版本一致性
-# 使用--prod标志只安装生产依赖，减小体积
+# 安装全部依赖（包括开发依赖）
 RUN npm install -g pnpm && \
-    pnpm install --frozen-lockfile --prod
+    pnpm install --frozen-lockfile
 
 # 构建应用阶段
 FROM base AS builder
 WORKDIR /app
+
+# 从依赖阶段复制依赖
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/tsconfig.json ./tsconfig.json
+COPY --from=deps /app/next.config.mjs ./next.config.mjs
+
+# 复制所有源代码
 COPY . .
 
 # 设置生产环境变量
@@ -32,10 +37,11 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm install -g pnpm && \
     pnpm build
 
-# 运行阶段 - 使用最新的Node.js 22 alpine镜像
-FROM node:22-alpine AS runner
+# 运行阶段
+FROM base AS runner
 WORKDIR /app
 
+# 设置环境变量
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
@@ -43,8 +49,11 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# 复制构建产物和必要文件，确保所有权限正确
+# 复制构建产物和必要文件
 COPY --from=builder /app/public ./public
+
+# 复制独立输出和静态文件
+# 确保权限正确
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
