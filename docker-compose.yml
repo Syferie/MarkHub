@@ -3,10 +3,7 @@ version: '3.8'
 services:
   # MarkHub应用服务
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: markhub:latest
+    image: syferie/markhub:latest
     container_name: markhub-app
     ports:
       - "3000:3000"
