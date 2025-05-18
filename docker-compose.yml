@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # MarkHub应用服务
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+    restart: unless-stopped
+    networks:
+      - markhub-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # Redis服务 - 用于AI任务队列管理
+  redis:
+    image: redis:alpine
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - markhub-network
+    command: redis-server --appendonly yes --save 60 1 --maxmemory 256mb --maxmemory-policy volatile-lru
+
+# 定义持久化存储
+volumes:
+  redis-data:
+    driver: local
+
+# 定义网络
+networks:
+  markhub-network:
+    driver: bridge

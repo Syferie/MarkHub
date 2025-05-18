@@ -319,6 +319,8 @@ MarkHub 书签管理器采用了清晰的分层架构设计，主要包括以下
 
 ## 开发与部署
 
+### 本地开发
+
 本项目使用 Next.js 框架，可通过以下命令运行：
 
 ```bash
@@ -347,11 +349,61 @@ npm run start
 pnpm start
 ```
 
+### Docker 部署
+
+MarkHub 支持使用 Docker 快速部署，我们提供了 Dockerfile 和 docker-compose.yml 配置文件，轻松实现一键部署。
+
+#### 使用 Docker Compose 部署（推荐）
+
+1. 克隆仓库并进入项目目录
+   ```bash
+   git clone https://github.com/yourusername/markhub.git
+   cd markhub
+   ```
+
+2. 启动服务
+   ```bash
+   docker-compose up -d
+   ```
+
+3. 访问应用
+   ```
+   http://localhost:3000
+   ```
+
+这将启动两个容器：
+- MarkHub 应用（Next.js）- 在3000端口提供服务
+- Redis服务 - 用于AI任务队列管理（不对外暴露端口）
+
+#### Docker 配置特点
+  
+- **安全加强**:
+  - 应用使用非root用户运行
+  - Redis不暴露外部端口
+  - 内置健康检查
+
+- **简化配置**:
+  - 所有必要的环境变量已在docker-compose.yml中设置
+  - 无需手动配置.env文件
+  - Redis数据持久化已配置，确保数据不会丢失
+
+#### 自定义部署
+
+如需自定义部署配置，可以编辑docker-compose.yml文件，例如修改端口映射或调整资源限制：
+
+```yaml
+# 修改端口映射示例
+ports:
+  - "8080:3000"  # 将应用映射到8080端口
+```
+
 ### 环境变量配置
 
-项目使用环境变量来存储敏感信息。在部署到生产环境之前，请确保设置以下环境变量：
+项目使用环境变量来存储敏感信息。在直接部署时，请确保设置以下环境变量：
 
 - `REDIS_URL`: (必需) 用于AI功能异步任务状态管理的Redis数据库连接URL。例如: `redis://localhost:6379`
+
+> **注意**: 使用Docker Compose部署时，环境变量已在配置文件中预设，无需额外配置。
 
 ## 许可证
 

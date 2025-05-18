@@ -319,6 +319,8 @@ User Operation → Component Event Handling → Context Actions → State Update
 
 ## Development and Deployment
 
+### Local Development
+
 This project uses the Next.js framework and can be run using the following commands:
 
 ```bash
@@ -347,11 +349,66 @@ npm run start
 pnpm start
 ```
 
-### Environment Variables (Note on changes)
+### Docker Deployment
 
-Projects use environment variables to store sensitive information. Before deploying to a production environment, make sure to set the following environment variables:
+MarkHub supports quick deployment using Docker. We provide Dockerfile and docker-compose.yml configuration files for effortless one-click deployment.
 
-- `REDIS_URL`: (Required) Redis database connection URL for AI-function asynchronous task state management. For example: `redis:--localhost:6379`
+#### Using Docker Compose (Recommended)
+
+1. Clone the repository and navigate to the project directory
+   ```bash
+   git clone https://github.com/yourusername/markhub.git
+   cd markhub
+   ```
+
+2. Start the services
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Access the application
+   ```
+   http://localhost:3000
+   ```
+
+This will start two containers:
+- MarkHub application (Next.js) - serving on port 3000
+- Redis service - for AI task queue management (not exposed externally)
+
+#### Docker Configuration Features
+
+- **Optimized Resource Usage**: 
+  - Application container memory limited to 512MB
+  - Redis container memory limited to 256MB
+  - Alpine base images to reduce container size
+  
+- **Enhanced Security**:
+  - Application runs with non-root user
+  - Redis does not expose external ports
+  - Built-in health checks
+
+- **Simplified Configuration**:
+  - All necessary environment variables are set in docker-compose.yml
+  - No need to manually configure .env file
+  - Redis data persistence configured, ensuring data won't be lost
+
+#### Custom Deployment
+
+To customize deployment configuration, you can edit the docker-compose.yml file, such as modifying port mapping or adjusting resource limits:
+
+```yaml
+# Example of modified port mapping
+ports:
+  - "8080:3000"  # Map application to port 8080
+```
+
+### Environment Variables
+
+The project uses environment variables to store sensitive information. When deploying directly, ensure you set the following environment variables:
+
+- `REDIS_URL`: (Required) Redis database connection URL for AI-function asynchronous task state management. For example: `redis://localhost:6379`
+
+> **Note**: When deploying with Docker Compose, environment variables are already preset in the configuration file, and no additional configuration is required.
 
 ## License
 
