@@ -728,7 +728,8 @@ export default function WebDAVSync() {
               disabled={!hasChanges || isSyncing}
               className="flex-grow sm:flex-grow-0"
             >
-              {t("settings.saveConfiguration") || "保存配置"}
+              {t("webdav.saveChanges") || "Save Changes"}
+              {/* TODO: Add 'webdav.saveChanges' to language files, e.g., { "en": "Save Changes", "zh-CN": "保存更改" } */}
             </Button>
             <Button
               leftSection={<IconCloudUpload size={16} />}

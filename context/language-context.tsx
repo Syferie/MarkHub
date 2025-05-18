@@ -180,6 +180,7 @@ const translations: Record<Language, Record<string, string>> = {
     "webdav.pathDescription": "Path where bookmarks will be stored on the server",
     "webdav.autoSyncDescription": "When enabled, your bookmarks will be automatically backed up to your cloud storage when you add or edit a bookmark.",
     "webdav.webdavDescription": "Sync your bookmarks with a WebDAV server to access them from any device.",
+    "webdav.saveChanges": "Save Changes",
 
     // 导入/导出
     "importExport.export": "Export",
@@ -419,6 +420,7 @@ const translations: Record<Language, Record<string, string>> = {
     "webdav.pathDescription": "书签将存储在服务器上的路径",
     "webdav.autoSyncDescription": "启用后，当您添加或编辑书签时，您的书签将自动备份到云存储。",
     "webdav.webdavDescription": "通过WebDAV服务器同步您的书签，以便从任何设备访问它们。",
+    "webdav.saveChanges": "保存更改",
 
     // 导入/导出
     "importExport.export": "导出",
