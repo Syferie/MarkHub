@@ -52,10 +52,13 @@ RUN addgroup --system --gid 1001 nodejs && \
 # 复制构建产物和必要文件
 COPY --from=builder /app/public ./public
 
-# 复制独立输出和静态文件
-# 确保权限正确
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# 安装pnpm
+RUN npm install -g pnpm
+
+# 复制.next目录和所有必要文件
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
 # 切换到非root用户
 USER nextjs
@@ -71,4 +74,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 CMD wget
 EXPOSE 3000
 
 # 启动应用
-CMD ["node", "server.js"]
+CMD ["pnpm", "start"]

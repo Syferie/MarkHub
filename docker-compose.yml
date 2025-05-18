@@ -6,6 +6,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: markhub:latest
+    container_name: markhub-app
     ports:
       - "3000:3000"
     depends_on:
@@ -24,12 +26,17 @@ services:
   # Redis服务 - 用于AI任务队列管理
   redis:
     image: redis:alpine
+    container_name: markhub-redis
     volumes:
       - redis-data:/data
     restart: unless-stopped
     networks:
       - markhub-network
     command: redis-server --appendonly yes --save 60 1 --maxmemory 256mb --maxmemory-policy volatile-lru
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
 # 定义持久化存储
 volumes:

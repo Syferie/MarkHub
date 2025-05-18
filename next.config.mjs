@@ -10,7 +10,6 @@ const nextConfig = {
     unoptimized: true,
   },
   // 确保正确处理路由
-  output: 'standalone',
   trailingSlash: false,
   // 添加自定义 headers 配置，包括内容安全策略
   async headers() {
