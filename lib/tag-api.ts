@@ -3,21 +3,7 @@
  *
  * 提供与标签生成服务交互的TypeScript函数
  */
-
-import {
-  verifySignature,
-  verifyUrlMatch,
-  containsSuspiciousContent,
-  decryptData
-} from './security';
-
-// 从环境变量中获取客户端完整性检查密钥
-const INTEGRITY_KEY = process.env.NEXT_PUBLIC_INTEGRITY_KEY || '';
-
-// 如果环境变量未设置，记录警告
-if (!INTEGRITY_KEY) {
-  console.warn('警告: NEXT_PUBLIC_INTEGRITY_KEY 环境变量未设置。请在生产环境中设置此变量以确保基本安全性。');
-}
+import { db } from "@/lib/db"; // 导入db实例
 
 // API响应类型
 export interface TaskSubmissionResponse {
@@ -87,83 +73,7 @@ export class ApiError extends Error {
  * @param apiKey - 可选的外部传入的API密钥
  * @returns 返回传入的API密钥或空字符串
  */
-const getApiKey = (apiKey?: string): string => {
-  // 如果外部传入了API密钥，直接使用
-  if (apiKey) {
-    return apiKey;
-  }
-
-  console.warn('未提供API密钥，API请求可能会失败');
-  return '';
-};
-
-/**
- * 通用API请求函数
- */
-async function makeApiRequest<T>(
-  method: string,
-  path: string,
-  body?: any,
-  apiSettings?: {
-    apiKey?: string;
-    apiBaseUrl?: string;
-  }
-): Promise<T> {
-  const apiKey = getApiKey(apiSettings?.apiKey);
-
-  const headers: HeadersInit = {
-    'Authorization': `Bearer ${apiKey}`,
-  };
-
-  if (body && method !== 'GET') {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  const options: RequestInit = {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  };
-
-  try {
-    const response = await fetch(`${getApiBaseUrl(apiSettings?.apiBaseUrl)}${path}`, options);
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      // 处理API错误
-      const errorMessage = data.error || data.message || 'Unknown API error';
-      throw new ApiError(errorMessage, response.status);
-    }
-
-    return data as T;
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-
-    // 处理网络错误等其他错误
-    throw new ApiError(`API request failed: ${(error as Error).message}`, 0);
-  }
-}
-
-/**
- * 从应用设置中获取API基础URL
- *
- * 注意：此函数必须由调用者传入API基础URL，因为它无法直接访问React上下文
- * @param apiBaseUrl - 可选的外部传入的API基础URL
- * @returns 返回传入的API基础URL或默认值
- */
-const getApiBaseUrl = (apiBaseUrl?: string): string => {
-  // 如果外部传入了API基础URL，直接使用
-  if (apiBaseUrl) {
-    return apiBaseUrl;
-  }
-
-  // 如未配置，返回默认值或显示警告
-  console.warn('未提供API基础URL，使用默认URL');
-  return 'http://localhost:8080'; // 更新默认值为本地开发服务器
-};
+// 这里之前的辅助函数已被移除，不再需要代理配置
 
 /**
  * 提交标签生成任务
@@ -174,35 +84,27 @@ const getApiBaseUrl = (apiBaseUrl?: string): string => {
  * 注意：此函数已被适配为直接与Gemini API兼容的后端交互
  */
 export async function submitTagGenerationTask(
-  options: GenerateTagsOptions,
-  apiSettings?: {
-    apiKey?: string;
-    apiBaseUrl?: string;
-  }
+  options: GenerateTagsOptions
 ): Promise<string> {
   try {
-    // 获取API密钥和基础URL，优先使用传入的配置
-    const apiKey = getApiKey(apiSettings?.apiKey);
-    if (!apiKey) {
-      throw new ApiError('API密钥未配置', 401);
-    }
-    const apiBaseUrl = getApiBaseUrl(apiSettings?.apiBaseUrl);
-
-    // 使用代理路由来启动任务
+    // 使用直接路由来启动任务
     const url = '/api/generate-tags';
 
     // 准备请求选项
+    // 从IndexedDB获取应用设置
+    const appSettings = await db.getAppSettings();
+
     const requestOptions: RequestInit = {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Base-Url': apiBaseUrl,
-        'X-Api-Key': apiKey,
-        'X-Original-Url': options.url // 添加原始URL到请求头，用于后续验证
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         url: options.url,
-        filter_tags: options.filter_tags
+        filter_tags: options.filter_tags,
+        customApiBaseUrl: appSettings?.geminiApiBaseUrl || undefined,
+        customModelName: appSettings?.geminiModelName || undefined,
+        customApiKey: appSettings?.geminiApiKey || undefined
       })
     };
 
@@ -242,31 +144,15 @@ export async function submitTagGenerationTask(
  */
 export async function getTaskStatus(
   taskId: string,
-  options: GenerateTagsOptions,
-  apiSettings?: {
-    apiKey?: string;
-    apiBaseUrl?: string;
-  }
+  options?: GenerateTagsOptions
 ): Promise<TaskStatus> {
   try {
-    // 获取API密钥和基础URL，优先使用传入的配置
-    const apiKey = getApiKey(apiSettings?.apiKey);
-    if (!apiKey) {
-      throw new ApiError('API密钥未配置', 401);
-    }
-    const apiBaseUrl = getApiBaseUrl(apiSettings?.apiBaseUrl);
-
-    // 使用代理路由查询任务状态
+    // 使用直接路由查询任务状态
     const url = `/api/generate-tags?taskId=${encodeURIComponent(taskId)}`;
 
     // 准备请求选项
     const requestOptions: RequestInit = {
-      method: 'GET',
-      headers: {
-        // 通过自定义头传递API基础URL和密钥给代理路由
-        'X-Api-Base-Url': apiBaseUrl,
-        'X-Api-Key': apiKey
-      }
+      method: 'GET'
     };
 
     // 发送GET请求到Next.js API代理路由
@@ -286,71 +172,16 @@ export async function getTaskStatus(
     // 解析响应
     const taskStatus = await response.json();
 
-    // 验证响应内容，检测是否被篡改
+    // 简化的响应处理
     if (taskStatus.status === 'completed') {
-      // 验证响应签名（如果存在）
-      if (taskStatus._signature) {
-        const { _signature, ...dataWithoutSignature } = taskStatus;
-        if (!verifySignature(dataWithoutSignature, _signature, INTEGRITY_KEY)) {
-          console.error('API响应签名验证失败，可能被篡改');
-          throw new ApiError('API响应签名验证失败，可能被篡改', 400);
-        }
-      }
-
-      // 检查服务器端验证标记
-      if (taskStatus._serverVerified !== true) {
-        console.warn('响应缺少服务器端验证标记，可能存在安全风险');
-      }
-
-      // 验证URL是否匹配
-      if (!verifyUrlMatch(options.url, taskStatus.url)) {
-        console.error('API响应URL与请求URL不匹配，可能被篡改', {
-          requestUrl: options.url,
-          responseUrl: taskStatus.url
-        });
-        throw new ApiError('API响应可能被篡改，请联系管理员', 400);
-      }
-
-      // 处理加密的标签数据（如果存在）
-      let tags: string[] = [];
-      if (taskStatus._encryptedTags) {
-        try {
-          // 解密标签数据
-          const decryptedTags = decryptData(taskStatus._encryptedTags, INTEGRITY_KEY);
-
-          // 验证解密后的数据是否为数组
-          if (Array.isArray(decryptedTags)) {
-            tags = decryptedTags;
-
-            // 检查解密后的标签内容是否包含不适当内容
-            if (containsSuspiciousContent(tags)) {
-              console.error('解密后的标签包含可疑内容，可能被篡改', { tags });
-              throw new ApiError('API响应可能被篡改，请联系管理员', 400);
-            }
-          } else {
-            console.error('解密后的标签不是数组格式');
-            throw new ApiError('标签格式无效', 400);
-          }
-        } catch (error) {
-          console.error('解密标签数据失败:', error);
-          throw new ApiError('解密标签数据失败', 400);
-        }
-      } else if (taskStatus.tags) {
-        // 如果有未加密的标签，直接使用
-        tags = taskStatus.tags;
-
-        // 检查标签内容是否包含不适当内容
-        if (containsSuspiciousContent(tags)) {
-          console.error('API响应包含可疑标签，可能被篡改', { tags });
-          throw new ApiError('API响应可能被篡改，请联系管理员', 400);
-        }
-      }
+      // 直接使用未加密的标签
+      const tags = taskStatus.tags || [];
 
       return {
         task_id: taskId,
         status: 'completed',
         tags: tags,
-        url: options.url,
+        url: taskStatus.url || (options?.url || ''), // 优先使用后端返回的URL，否则使用选项中的URL
         completed_at: new Date().toISOString()
       } as TaskStatusCompleted;
     }
@@ -367,7 +198,7 @@ export async function getTaskStatus(
       return {
         task_id: taskId,
         status: taskStatus.status as 'pending' | 'processing',
-        message: taskStatus.message || `任务${taskStatus.status}`
+        message: taskStatus.message || `Task ${taskStatus.status}`
       } as TaskStatusPending | TaskStatusProcessing;
     }
   } catch (error) {
@@ -396,10 +227,6 @@ export async function pollTaskUntilComplete(
     timeoutMs?: number;
     onProgressUpdate?: (status: TaskStatus) => void;
     taskOptions?: GenerateTagsOptions; // 添加任务选项参数
-    apiSettings?: {
-      apiKey?: string;
-      apiBaseUrl?: string;
-    };
   } = {}
 ): Promise<TaskStatusCompleted | TaskStatusFailed> {
   const {
@@ -409,11 +236,6 @@ export async function pollTaskUntilComplete(
     taskOptions
   } = options;
 
-  // 如果没有提供任务选项，就无法调用getTaskStatus
-  if (!taskOptions) {
-    throw new ApiError('缺少任务选项', 400);
-  }
-
   const startTime = Date.now();
 
   while (true) {
@@ -422,8 +244,8 @@ export async function pollTaskUntilComplete(
       throw new ApiError('任务轮询超时', 408);
     }
 
-    // 获取任务状态，传递必要的任务选项和API配置
-    const status = await getTaskStatus(taskId, taskOptions, options.apiSettings);
+    // 获取任务状态，传递必要的任务选项
+    const status = await getTaskStatus(taskId, taskOptions);
 
     // 如果有进度回调函数，调用它
     if (onProgressUpdate) {
@@ -449,24 +271,19 @@ export async function pollTaskUntilComplete(
  */
 export async function generateTags(
   options: GenerateTagsOptions,
-  pollOptions?: Parameters<typeof pollTaskUntilComplete>[1],
-  apiSettings?: {
-    apiKey?: string;
-    apiBaseUrl?: string;
-  }
+  pollOptions?: Parameters<typeof pollTaskUntilComplete>[1]
 ): Promise<string[]> {
   try {
     // 为了保持接口一致，我们仍然使用与之前相同的函数签名
     // 但实际实现改为直接请求并返回结果
 
-    // 首先提交任务（现在只返回一个临时ID），传递API配置
-    const taskId = await submitTagGenerationTask(options, apiSettings);
+    // 首先提交任务（现在只返回一个临时ID）
+    const taskId = await submitTagGenerationTask(options);
 
-    // 准备轮询选项，添加任务选项和API配置
+    // 准备轮询选项，添加任务选项
     const fullPollOptions = {
       ...pollOptions,
-      taskOptions: options, // 传递任务选项给轮询函数
-      apiSettings: apiSettings // 传递API配置给轮询函数
+      taskOptions: options // 传递任务选项给轮询函数
     };
 
     // 调用轮询函数获取结果，同时传递API配置

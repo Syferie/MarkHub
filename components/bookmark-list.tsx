@@ -29,11 +29,6 @@ import EditBookmarkModal from "./edit-bookmark-modal"
 import type { Bookmark } from "@/types"
 import { generateTags } from "@/lib/tag-api"
 import { suggestFolder } from "@/lib/folder-api"
-
-// 添加 isFavorite 属性到 Bookmark 接口
-interface ExtendedBookmark extends Bookmark {
-  isFavorite?: boolean;
-}
 // @ts-ignore - 忽略类型检查，因为我们无法安装类型声明包
 import { VariableSizeList as List } from "react-window"
 // @ts-ignore - 忽略类型检查，因为我们无法安装类型声明包
@@ -80,7 +75,7 @@ interface BulkFolderGeneration {
 }
 
 interface BookmarkListProps {
-  bookmarks: ExtendedBookmark[]
+  bookmarks: Bookmark[]
   searchQuery?: string
   sortOptions?: { value: string; label: string }[]
   currentSortOption?: string
@@ -98,7 +93,7 @@ export default function BookmarkList({
   const { deleteBookmark, updateBookmark, folders, tags, setSelectedFolderId, setSelectedTags, toggleFavoriteBookmark, settings } =
     useBookmarks()
   const { t } = useLanguage()
-  const [editingBookmark, setEditingBookmark] = useState<ExtendedBookmark | null>(null)
+  const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null)
   const [selectedBookmarks, setSelectedBookmarks] = useState<string[]>([])
   const [bulkMode, setBulkMode] = useState(false)
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -378,7 +373,7 @@ export default function BookmarkList({
           return updatedDetails;
         });
 
-        // 调用 API 生成标签，传递API配置
+        // 调用 API 生成标签
         const generatedTags = await generateTags(
           {
             url: bookmark.url,
@@ -402,11 +397,6 @@ export default function BookmarkList({
                 return updatedDetails;
               });
             }
-          },
-          // 从 settings 中获取 API 配置并传递给 generateTags
-          {
-            apiKey: settings?.tagApiKey,
-            apiBaseUrl: settings?.tagApiUrl
           }
         );
 
@@ -797,7 +787,7 @@ export default function BookmarkList({
           return updatedDetails;
         });
 
-        // 调用 API 生成文件夹建议，传递API配置
+        // 调用 API 生成文件夹建议
         const suggestedFolder = await suggestFolder(
           {
             url: bookmark.url,
@@ -821,11 +811,6 @@ export default function BookmarkList({
                 return updatedDetails;
               });
             }
-          },
-          // 从 settings 中获取 API 配置并传递给 suggestFolder
-          {
-            apiKey: settings?.tagApiKey,
-            apiBaseUrl: settings?.tagApiUrl
           }
         );
 
@@ -1375,7 +1360,7 @@ export default function BookmarkList({
     bookmark,
     index,
     style,
-  }: { bookmark: ExtendedBookmark; index: number; style: React.CSSProperties }) => {
+  }: { bookmark: Bookmark; index: number; style: React.CSSProperties }) => {
     if (!bookmark) return null
 
     const folderName = getFolderName(bookmark.folderId)
@@ -1529,7 +1514,7 @@ export default function BookmarkList({
   });
 
   // 创建虚拟列表的记忆化组件
-  const MemoizedVirtualList = React.memo(({ bookmarks }: { bookmarks: ExtendedBookmark[] }) => {
+  const MemoizedVirtualList = React.memo(({ bookmarks }: { bookmarks: Bookmark[] }) => {
     // 根据标签数量和移动设备状态动态调整高度
     const getItemSize = (index: number) => {
       const bookmark = bookmarks[index];

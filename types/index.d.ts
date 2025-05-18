@@ -1,4 +1,4 @@
-interface Bookmark {
+export interface Bookmark {
   id: string
   title: string
   url: string
@@ -9,18 +9,18 @@ interface Bookmark {
   isFavorite?: boolean
 }
 
-interface Folder {
+export interface Folder {
   id: string
   name: string
   parentId: string | null
 }
 
-interface SortOption {
+export interface SortOption {
   value: string
   label: string
 }
 
-interface ImportData {
+export interface ImportData {
   bookmarks: Bookmark[]
   folders: Folder[]
   tags: string[]

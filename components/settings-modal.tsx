@@ -20,6 +20,7 @@ import ImportExport from "./import-export"
 import WebDAVSync from "./webdav-sync"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
+import { db } from "@/lib/db" // 导入db实例
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -33,10 +34,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     darkMode: false,
     accentColor: "#3b82f6",
     defaultView: "all",
-    tagApiUrl: "",
-    tagApiKey: "",
-    tagConcurrencyLimit: 5,
     language: "en",
+    geminiApiBaseUrl: "",
+    geminiModelName: "",
+    geminiApiKey: "",
   })
   const [hasChanges, setHasChanges] = useState(false)
   const [isRefreshingFavicons, setIsRefreshingFavicons] = useState(false)
@@ -46,46 +47,118 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Initialize local settings when modal opens
   useEffect(() => {
-    if (isOpen && settings) {
-      setLocalSettings({
-        darkMode: settings.darkMode,
-        accentColor: settings.accentColor,
-        defaultView: settings.defaultView,
-        tagApiUrl: settings.tagApiUrl || "",
-        tagApiKey: settings.tagApiKey || "",
-        tagConcurrencyLimit: settings.tagConcurrencyLimit || 5,
-        language: settings.language || language,
-      })
-      setHasChanges(false)
-    }
-  }, [isOpen, settings, language])
+    const loadSettings = async () => {
+      if (isOpen) {
+        // 从 context 获取基础设置
+        const baseSettings = settings || { // settings 可能为 null
+          darkMode: false,
+          accentColor: "#3b82f6",
+          defaultView: "all",
+          language: language || "en",
+        };
+
+        // 从 IndexedDB 获取完整的应用设置，包括Gemini配置
+        const storedAppSettings = await db.getAppSettings();
+        
+        setLocalSettings({
+          darkMode: storedAppSettings?.darkMode ?? baseSettings.darkMode,
+          accentColor: storedAppSettings?.accentColor ?? baseSettings.accentColor,
+          defaultView: storedAppSettings?.defaultView ?? baseSettings.defaultView,
+          language: storedAppSettings?.language ?? baseSettings.language ?? "en", // 确保最终是string
+          geminiApiBaseUrl: storedAppSettings?.geminiApiBaseUrl || "",
+          geminiModelName: storedAppSettings?.geminiModelName || "",
+          geminiApiKey: storedAppSettings?.geminiApiKey || "",
+        });
+        setHasChanges(false);
+      }
+    };
+    loadSettings();
+  }, [isOpen, settings, language]); // settings 和 language 作为依赖项，确保它们更新时重新加载
 
   // Track changes
   useEffect(() => {
-    if (settings) {
-      const changed =
-        localSettings.darkMode !== settings.darkMode ||
-        localSettings.accentColor !== settings.accentColor ||
-        localSettings.defaultView !== settings.defaultView ||
-        localSettings.tagApiUrl !== (settings.tagApiUrl || "") ||
-        localSettings.tagApiKey !== (settings.tagApiKey || "") ||
-        localSettings.tagConcurrencyLimit !== (settings.tagConcurrencyLimit || 5) ||
-        localSettings.language !== (settings.language || language)
+    const checkIfChanged = async () => {
+      if (isOpen) { // 只在模态框打开时比较
+        const currentDbSettings = await db.getAppSettings();
+        const baseSettings = settings || { // 用于比较的基础设置
+          darkMode: false,
+          accentColor: "#3b82f6",
+          defaultView: "all",
+          language: language || "en",
+        };
 
-      setHasChanges(changed)
+        const changed =
+          localSettings.darkMode !== (currentDbSettings?.darkMode ?? baseSettings.darkMode) ||
+          localSettings.accentColor !== (currentDbSettings?.accentColor ?? baseSettings.accentColor) ||
+          localSettings.defaultView !== (currentDbSettings?.defaultView ?? baseSettings.defaultView) ||
+          localSettings.language !== (currentDbSettings?.language ?? baseSettings.language) ||
+          localSettings.geminiApiBaseUrl !== (currentDbSettings?.geminiApiBaseUrl || "") ||
+          localSettings.geminiModelName !== (currentDbSettings?.geminiModelName || "") ||
+          localSettings.geminiApiKey !== (currentDbSettings?.geminiApiKey || "");
+        
+        setHasChanges(changed);
+      }
+    };
+    // 只有当localSettings实际发生改变时才触发比较，避免无限循环
+    // isOpen 确保只在模态框打开时执行
+    if (isOpen) {
+      checkIfChanged();
     }
-  }, [localSettings, settings, language])
+  }, [localSettings, isOpen, settings, language]);
 
-  const handleSaveChanges = () => {
-    updateSettings(localSettings)
 
-    // 更新语言设置
+  const handleSaveChanges = async () => {
+    // 从 IndexedDB 获取当前的完整设置，以确保我们不会覆盖其他未在此模态框中管理的设置
+    const currentStoredSettings = await db.getAppSettings() || {};
+    
+    const newSettingsToSave = {
+      ...currentStoredSettings, // 保留其他可能存在的设置
+      darkMode: localSettings.darkMode,
+      accentColor: localSettings.accentColor,
+      defaultView: localSettings.defaultView,
+      language: localSettings.language,
+      geminiApiKey: localSettings.geminiApiKey,
+      geminiApiBaseUrl: localSettings.geminiApiBaseUrl,
+      geminiModelName: localSettings.geminiModelName,
+    };
+
+    // updateSettings 来自 context，它应该内部调用 db.saveAppSettings
+    // 我们需要确保 updateSettings 会传递完整的 AppSettings 对象
+    // 或者，我们在这里直接调用 db.saveAppSettings
+    // 为了更直接地控制，我们在这里调用 db.saveAppSettings
+    // 然后通知 context 更新其内部状态（如果 context 不直接从db读取的话）
+
+    await db.saveAppSettings(newSettingsToSave);
+    
+    // 手动调用 context 的 updateSettings 来同步 context 中的 settings state
+    // 假设 updateSettings 只是更新内存中的状态，或者它自己会再次从db加载
+    // 最安全的做法是让 updateSettings 能够接受一个完整的 AppSettings 对象
+    // 并触发全局状态的更新。
+    // 如果 updateSettings 仅用于部分更新，则需要调整。
+    // 这里我们假设 updateSettings 能够正确处理传递给它的 localSettings 的所有相关字段
+    // 并更新 context 中的状态。
+    // 对于Gemini字段，context的settings对象可能没有这些字段，所以updateSettings可能需要调整
+    // 或者我们不通过context的updateSettings来持久化gemini字段，db.saveAppSettings已完成持久化。
+    // context中的settings主要用于UI主题等，AI配置由API调用时直接从db读取。
+
+    // 更新 context 中的基础设置（非Gemini部分）
+    updateSettings({
+      darkMode: localSettings.darkMode,
+      accentColor: localSettings.accentColor,
+      defaultView: localSettings.defaultView,
+      language: localSettings.language,
+      // 不传递gemini字段给旧的updateSettings，除非它已更新以处理它们
+    });
+
+
+    // 更新语言设置 (如果语言 context 不直接从 db 读取)
     if (localSettings.language !== language) {
-      setLanguage(localSettings.language as "en" | "zh")
+      setLanguage(localSettings.language as "en" | "zh");
     }
+    
 
-    onClose()
-  }
+    onClose();
+  };
 
   const handleRefreshFavicons = async () => {
     setIsRefreshingFavicons(true)
@@ -213,75 +286,52 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <Tabs.Panel value="api" pt="md">
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium mb-2">{t("settings.api")}</h3>
+              <h3 className="text-lg font-medium mb-2">OpenAI Compatible {t("settings.api") || "配置"}</h3>
               <p className="text-sm text-gray-500 mb-4">
-                {t("settings.apiUrlDescription")}
+                {t("settings.geminiDescription") || "配置API的自定义参数（可选）"}
               </p>
-
+              
               <div className="space-y-4">
                 <TextInput
-                  label={t("settings.apiBaseUrl")}
-                  placeholder={t("settings.apiUrlPlaceholder")}
-                  value={localSettings.tagApiUrl}
+                  label="API Base URL"
+                  placeholder="https://generativelanguage.googleapis.com/v1beta/openai/v1"
+                  value={localSettings.geminiApiBaseUrl}
                   onChange={(e) =>
                     setLocalSettings({
                       ...localSettings,
-                      tagApiUrl: e.target.value,
+                      geminiApiBaseUrl: e.target.value,
                     })
                   }
-                  description={t("settings.apiUrlDescription")}
+                  description={t("settings.geminiBaseUrlDescription") || "使用OpenAI兼容端口，请确保URL末尾包含/v1后缀"}
                 />
-
+                
+                <TextInput
+                  label="Model Name"
+                  placeholder="gemini-2.0-flash"
+                  value={localSettings.geminiModelName}
+                  onChange={(e) =>
+                    setLocalSettings({
+                      ...localSettings,
+                      geminiModelName: e.target.value,
+                    })
+                  }
+                  description={t("settings.geminiModelDescription") || "默认使用gemini-2.0-flash模型，能够平衡价格与质量"}
+                />
+                
                 <PasswordInput
-                  label={t("settings.apiKey")}
-                  placeholder={t("settings.apiKeyPlaceholder")}
-                  value={localSettings.tagApiKey}
+                  label="API Key"
+                  placeholder={t("settings.geminiApiKeyPlaceholder") || "输入您的API Key"}
+                  value={localSettings.geminiApiKey}
                   visible={showApiKey}
                   onVisibilityChange={setShowApiKey}
                   onChange={(e) =>
                     setLocalSettings({
                       ...localSettings,
-                      tagApiKey: e.target.value,
+                      geminiApiKey: e.target.value,
                     })
                   }
-                  description={t("settings.apiKeyDescription")}
+                  description={t("settings.geminiApiKeyDescription") || "您的API Key和设置仅存储在本地，不会向云端传输，确保数据安全"}
                 />
-
-                <TextInput
-                  label={t("settings.concurrencyLimit")}
-                  placeholder="5"
-                  type="number"
-                  value={String(localSettings.tagConcurrencyLimit || 5)}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value);
-                    setLocalSettings({
-                      ...localSettings,
-                      tagConcurrencyLimit: !isNaN(value) && value > 0 ? value : 5,
-                    });
-                  }}
-                  description={t("settings.concurrencyDescription")}
-                />
-              </div>
-
-              <Divider my="md" />
-
-              <div className="text-sm text-gray-500">
-                <h4 className="font-medium mb-2">{t("settings.apiSpecification")}</h4>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>{t("settings.apiEndpointInfo")} <code>{"{Your Base URL}/api/v1/tags/generate-from-url"}</code></li>
-                  <li>
-                    {t("settings.apiRequestFormat")}: <code>{"{ url: string, filter_tags?: string[], fetch_options?: {...} }"}</code>
-                  </li>
-                  <li>
-                    {t("settings.apiTaskIdInfo")}
-                  </li>
-                  <li>
-                    {t("settings.apiResponseFormat")}: <code>{"{ status: 'completed', tags: string[], url: string, ... }"}</code>
-                  </li>
-                  <li>
-                    {t("settings.apiAuthHeader")} <code>Authorization: Bearer &lt;Your API Key&gt;</code>
-                  </li>
-                </ul>
               </div>
             </div>
           </div>

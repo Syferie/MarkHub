@@ -3,6 +3,7 @@
  *
  * 提供与文件夹建议服务交互的TypeScript函数
  */
+import { db } from "@/lib/db"; // 导入db实例
 
 // API响应类型
 export interface TaskSubmissionResponse {
@@ -60,40 +61,7 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * 从应用设置中获取API密钥
- *
- * 注意：此函数必须由调用者传入API密钥，因为它无法直接访问React上下文
- * @param apiKey - 可选的外部传入的API密钥
- * @returns 返回传入的API密钥或空字符串
- */
-const getApiKey = (apiKey?: string): string => {
-  // 如果外部传入了API密钥，直接使用
-  if (apiKey) {
-    return apiKey;
-  }
-
-  console.warn('未提供API密钥，API请求可能会失败');
-  return '';
-};
-
-/**
- * 从应用设置中获取API基础URL
- *
- * 注意：此函数必须由调用者传入API基础URL，因为它无法直接访问React上下文
- * @param apiBaseUrl - 可选的外部传入的API基础URL
- * @returns 返回传入的API基础URL或默认值
- */
-const getApiBaseUrl = (apiBaseUrl?: string): string => {
-  // 如果外部传入了API基础URL，直接使用
-  if (apiBaseUrl) {
-    return apiBaseUrl;
-  }
-
-  // 如未配置，返回默认值或显示警告
-  console.warn('未提供API基础URL，使用默认URL');
-  return 'http://localhost:8080'; // 更新默认值为本地开发服务器
-};
+// 辅助函数已被移除，不再需要代理配置
 
 /**
  * 提交文件夹建议任务
@@ -102,38 +70,31 @@ const getApiBaseUrl = (apiBaseUrl?: string): string => {
  * @returns 包含task_id的Promise
  */
 export async function submitFolderSuggestionTask(
-  options: SuggestFolderOptions,
-  apiSettings?: {
-    apiKey?: string;
-    apiBaseUrl?: string;
-  }
+  options: SuggestFolderOptions
 ): Promise<string> {
   try {
-    // 获取API密钥和基础URL，优先使用传入的配置
-    const apiKey = getApiKey(apiSettings?.apiKey);
-    if (!apiKey) {
-      throw new ApiError('API密钥未配置', 401);
-    }
-    const apiBaseUrl = getApiBaseUrl(apiSettings?.apiBaseUrl);
-
-    // 使用代理路由来启动任务
+    // 使用直接路由来启动任务
     const url = '/api/suggest-folder';
+
+    // 从IndexedDB获取应用设置
+    const appSettings = await db.getAppSettings();
 
     // 准备请求选项
     const requestOptions: RequestInit = {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Base-Url': apiBaseUrl,
-        'X-Api-Key': apiKey
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         url: options.url,
-        folders: options.folders // 传递现有文件夹列表
+        folders: options.folders, // 传递现有文件夹列表
+        customApiKey: appSettings?.geminiApiKey || undefined,
+        customApiBaseUrl: appSettings?.geminiApiBaseUrl || undefined,
+        customModelName: appSettings?.geminiModelName || undefined
       })
     };
 
-    // 发送请求到Next.js API代理路由
+    // 发送请求到Next.js API路由
     const response = await fetch(url, requestOptions);
 
     if (!response.ok) {
@@ -161,39 +122,24 @@ export async function submitFolderSuggestionTask(
 /**
  * 获取任务状态/结果
  *
- * @param taskId - 临时任务ID（包含原始选项）
+ * @param taskId - 临时任务ID
+ * @param options - 任务选项
  * @returns 包含任务状态和结果的Promise
  */
 export async function getTaskStatus(
   taskId: string,
-  options: SuggestFolderOptions,
-  apiSettings?: {
-    apiKey?: string;
-    apiBaseUrl?: string;
-  }
+  options: SuggestFolderOptions
 ): Promise<TaskStatus> {
   try {
-    // 获取API密钥和基础URL，优先使用传入的配置
-    const apiKey = getApiKey(apiSettings?.apiKey);
-    if (!apiKey) {
-      throw new ApiError('API密钥未配置', 401);
-    }
-    const apiBaseUrl = getApiBaseUrl(apiSettings?.apiBaseUrl);
-
-    // 使用代理路由查询任务状态
+    // 使用直接路由查询任务状态
     const url = `/api/suggest-folder?taskId=${encodeURIComponent(taskId)}`;
 
     // 准备请求选项
     const requestOptions: RequestInit = {
-      method: 'GET',
-      headers: {
-        // 通过自定义头传递API基础URL和密钥给代理路由
-        'X-Api-Base-Url': apiBaseUrl,
-        'X-Api-Key': apiKey
-      }
+      method: 'GET'
     };
 
-    // 发送GET请求到Next.js API代理路由
+    // 发送GET请求到Next.js API路由
     const response = await fetch(url, requestOptions);
 
     if (!response.ok) {
@@ -210,12 +156,16 @@ export async function getTaskStatus(
     // 解析响应
     const taskStatus = await response.json();
 
-    // 如果任务已完成并包含建议的文件夹，转换为前端期望的格式
+    // 简化的响应处理
     if (taskStatus.status === 'completed') {
+      // 处理文件夹数据
+      // 获取建议的文件夹名称
+      let suggestedFolder: string = taskStatus.suggested_folder || '';
+
       return {
         task_id: taskId,
         status: 'completed',
-        suggested_folder: taskStatus.suggested_folder || '',
+        suggested_folder: suggestedFolder,
         url: options.url,
         completed_at: new Date().toISOString()
       } as TaskStatusCompleted;
@@ -225,7 +175,7 @@ export async function getTaskStatus(
       return {
         task_id: taskId,
         status: 'failed',
-        error: taskStatus.error || 'Unknown error'
+        error: taskStatus.error || '未知错误'
       } as TaskStatusFailed;
     }
     // 如果任务正在进行中
@@ -262,10 +212,6 @@ export async function pollTaskUntilComplete(
     timeoutMs?: number;
     onProgressUpdate?: (status: TaskStatus) => void;
     taskOptions?: SuggestFolderOptions; // 添加任务选项参数
-    apiSettings?: {
-      apiKey?: string;
-      apiBaseUrl?: string;
-    };
   } = {}
 ): Promise<TaskStatusCompleted | TaskStatusFailed> {
   const {
@@ -288,8 +234,8 @@ export async function pollTaskUntilComplete(
       throw new ApiError('任务轮询超时', 408);
     }
 
-    // 获取任务状态，传递必要的任务选项和API配置
-    const status = await getTaskStatus(taskId, taskOptions, options.apiSettings);
+    // 获取任务状态，传递必要的任务选项
+    const status = await getTaskStatus(taskId, taskOptions);
 
     // 如果有进度回调函数，调用它
     if (onProgressUpdate) {
@@ -315,24 +261,19 @@ export async function pollTaskUntilComplete(
  */
 export async function suggestFolder(
   options: SuggestFolderOptions,
-  pollOptions?: Parameters<typeof pollTaskUntilComplete>[1],
-  apiSettings?: {
-    apiKey?: string;
-    apiBaseUrl?: string;
-  }
+  pollOptions?: Parameters<typeof pollTaskUntilComplete>[1]
 ): Promise<string> {
   try {
-    // 首先提交任务（现在只返回一个临时ID），传递API配置
-    const taskId = await submitFolderSuggestionTask(options, apiSettings);
+    // 首先提交任务
+    const taskId = await submitFolderSuggestionTask(options);
 
-    // 准备轮询选项，添加任务选项和API配置
+    // 准备轮询选项，添加任务选项
     const fullPollOptions = {
       ...pollOptions,
-      taskOptions: options, // 传递任务选项给轮询函数
-      apiSettings: apiSettings // 传递API配置给轮询函数
+      taskOptions: options // 传递任务选项给轮询函数
     };
 
-    // 调用轮询函数获取结果，同时传递API配置
+    // 调用轮询函数获取结果
     const result = await pollTaskUntilComplete(taskId, fullPollOptions);
 
     // 检查任务是否成功

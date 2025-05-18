@@ -14,10 +14,6 @@ interface WebDAVRequestBody {
  * WebDAV请求处理API路由
  * 作为代理服务器，处理来自客户端的WebDAV请求，避免CORS限制
  */
-// 为Vercel添加配置
-export const config = {
-  runtime: 'edge',
-};
 
 export async function POST(request: NextRequest) {
   try {

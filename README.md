@@ -64,36 +64,32 @@ MarkHub已部署官方站点，访问 [markhub.app](https://markhub.app) 即可�
 
 ### 5. AI 智能标签生成
 
-- 通过外部 API 自动为书签生成标签建议
-- **智能匹配现有标签**：AI 只会从应用中已有的标签集合中推荐标签，确保分类系统的一致性和整洁性
-- 不会创建新标签，避免标签体系混乱，保持用户已建立的组织结构
-- 异步任务处理模式（任务提交、状态轮询）
+- 通过用户在应用设置中配置的AI服务（支持OpenAI兼容接口）自动为书签生成标签建议。
+- **智能匹配现有标签**：AI 只会从应用中已有的标签集合中推荐标签，确保分类系统的一致性和整洁性。
+- 不会创建新标签，避免标签体系混乱，保持用户已建立的组织结构。
+- 异步任务处理模式：通过Next.js API路由提交任务，使用Redis管理任务队列和状态，前端轮询获取结果。
+- 网页内容提取：优先直接抓取，失败时自动回退到备用内容提取API (感谢公益 API 服务`https://api.pearktrue.cn/api/llmreader/`)。
 - 用户界面集成：
-  - 在添加/编辑书签的模态框中通过 "AI Suggest Tags" 按钮使用
-  - 在书签列表的批量编辑操作中选择 "Generate Tags (AI)" 选项
-- 技术实现：
-  - 后端 API 路由：`app/api/generate-tags/route.ts`
-  - 前端 API 客户端：`lib/tag-api.ts`
-- 官方API支持：
-  - 基础URL：`https://api.markhub.app`
-  - API密钥：`linuxdo`
-  - 在设置面板的API标签页中配置这些信息，即可使用官方AI服务，这是完全免费的服务
+  - 在添加/编辑书签的模态框中通过 "AI Suggest Tags" 按钮使用。
+  - 在书签列表的批量编辑操作中选择 "Generate Tags (AI)" 选项。
+- **配置方式**：
+  - 用户需要在应用的"设置"面板中配置AI服务API密钥。系统默认使用平衡性能与价格的模型配置。
+  - 这些配置安全地存储在本地浏览器的 `IndexedDB` 中，不会向云端传输，确保数据安全。
 
 ### 6. AI 智能文件夹推荐
 
-- 基于书签内容智能推荐合适的文件夹名称
-- **智能匹配现有文件夹**：AI 只会从用户已创建的文件夹结构中进行推荐，不会创建新的文件夹
-- 保持文件夹结构的一致性，避免创建冗余或不必要的文件夹
-- 帮助用户在保持现有组织结构的同时，快速对新书签进行分类
-- 支持单个书签和批量书签处理
+- 通过支持OpenAI兼容接口的AI服务，基于书签内容智能推荐合适的文件夹名称。
+- **智能匹配现有文件夹**：AI 只会从用户已创建的文件夹结构中进行推荐，不会创建新的文件夹。
+- 保持文件夹结构的一致性，避免创建冗余或不必要的文件夹。
+- 帮助用户在保持现有组织结构的同时，快速对新书签进行分类。
+- 支持单个书签和批量书签处理。
+- 异步任务处理模式：通过Next.js API路由提交任务，使用Redis管理任务队列和状态，前端轮询获取结果。
+- 网页内容提取：与标签生成功能采用相同的提取和回退机制。
 - 用户界面集成：
-  - 在添加/编辑书签的模态框中通过 "AI Suggest Folder" 按钮使用
-  - 在书签列表的批量编辑操作中选择 "Suggest Folder (AI)" 选项
-- 技术实现：
-  - 后端 API 路由：`app/api/suggest-folder/route.ts`
-  - 前端 API 客户端：`lib/folder-api.ts`
-- 官方API支持：
-  - 与标签生成使用相同的API设置
+  - 在添加/编辑书签的模态框中通过 "AI Suggest Folder" 按钮使用。
+  - 在书签列表的批量编辑操作中选择 "Suggest Folder (AI)" 选项。
+- **配置方式**：
+  - 与AI智能标签生成功能共享相同的API配置，在设置面板中统一管理，所有信息安全存储在本地。
 
 ### 7. 多语言支持 (i18n)
 
@@ -169,8 +165,7 @@ MarkHub已部署官方站点，访问 [markhub.app](https://markhub.app) 即可�
 
 ### 5. API 交互
 
-- **标签生成 API**: 通过 Next.js API 路由代理到外部服务
-- **文件夹推荐 API**: 通过 Next.js API 路由代理到外部服务
+- **AI 功能 API (标签生成、文件夹推荐)**: 通过 Next.js API 路由与支持OpenAI兼容接口的AI服务进行交互，使用Redis进行异步任务管理，默认采用经济与性能平衡的配置。
 - **WebDAV API**: 直接从前端与 WebDAV 服务器通信
 
 ### 6. 程序架构图
@@ -205,7 +200,9 @@ flowchart TD
     subgraph API["API交互"]
         TA[tag-api.ts] -->|请求| NR[Next.js API路由]
         FA[folder-api.ts] -->|请求| NR[Next.js API路由]
-        NR -->|代理| ES[外部服务]
+        NR -->|直连| AIService[用户配置的AI服务 e.g., Gemini]
+        RedisDB[(Redis)]
+        NR -->|任务管理| RedisDB
         HFS[hierarchical-folder-select]
     end
 
@@ -232,8 +229,8 @@ flowchart TD
 markhub/
 ├── app/                      # Next.js 应用程序目录
 │   ├── api/                  # API 路由
-│   │   ├── generate-tags/    # 标签生成 API 代理
-│   │   └── suggest-folder/   # 文件夹建议 API
+│   │   ├── generate-tags/    # 标签生成 API (直连AI服务)
+│   │   └── suggest-folder/   # 文件夹建议 API (直连AI服务)
 │   ├── layout.tsx            # 全局布局组件
 │   ├── page.tsx              # 主页组件
 │   ├── background.js         # 背景脚本
@@ -332,7 +329,7 @@ pnpm install
 
 # 配置环境变量
 cp .env.example .env
-# 然后编辑 .env 文件，填入您的实际值
+# 然后编辑 .env 文件，填入您的 Redis 连接URL (REDIS_URL)。
 
 # 开发模式
 npm run dev
@@ -354,15 +351,7 @@ pnpm start
 
 项目使用环境变量来存储敏感信息。在部署到生产环境之前，请确保设置以下环境变量：
 
-- `NEXT_PUBLIC_SECRET_KEY`: 用于API响应签名验证和数据加密/解密的密钥（建议至少32个字符）
-
-这个密钥会同时用于服务端和客户端，使用`NEXT_PUBLIC_`前缀确保在客户端代码中也能访问。可以使用以下命令生成强随机密钥：
-
-```bash
-openssl rand -base64 32
-```
-
-在Vercel上部署时，可以在项目设置的"Environment Variables"部分添加此变量。
+- `REDIS_URL`: (必需) 用于AI功能异步任务状态管理的Redis数据库连接URL。例如: `redis://localhost:6379`
 
 ## 许可证
 

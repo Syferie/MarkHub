@@ -64,36 +64,32 @@ The project is built on a modern front-end technology stack:
 
 ### 5. AI Smart Tag Generation
 
-- Automatically generate tag suggestions for bookmarks through an external API
-- **Smart matching with existing tags**: AI only recommends tags from the existing tag collection in the application, ensuring consistency and tidiness of the classification system
-- Does not create new tags, avoiding tag system chaos and maintaining the organizational structure established by the user
-- Asynchronous task processing model (task submission, status polling)
+- Automatically generates tag suggestions for bookmarks via an AI service (supporting OpenAI compatible interfaces) configured by the user in the application settings.
+- **Smart matching with existing tags**: AI only recommends tags from the existing tag collection in the application, ensuring consistency and tidiness of the classification system.
+- Does not create new tags, avoiding tag system chaos and maintaining the organizational structure established by the user.
+- Asynchronous task processing model: Tasks are submitted via Next.js API routes, using Redis to manage task queues and statuses, with the frontend polling for results.
+- Web content extraction: Prioritizes direct fetching; automatically falls back to a backup content extraction API (Thanks to the public welfare API service`https://api.pearktrue.cn/api/llmreader/`).
 - User interface integration:
-  - Use via "AI Suggest Tags" button in the add/edit bookmark modal
-  - Select "Generate Tags (AI)" option in bulk edit operations in the bookmark list
-- Technical implementation:
-  - Backend API route: `app/api/generate-tags/route.ts`
-  - Frontend API client: `lib/tag-api.ts`
-- Official API support:
-  - Base URL: `https://api.markhub.app`
-  - API Key: `linuxdo`
-  - Configure these details in the API tab of the settings panel to use the official AI service
+  - Use via "AI Suggest Tags" button in the add/edit bookmark modal.
+  - Select "Generate Tags (AI)" option in bulk edit operations in the bookmark list.
+- **Configuration**:
+  - Users need to configure AI service API Key in the application's "Settings" panel. The system defaults to using a model configuration that balances performance and cost.
+  - These configurations are securely stored in the local browser's `IndexedDB` and are not transmitted to the cloud, ensuring data security.
 
 ### 6. AI Smart Folder Recommendation
 
-- Intelligently recommend appropriate folder names based on bookmark content
-- **Smart matching with existing folders**: AI only recommends from the folder structure already created by the user, without creating new folders
-- Maintains consistency of folder structure, avoiding creation of redundant or unnecessary folders
-- Helps users quickly categorize new bookmarks while maintaining existing organizational structure
-- Support for single bookmark and bulk bookmark processing
+- Intelligently recommends appropriate folder names based on bookmark content via AI services supporting OpenAI compatible interfaces.
+- **Smart matching with existing folders**: AI only recommends from the folder structure already created by the user, without creating new folders.
+- Maintains consistency of folder structure, avoiding creation of redundant or unnecessary folders.
+- Helps users quickly categorize new bookmarks while maintaining existing organizational structure.
+- Support for single bookmark and bulk bookmark processing.
+- Asynchronous task processing model: Uses Next.js API routes for task submission, Redis for task queue and status management, and frontend polling for results.
+- Web content extraction: Employs the same extraction and fallback mechanism as the tag generation feature.
 - User interface integration:
-  - Use via "AI Suggest Folder" button in the add/edit bookmark modal
-  - Select "Suggest Folder (AI)" option in bulk edit operations in the bookmark list
-- Technical implementation:
-  - Backend API route: `app/api/suggest-folder/route.ts`
-  - Frontend API client: `lib/folder-api.ts`
-- Official API support:
-  - Uses the same API settings as tag generation. This is completely free service
+  - Use via "AI Suggest Folder" button in the add/edit bookmark modal.
+  - Select "Suggest Folder (AI)" option in bulk edit operations in the bookmark list.
+- **Configuration**:
+  - Shares the same API configuration as the AI Smart Tag Generation feature, managed uniformly in the settings panel, with all information securely stored locally.
 
 ### 7. Multi-language Support (i18n)
 
@@ -169,8 +165,7 @@ Component hierarchy:
 
 ### 5. API Interaction
 
-- **Tag Generation API**: Proxy to external service via Next.js API routes
-- **Folder Recommendation API**: Proxy to external service via Next.js API routes
+- **AI Features API (Tag Generation, Folder Recommendation)**: Interacts with AI services supporting OpenAI compatible interfaces via Next.js API routes, using Redis for asynchronous task management, defaulting to a configuration that balances economy and performance.
 - **WebDAV API**: Direct communication from frontend to WebDAV server
 
 ### 6. Architecture Diagram
@@ -205,7 +200,9 @@ flowchart TD
     subgraph API["API Interaction"]
         TA[tag-api.ts] -->|Requests| NR[Next.js API Routes]
         FA[folder-api.ts] -->|Requests| NR[Next.js API Routes]
-        NR -->|Proxy| ES[External Services]
+        NR -->|Direct Call| AIService[User-configured AI Service e.g., Gemini]
+        RedisDB[(Redis)]
+        NR -->|Task Mgmt| RedisDB
         HFS[hierarchical-folder-select]
     end
 
@@ -232,8 +229,8 @@ The following is the main file and folder structure of the MarkHub project:
 markhub/
 ├── app/                      # Next.js application directory
 │   ├── api/                  # API routes
-│   │   ├── generate-tags/    # Tag generation API proxy
-│   │   └── suggest-folder/   # Folder suggestion API
+│   │   ├── generate-tags/    # Tag generation API (direct AI call)
+│   │   └── suggest-folder/   # Folder suggestion API (direct AI call)
 │   ├── layout.tsx            # Global layout component
 │   ├── page.tsx              # Main page component
 │   ├── background.js         # Background script
@@ -330,6 +327,10 @@ npm install
 # or
 pnpm install
 
+# Configure Environment Variables
+cp .env.example .env
+# Then edit the .env file to add your Redis connection URL (REDIS_URL).
+
 # Development mode
 npm run dev
 # or
@@ -345,6 +346,12 @@ npm run start
 # or
 pnpm start
 ```
+
+### Environment Variables (Note on changes)
+
+Projects use environment variables to store sensitive information. Before deploying to a production environment, make sure to set the following environment variables:
+
+- `REDIS_URL`: (Required) Redis database connection URL for AI-function asynchronous task state management. For example: `redis:--localhost:6379`
 
 ## License
 

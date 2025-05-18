@@ -33,11 +33,11 @@ export interface AppSettings {
   darkMode: boolean
   accentColor: string
   defaultView: string
-  tagApiUrl?: string
-  tagApiKey?: string
-  tagConcurrencyLimit?: number
   language?: string
-  // 已明确支持的所有设置项，不再使用模糊的"其他可能的设置..."
+  geminiApiKey?: string
+  geminiApiBaseUrl?: string
+  geminiModelName?: string
+  // 旧的tagApiUrl, tagApiKey, tagConcurrencyLimit 已移除
 }
 
 // 辅助类: IndexedDB 数据库操作

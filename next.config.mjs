@@ -24,7 +24,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://api.markhub.app; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none';"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none';"
           },
           {
             key: 'X-Content-Type-Options',
@@ -97,7 +97,6 @@ const nextConfig = {
   experimental: {
     // 改进代码拆分
     optimizePackageImports: ['@mantine/core', '@radix-ui', 'react-hook-form'],
-    // 移除optimizeCss配置，因为缺少critters依赖
   },
 }
 

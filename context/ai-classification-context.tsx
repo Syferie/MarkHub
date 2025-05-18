@@ -302,12 +302,6 @@ export function AIClassificationProvider({ children }: { children: ReactNode }) 
         {
           url: task.url,
           filter_tags: tags  // 添加当前用户的所有标签作为参考
-        },
-        undefined,
-        // 使用环境设置
-        {
-          apiKey: settings?.tagApiKey,
-          apiBaseUrl: settings?.tagApiUrl
         }
       )
 
@@ -356,12 +350,6 @@ export function AIClassificationProvider({ children }: { children: ReactNode }) 
         {
           url: task.url,
           folders: folderNames
-        },
-        undefined,
-        // 使用环境设置
-        {
-          apiKey: settings?.tagApiKey,
-          apiBaseUrl: settings?.tagApiUrl
         }
       )
 
