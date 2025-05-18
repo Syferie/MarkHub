@@ -3,7 +3,7 @@
  *
  * 提供与文件夹建议服务交互的TypeScript函数
  */
-import { db } from "@/lib/db"; // 导入db实例
+import { getGeminiAPIConfig } from "@/lib/config-storage"; // 导入配置工具
 
 // API响应类型
 export interface TaskSubmissionResponse {
@@ -76,8 +76,8 @@ export async function submitFolderSuggestionTask(
     // 使用直接路由来启动任务
     const url = '/api/suggest-folder';
 
-    // 从IndexedDB获取应用设置
-    const appSettings = await db.getAppSettings();
+    // 从localStorage获取API配置
+    const apiConfig = getGeminiAPIConfig();
 
     // 准备请求选项
     const requestOptions: RequestInit = {
@@ -88,9 +88,9 @@ export async function submitFolderSuggestionTask(
       body: JSON.stringify({
         url: options.url,
         folders: options.folders, // 传递现有文件夹列表
-        customApiKey: appSettings?.geminiApiKey || undefined,
-        customApiBaseUrl: appSettings?.geminiApiBaseUrl || undefined,
-        customModelName: appSettings?.geminiModelName || undefined
+        customApiKey: apiConfig.geminiApiKey || undefined,
+        customApiBaseUrl: apiConfig.geminiApiBaseUrl || undefined,
+        customModelName: apiConfig.geminiModelName || undefined
       })
     };
 
@@ -153,8 +153,35 @@ export async function getTaskStatus(
       throw new ApiError(errorMessage, response.status);
     }
 
-    // 解析响应
-    const taskStatus = await response.json();
+    // 获取原始文本响应
+    const rawResponseText = await response.text();
+
+    // 尝试移除Markdown代码块标记
+    let cleanedResponseText = rawResponseText.trim();
+    if (cleanedResponseText.startsWith("```json")) {
+      cleanedResponseText = cleanedResponseText.substring(7);
+    }
+    if (cleanedResponseText.endsWith("```")) {
+      cleanedResponseText = cleanedResponseText.substring(0, cleanedResponseText.length - 3);
+    }
+    cleanedResponseText = cleanedResponseText.trim(); // 再次 trim
+
+    // 解析JSON响应
+    let taskStatus;
+    let actualRawAiResponseToLog = rawResponseText; // 默认记录整个后端响应
+
+    try {
+      taskStatus = JSON.parse(cleanedResponseText);
+      // 如果解析成功，并且后端返回的JSON中有raw_ai_content，则优先使用它作为日志内容
+      if (taskStatus && typeof taskStatus === 'object' && taskStatus.raw_ai_content) {
+        actualRawAiResponseToLog = taskStatus.raw_ai_content;
+      }
+    } catch (parseError: any) {
+      console.error(`获取任务状态失败 (${taskId}) - JSON解析错误:`, parseError);
+      // 解析失败时，actualRawAiResponseToLog 仍然是 rawResponseText
+      console.error(`获取任务状态失败 (${taskId}) - 原始AI响应:`, actualRawAiResponseToLog);
+      throw new ApiError(`Failed to parse AI response for task ${taskId}: ${parseError.message}`, response.status);
+    }
 
     // 简化的响应处理
     if (taskStatus.status === 'completed') {
@@ -166,16 +193,22 @@ export async function getTaskStatus(
         task_id: taskId,
         status: 'completed',
         suggested_folder: suggestedFolder,
-        url: options.url,
+        url: options.url, // 使用传入的options中的url
         completed_at: new Date().toISOString()
       } as TaskStatusCompleted;
     }
     // 如果任务失败
     else if (taskStatus.status === 'failed') {
+      console.error(`任务失败 (${taskId}):`, taskStatus.error);
+      // 这里的 actualRawAiResponseToLog 已经被更新（如果成功解析了包含 raw_ai_content 的外层 JSON）
+      console.error(`任务失败 (${taskId}) - 原始AI响应:`, actualRawAiResponseToLog);
       return {
         task_id: taskId,
         status: 'failed',
-        error: taskStatus.error || '未知错误'
+        error: taskStatus.error || '未知错误',
+        // 将 taskStatus 中的 raw_ai_content (如果存在) 也传递到返回的错误对象中，虽然 TaskStatusFailed 类型目前没有它
+        // 但调用者可能会检查这个属性
+        ...(taskStatus.raw_ai_content && { raw_ai_content_from_backend: taskStatus.raw_ai_content })
       } as TaskStatusFailed;
     }
     // 如果任务正在进行中

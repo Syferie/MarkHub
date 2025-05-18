@@ -21,6 +21,7 @@ import WebDAVSync from "./webdav-sync"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
 import { db } from "@/lib/db" // 导入db实例
+import { getAppConfig, saveAppConfig, migrateConfigFromIndexedDB } from "@/lib/config-storage" // 导入配置存储工具
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -45,41 +46,48 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [isResettingData, setIsResettingData] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
 
-  // Initialize local settings when modal opens
+  // 初始化本地设置并在打开模态框时从localStorage加载
   useEffect(() => {
-    const loadSettings = async () => {
+    const loadSettingsAndMigrate = async () => {
       if (isOpen) {
-        // 从 context 获取基础设置
-        const baseSettings = settings || { // settings 可能为 null
+        // 尝试从IndexedDB迁移配置到localStorage（如果还未迁移）
+        // migrateConfigFromIndexedDB 现在是幂等的，只有在未迁移时才会执行实际操作
+        const migrationResult = await migrateConfigFromIndexedDB(db);
+        if (migrationResult) {
+          console.log("配置迁移已在打开设置时执行/确认。");
+        }
+        
+        // 从context获取基础设置
+        const baseSettings = settings || { // settings可能为null
           darkMode: false,
           accentColor: "#3b82f6",
           defaultView: "all",
           language: language || "en",
         };
 
-        // 从 IndexedDB 获取完整的应用设置，包括Gemini配置
-        const storedAppSettings = await db.getAppSettings();
+        // 从localStorage获取完整的应用设置
+        const appConfig = getAppConfig();
         
         setLocalSettings({
-          darkMode: storedAppSettings?.darkMode ?? baseSettings.darkMode,
-          accentColor: storedAppSettings?.accentColor ?? baseSettings.accentColor,
-          defaultView: storedAppSettings?.defaultView ?? baseSettings.defaultView,
-          language: storedAppSettings?.language ?? baseSettings.language ?? "en", // 确保最终是string
-          geminiApiBaseUrl: storedAppSettings?.geminiApiBaseUrl || "",
-          geminiModelName: storedAppSettings?.geminiModelName || "",
-          geminiApiKey: storedAppSettings?.geminiApiKey || "",
+          darkMode: appConfig.darkMode ?? baseSettings.darkMode,
+          accentColor: appConfig.accentColor ?? baseSettings.accentColor,
+          defaultView: appConfig.defaultView ?? baseSettings.defaultView,
+          language: appConfig.language ?? baseSettings.language ?? "en", // 确保最终是string
+          geminiApiBaseUrl: appConfig.geminiApiBaseUrl || "",
+          geminiModelName: appConfig.geminiModelName || "",
+          geminiApiKey: appConfig.geminiApiKey || "",
         });
         setHasChanges(false);
       }
     };
-    loadSettings();
-  }, [isOpen, settings, language]); // settings 和 language 作为依赖项，确保它们更新时重新加载
+    loadSettingsAndMigrate();
+  }, [isOpen, settings, language]); // settings和language作为依赖项，确保它们更新时重新加载
 
-  // Track changes
+  // 跟踪变更
   useEffect(() => {
-    const checkIfChanged = async () => {
+    const checkIfChanged = () => {
       if (isOpen) { // 只在模态框打开时比较
-        const currentDbSettings = await db.getAppSettings();
+        const currentConfig = getAppConfig();
         const baseSettings = settings || { // 用于比较的基础设置
           darkMode: false,
           accentColor: "#3b82f6",
@@ -88,13 +96,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         };
 
         const changed =
-          localSettings.darkMode !== (currentDbSettings?.darkMode ?? baseSettings.darkMode) ||
-          localSettings.accentColor !== (currentDbSettings?.accentColor ?? baseSettings.accentColor) ||
-          localSettings.defaultView !== (currentDbSettings?.defaultView ?? baseSettings.defaultView) ||
-          localSettings.language !== (currentDbSettings?.language ?? baseSettings.language) ||
-          localSettings.geminiApiBaseUrl !== (currentDbSettings?.geminiApiBaseUrl || "") ||
-          localSettings.geminiModelName !== (currentDbSettings?.geminiModelName || "") ||
-          localSettings.geminiApiKey !== (currentDbSettings?.geminiApiKey || "");
+          localSettings.darkMode !== (currentConfig.darkMode ?? baseSettings.darkMode) ||
+          localSettings.accentColor !== (currentConfig.accentColor ?? baseSettings.accentColor) ||
+          localSettings.defaultView !== (currentConfig.defaultView ?? baseSettings.defaultView) ||
+          localSettings.language !== (currentConfig.language ?? baseSettings.language) ||
+          localSettings.geminiApiBaseUrl !== (currentConfig.geminiApiBaseUrl || "") ||
+          localSettings.geminiModelName !== (currentConfig.geminiModelName || "") ||
+          localSettings.geminiApiKey !== (currentConfig.geminiApiKey || "");
         
         setHasChanges(changed);
       }
@@ -108,11 +116,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
 
   const handleSaveChanges = async () => {
-    // 从 IndexedDB 获取当前的完整设置，以确保我们不会覆盖其他未在此模态框中管理的设置
-    const currentStoredSettings = await db.getAppSettings() || {};
+    // 从localStorage获取当前的完整设置
+    const currentConfig = getAppConfig();
     
-    const newSettingsToSave = {
-      ...currentStoredSettings, // 保留其他可能存在的设置
+    // 构建新的配置对象
+    const newConfig = {
+      ...currentConfig, // 保留其他可能存在的设置
       darkMode: localSettings.darkMode,
       accentColor: localSettings.accentColor,
       defaultView: localSettings.defaultView,
@@ -122,40 +131,31 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       geminiModelName: localSettings.geminiModelName,
     };
 
-    // updateSettings 来自 context，它应该内部调用 db.saveAppSettings
-    // 我们需要确保 updateSettings 会传递完整的 AppSettings 对象
-    // 或者，我们在这里直接调用 db.saveAppSettings
-    // 为了更直接地控制，我们在这里调用 db.saveAppSettings
-    // 然后通知 context 更新其内部状态（如果 context 不直接从db读取的话）
-
-    await db.saveAppSettings(newSettingsToSave);
+    // 保存到localStorage
+    saveAppConfig(newConfig);
     
-    // 手动调用 context 的 updateSettings 来同步 context 中的 settings state
-    // 假设 updateSettings 只是更新内存中的状态，或者它自己会再次从db加载
-    // 最安全的做法是让 updateSettings 能够接受一个完整的 AppSettings 对象
-    // 并触发全局状态的更新。
-    // 如果 updateSettings 仅用于部分更新，则需要调整。
-    // 这里我们假设 updateSettings 能够正确处理传递给它的 localSettings 的所有相关字段
-    // 并更新 context 中的状态。
-    // 对于Gemini字段，context的settings对象可能没有这些字段，所以updateSettings可能需要调整
-    // 或者我们不通过context的updateSettings来持久化gemini字段，db.saveAppSettings已完成持久化。
-    // context中的settings主要用于UI主题等，AI配置由API调用时直接从db读取。
-
-    // 更新 context 中的基础设置（非Gemini部分）
+    console.log("设置已保存到localStorage", {
+      darkMode: localSettings.darkMode,
+      accentColor: localSettings.accentColor,
+      defaultView: localSettings.defaultView,
+      language: localSettings.language,
+      geminiApiKey: localSettings.geminiApiKey ? "已设置" : "未设置",
+      geminiApiBaseUrl: localSettings.geminiApiBaseUrl,
+      geminiModelName: localSettings.geminiModelName,
+    });
+    
+    // 更新context中的基础设置
     updateSettings({
       darkMode: localSettings.darkMode,
       accentColor: localSettings.accentColor,
       defaultView: localSettings.defaultView,
       language: localSettings.language,
-      // 不传递gemini字段给旧的updateSettings，除非它已更新以处理它们
     });
 
-
-    // 更新语言设置 (如果语言 context 不直接从 db 读取)
+    // 更新语言设置
     if (localSettings.language !== language) {
       setLanguage(localSettings.language as "en" | "zh");
     }
-    
 
     onClose();
   };

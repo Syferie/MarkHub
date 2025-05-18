@@ -15,65 +15,23 @@ import { Button, Modal, TextInput, PasswordInput, Group, Text, Switch, Alert, Pr
 import { IconCloud, IconCloudUpload, IconCloudDownload, IconAlertCircle } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
+import { getWebDAVConfig, saveWebDAVConfig } from "@/lib/config-storage" // 导入WebDAV配置工具
 
 // 导出供外部组件使用的函数和状态
-// 使用异步函数从IndexedDB获取最新状态
-export const getWebDAVStatus = async () => {
+// 使用同步函数从localStorage获取最新状态
+export const getWebDAVStatus = () => {
   try {
-    // 从IndexedDB获取WebDAV配置
-    const db_connection = await db.openDB();
-    const transaction = db_connection.transaction(["appSettings"], "readonly");
-    const store = transaction.objectStore("appSettings");
-    const request = store.get("webdav_config");
+    // 从localStorage获取WebDAV配置
+    const config = getWebDAVConfig();
 
-    // 等待请求完成
-    const result: { key: string; value: any } | undefined = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
-    // 判断WebDAV状态
-    if (result && result.value) {
-      const config = result.value;
-      const isEnabled = !!config.serverUrl && !!config.username && !!config.password && !!config.autoSync;
-      return { isEnabled };
-    }
+    // 判断WebDAV状态 - 确保config存在并且所有必需字段都有值
+    const isEnabled = config ? (!!config.serverUrl && !!config.username && !!config.password && !!config.autoSync) : false;
+    return { isEnabled };
   } catch (e) {
-    console.error('Error getting WebDAV status from IndexedDB:', e);
+    console.error('Error getting WebDAV status from localStorage:', e);
   }
 
   return { isEnabled: false };
-};
-
-// 从IndexedDB获取完整的WebDAV配置
-export const getWebDAVConfig = async () => {
-  try {
-    // 从IndexedDB获取WebDAV配置
-    const db_connection = await db.openDB();
-    const transaction = db_connection.transaction(["appSettings"], "readonly");
-    const store = transaction.objectStore("appSettings");
-    const request = store.get("webdav_config");
-
-    // 等待请求完成
-    const result: { key: string; value: any } | undefined = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
-    if (result && result.value) {
-      return result.value;
-    }
-  } catch (e) {
-    console.error('Error getting WebDAV config from IndexedDB:', e);
-  }
-
-  return {
-    serverUrl: "",
-    username: "",
-    password: "",
-    storagePath: "/bookmarks/",
-    autoSync: false,
-  };
 };
 
 // 辅助函数：规范化路径并添加时间戳
@@ -105,30 +63,20 @@ export async function uploadBookmarksToWebDAV() {
   console.log("uploadBookmarksToWebDAV 被调用 - 验证过程开始");
 
   try {
-    // 1. 从IndexedDB加载WebDAV配置
-    const db_connection = await db.openDB();
-    const transaction = db_connection.transaction(["appSettings"], "readonly");
-    const store = transaction.objectStore("appSettings");
-    const request = store.get("webdav_config");
-
-    // 等待请求完成
-    const result: { key: string; value: any } | undefined = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+    // 1. 从localStorage加载WebDAV配置
+    const config = getWebDAVConfig();
 
     // 2. 检查配置是否有效
-    console.log("从IndexedDB加载的WebDAV配置:", result ? {
-      ...result.value,
-      password: result.value?.password ? "******" : null
-    } : "未找到配置");
+    console.log("从localStorage加载的WebDAV配置:", {
+      ...config,
+      password: config?.password ? "******" : null
+    });
 
-    if (!result || !result.value) {
+    if (!config) {
       console.log("未找到WebDAV配置，跳过上传");
       return false;
     }
 
-    const config = result.value;
     const isEnabled = !!config.serverUrl && !!config.username && !!config.password && !!config.autoSync;
 
     if (!isEnabled) {
@@ -245,94 +193,84 @@ export default function WebDAVSync() {
   const [password, setPassword] = useState("")
   const [storagePath, setStoragePath] = useState("/bookmarks/")
   const [autoSync, setAutoSync] = useState(false)
+  
+  const [initialConfig, setInitialConfig] = useState<ReturnType<typeof getWebDAVConfig> | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState(0)
   const [syncMessage, setMessage] = useState("")
   const [syncError, setSyncError] = useState("")
   const [syncSuccess, setSyncSuccess] = useState("")
 
-  // 从 IndexedDB 加载 WebDAV 配置
+  // 从localStorage加载WebDAV配置并设置初始状态
   useEffect(() => {
-    const loadWebDAVConfig = async () => {
+    const loadAndSetInitialConfig = () => {
       try {
-        console.log("正在从IndexedDB加载WebDAV配置...")
-        // 打开 IndexedDB 连接
-        const db_connection = await db.openDB()
-
-        // 获取 WebDAV 配置
-        const transaction = db_connection.transaction(["appSettings"], "readonly")
-        const store = transaction.objectStore("appSettings")
-
-        const request = store.get("webdav_config")
-
-        request.onsuccess = () => {
-          if (request.result) {
-            const config = request.result.value
-            console.log("已从IndexedDB加载WebDAV配置:", {
-              ...config,
-              password: config.password ? "******" : null
-            })
-            setServerUrl(config.serverUrl || "")
-            setUsername(config.username || "")
-            // 加载密码（如果存在）
-            if (config.password) {
-              setPassword(config.password)
-            }
-            setStoragePath(config.storagePath || "/bookmarks/")
-            setAutoSync(config.autoSync || false)
-          } else {
-            console.log("IndexedDB中没有找到WebDAV配置")
-          }
+        console.log("正在从localStorage加载WebDAV配置...")
+        const config = getWebDAVConfig();
+        if (config) {
+          console.log("已从localStorage加载WebDAV配置:", { ...config, password: config.password ? "******" : null });
+          setServerUrl(config.serverUrl || "");
+          setUsername(config.username || "");
+          setPassword(config.password || ""); // 直接设置密码，PasswordInput会处理显示
+          setStoragePath(config.storagePath || "/bookmarks/");
+          setAutoSync(config.autoSync || false);
+          setInitialConfig(config); // 保存初始配置用于比较
+        } else {
+          console.log("localStorage中没有找到WebDAV配置，使用默认值。");
+          const defaultConfig = { serverUrl: "", username: "", password: "", storagePath: "/bookmarks/", autoSync: false };
+          setInitialConfig(defaultConfig);
         }
-
-        request.onerror = () => {
-          console.error("Error loading WebDAV config from IndexedDB:", request.error)
-        }
+        setHasChanges(false); // 重置更改状态
       } catch (error) {
-        console.error("Failed to load WebDAV config:", error)
+        console.error("加载WebDAV配置失败:", error);
       }
+    };
+
+    if (syncModalOpen) { // 只在模态框打开时加载/重新加载配置
+      loadAndSetInitialConfig();
     }
+  }, [syncModalOpen]);
 
-    loadWebDAVConfig()
-  }, [])
+  // 检测配置更改
+  useEffect(() => {
+    if (!initialConfig) return;
 
-  // 保存 WebDAV 配置到 IndexedDB
-  const saveWebDAVConfig = useCallback(async () => {
-    // 添加密码到配置对象中
-    const config = {
+    const currentConfigState = {
       serverUrl,
       username,
-      password, // 添加密码
+      password,
       storagePath,
       autoSync,
-    }
+    };
 
-    console.log("保存WebDAV配置到IndexedDB...", { ...config, password: password ? "******" : null })
+    const changed =
+      currentConfigState.serverUrl !== (initialConfig.serverUrl || "") ||
+      currentConfigState.username !== (initialConfig.username || "") ||
+      currentConfigState.password !== (initialConfig.password || "") ||
+      currentConfigState.storagePath !== (initialConfig.storagePath || "/bookmarks/") ||
+      currentConfigState.autoSync !== (initialConfig.autoSync || false);
+    
+    setHasChanges(changed);
+  }, [serverUrl, username, password, storagePath, autoSync, initialConfig]);
 
-    try {
-      // 打开 IndexedDB 连接
-      const db_connection = await db.openDB()
 
-      // 保存 WebDAV 配置
-      const transaction = db_connection.transaction(["appSettings"], "readwrite")
-      const store = transaction.objectStore("appSettings")
-
-      const request = store.put({
-        key: "webdav_config",
-        value: config
-      })
-
-      request.onsuccess = () => {
-        console.log("WebDAV 配置已成功保存到IndexedDB")
-      }
-
-      request.onerror = () => {
-        console.error("Error saving WebDAV config to IndexedDB:", request.error)
-      }
-    } catch (error) {
-      console.error("Failed to save WebDAV config:", error)
-    }
-  }, [serverUrl, username, password, storagePath, autoSync]) // 添加password到依赖数组
+  // 保存WebDAV配置到localStorage
+  const handleSaveWebDAVConfig = useCallback(() => {
+    const configToSave = {
+      serverUrl,
+      username,
+      password,
+      storagePath,
+      autoSync,
+    };
+    saveWebDAVConfig(configToSave);
+    setInitialConfig(configToSave); // 更新初始配置为当前已保存状态
+    setHasChanges(false); // 重置更改状态
+    console.log("WebDAV配置已手动保存到localStorage:", { ...configToSave, password: password ? "******" : null });
+    // 可以添加一个toast通知用户保存成功
+  }, [serverUrl, username, password, storagePath, autoSync]);
 
   // Helper function to normalize URL
   const normalizeUrl = (url: string) => {
@@ -485,13 +423,7 @@ export default function WebDAVSync() {
 
   // 移除组件引用逻辑，因为我们已经重构了uploadBookmarksToWebDAV函数，不再依赖它
 
-  // 更新WebDAV状态和配置时，确保同步保存到IndexedDB
-  useEffect(() => {
-    // 这个效果只会在表单状态改变时触发保存
-    // 实际保存已经在saveWebDAVConfig函数中处理
-    const isEnabled = !!serverUrl && !!username && !!password && autoSync;
-    console.log("WebDAV状态更新:", {isEnabled});
-  }, [serverUrl, username, password, storagePath, autoSync]);
+  // (移除了根据state变化自动保存的useEffect)
 
   // Upload bookmarks to WebDAV - 改进了错误处理和调试信息
   const uploadBookmarks = async () => {
@@ -509,8 +441,15 @@ export default function WebDAVSync() {
     setSyncSuccess("")
 
     // 在上传前保存WebDAV配置，确保最新配置被存储
-    await saveWebDAVConfig()
-    console.log("WebDAV configuration updated before upload")
+    // 上传/下载前不再自动保存，期望用户已通过“保存配置”按钮保存
+    // 如果需要，可以提示用户保存未保存的更改
+    if (hasChanges) {
+      // 可以选择弹窗提示用户保存，或者自动保存
+      // 为简单起见，这里先不处理，依赖用户手动保存
+      console.warn("WebDAV配置有未保存的更改，执行同步操作可能使用旧配置。");
+    }
+    // const currentConfig = getWebDAVConfig(); // 确保使用最新的已保存配置
+    // console.log("WebDAV configuration loaded for upload/download", currentConfig);
 
     console.log("当前书签数据状态:", {
       bookmarksCount: bookmarks.length,
@@ -618,8 +557,12 @@ export default function WebDAVSync() {
     setSyncSuccess("")
 
     // 在下载前保存WebDAV配置，确保最新配置被存储
-    await saveWebDAVConfig()
-    console.log("WebDAV configuration updated before download")
+    // 下载前不再自动保存
+    if (hasChanges) {
+      console.warn("WebDAV配置有未保存的更改，执行同步操作可能使用旧配置。");
+    }
+    // const currentConfig = getWebDAVConfig();
+    // console.log("WebDAV configuration loaded for upload/download", currentConfig);
 
     try {
       // 检查文件是否存在
@@ -780,12 +723,20 @@ export default function WebDAVSync() {
 
           <Group mt="xl">
             <Button
+              variant="light"
+              onClick={handleSaveWebDAVConfig}
+              disabled={!hasChanges || isSyncing}
+              className="flex-grow sm:flex-grow-0"
+            >
+              {t("settings.saveConfiguration") || "保存配置"}
+            </Button>
+            <Button
               leftSection={<IconCloudUpload size={16} />}
               variant="light"
               onClick={uploadBookmarks}
               loading={isSyncing}
-              disabled={!serverUrl || !username || !password}
-              className="flex-1"
+              disabled={!serverUrl || !username || !password || hasChanges} // 如果有未保存更改则禁用同步
+              className="flex-grow sm:flex-grow-0"
             >
               {t("webdav.upload")}
             </Button>
@@ -794,12 +745,17 @@ export default function WebDAVSync() {
               variant="light"
               onClick={downloadBookmarks}
               loading={isSyncing}
-              disabled={!serverUrl || !username || !password}
-              className="flex-1"
+              disabled={!serverUrl || !username || !password || hasChanges} // 如果有未保存更改则禁用同步
+              className="flex-grow sm:flex-grow-0"
             >
               {t("webdav.download")}
             </Button>
           </Group>
+          {hasChanges && (
+            <Text size="xs" color="orange" mt="xs" ta="right">
+              {t("webdav.unsavedChangesWarning") || "您有未保存的更改。请先保存配置。"}
+            </Text>
+          )}
         </div>
       </Modal>
     </>

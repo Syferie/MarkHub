@@ -9,6 +9,12 @@ import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
 // @ts-ignore - 假设这些依赖已经安装
 import { JSDOM } from 'jsdom';
+import { z } from 'zod'; // 引入 Zod
+
+// Zod Schema for AI response validation
+const TagsResponseSchema = z.object({
+  tags: z.array(z.string().min(1)).min(1).max(5) // 要求1-5个标签，每个标签至少1个字符
+});
 
 /**
  * API响应类型
@@ -249,11 +255,11 @@ async function processTaskAsync(
       messages: [
         {
           role: "system",
-          content: "You are a professional bookmark tagging assistant. Your goal is to provide concise, relevant, and diverse tags for web pages. Analyze the provided markdown content and generate 2-3 highly relevant tags. If filter_tags are provided, prioritize tags that are semantically similar or related to the filter_tags, but also include other relevant tags if appropriate. The tags should be in the same language as the main content of the page. Return the tags as a JSON object with a key \"tags\" containing an array of strings."
+          content: "You are a professional bookmark tagging assistant for a bookmarking application. Your sole task is to analyze the provided webpage content and generate 2-3 most relevant tags that accurately categorize the content. Users will see these tags as recommendations when saving bookmarks. Return ONLY a JSON response in the format {\"tags\": [\"tag1\", \"tag2\"]}, with no additional text or explanations. Tags should be concise (1-2 words), descriptive, and highly relevant to the core topic. The tags should be in the same language as the main content of the page."
         },
         {
           role: "user",
-          content: `Filter tags: ${JSON.stringify(filterTags || [])}\n\nPage content (Markdown):\n${markdownContent.substring(0, 30000)}` // 限制长度避免超过API限制
+          content: `Analyze the following webpage content and generate 2-3 highly relevant tags for a bookmarking application. These tags will be recommended to users when they save this webpage as a bookmark. The tags should accurately reflect the main topic, domain, and key concepts of the content. Choose tags that would be most helpful for categorizing and retrieving this bookmark later. Note: This content has been automatically extracted from the webpage and may contain only the main textual content. ${filterTags && filterTags.length > 0 ? `\nIf appropriate, prioritize selecting from the user's existing tag collection: ${JSON.stringify(filterTags)}. These are tags the user has previously created. Matching with existing tags helps with organization, but only choose them if truly relevant to the content.` : ''}\n\nWEBPAGE CONTENT:\n${markdownContent.substring(0, 30000)}` // 限制长度避免超过API限制
         }
       ],
       temperature: 0.3,
@@ -275,19 +281,61 @@ async function processTaskAsync(
       throw new Error(`AI API request failed: ${aiResponse.status} ${aiResponse.statusText} - ${errorText}`);
     }
     
-    const aiResult = await aiResponse.json();
+    const aiResultText = await aiResponse.text(); // 首先获取原始文本
     let tags: string[] = [];
-    
+    let rawAiContentForLogging = aiResultText; // 用于日志记录的原始AI响应
+
     try {
-      // 解析AI返回的JSON
-      const responseContent = aiResult.choices[0].message.content;
-      const parsedContent = JSON.parse(responseContent);
-      tags = parsedContent.tags || [];
+      const aiResult = JSON.parse(aiResultText); // 解析外层JSON
       
-      // 确保标签是数组
-      if (!Array.isArray(tags)) {
-        throw new Error('AI response did not return a valid tags array');
+      if (!aiResult.choices || !aiResult.choices[0] || !aiResult.choices[0].message || !aiResult.choices[0].message.content) {
+        console.error(`[Task ${taskId}] AI response structure unexpected:`, aiResultText);
+        throw new Error('AI response structure unexpected. Missing choices or message content.');
       }
+      
+      const responseContentString = aiResult.choices[0].message.content;
+      rawAiContentForLogging = responseContentString; // 更新为真正的AI内容字符串
+
+      // 尝试移除Markdown代码块标记
+      let cleanedResponseContentString = responseContentString.trim();
+      if (cleanedResponseContentString.startsWith("```json")) {
+        cleanedResponseContentString = cleanedResponseContentString.substring(7);
+        // 如果移除了```json，通常也需要移除末尾的```
+        if (cleanedResponseContentString.endsWith("```")) {
+          cleanedResponseContentString = cleanedResponseContentString.substring(0, cleanedResponseContentString.length - 3);
+        }
+      } else if (cleanedResponseContentString.startsWith("```")) { // 处理仅有```的情况
+        cleanedResponseContentString = cleanedResponseContentString.substring(3);
+        if (cleanedResponseContentString.endsWith("```")) {
+          cleanedResponseContentString = cleanedResponseContentString.substring(0, cleanedResponseContentString.length - 3);
+        }
+      } else if (cleanedResponseContentString.endsWith("```")) { // 处理仅有末尾```的情况
+         cleanedResponseContentString = cleanedResponseContentString.substring(0, cleanedResponseContentString.length - 3);
+      }
+      cleanedResponseContentString = cleanedResponseContentString.trim();
+      
+      // 首先确保 cleanedResponseContentString 是有效的 JSON
+      let jsonParsedObject;
+      try {
+        jsonParsedObject = JSON.parse(cleanedResponseContentString);
+      } catch (jsonParseError: any) {
+        console.error(`[Task ${taskId}] Failed to parse cleaned string into JSON. Error: ${jsonParseError.message}. Cleaned Content:`, cleanedResponseContentString);
+        // 将 cleanedResponseContentString 记录为原始AI内容，因为它更接近AI的直接输出（在清理后）
+        rawAiContentForLogging = cleanedResponseContentString;
+        throw new Error(`Invalid JSON format after cleaning: ${jsonParseError.message}`);
+      }
+
+      // 然后使用 Zod 验证结构
+      const validationResult = TagsResponseSchema.safeParse(jsonParsedObject);
+
+      if (!validationResult.success) {
+        console.error(`[Task ${taskId}] Zod validation failed. Errors:`, validationResult.error.flatten().fieldErrors);
+        console.error(`[Task ${taskId}] Invalid data for Zod validation:`, jsonParsedObject);
+        rawAiContentForLogging = cleanedResponseContentString; // Zod验证失败时，记录清理后的JSON字符串
+        throw new Error(`AI response does not match expected schema. Errors: ${JSON.stringify(validationResult.error.flatten().fieldErrors)}`);
+      }
+      
+      tags = validationResult.data.tags; // 从验证成功的数据中获取标签
       
       // 更新任务状态为已完成
       await redis.set(redisKey, JSON.stringify({
@@ -301,7 +349,8 @@ async function processTaskAsync(
         updateTime: new Date().toISOString()
       }));
     } catch (error) {
-      throw new Error(`Failed to parse AI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`[Task ${taskId}] Failed to parse AI response. Error: ${error instanceof Error ? error.message : 'Unknown error'}. Raw AI Content:`, rawAiContentForLogging);
+      throw new Error(`Failed to parse AI response: ${error instanceof Error ? error.message : 'Unknown error'}. Raw content logged.`);
     }
   } catch (error) {
     // 更新任务状态为失败
