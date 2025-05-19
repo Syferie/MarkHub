@@ -10,6 +10,7 @@ export interface AppConfig {
   geminiApiKey?: string;
   geminiApiBaseUrl?: string;
   geminiModelName?: string;
+  hasLoadedInitialSamples?: boolean; // 是否已加载过预置书签数据
   
   // WebDAV配置
   webdav_serverUrl?: string;
@@ -118,7 +119,8 @@ export function getAppConfig(): AppConfig {
       darkMode: false,
       accentColor: "#3b82f6",
       defaultView: "all",
-      language: "en"
+      language: "en",
+      hasLoadedInitialSamples: false
     });
     
     // 获取WebDAV配置
@@ -151,7 +153,8 @@ export function getAppConfig(): AppConfig {
       darkMode: false,
       accentColor: "#3b82f6",
       defaultView: "all",
-      language: "en"
+      language: "en",
+      hasLoadedInitialSamples: false
     };
   }
 }

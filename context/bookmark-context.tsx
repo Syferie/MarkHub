@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react"
 import Fuse from "fuse.js"
 import { db, migrateFromLocalStorage, needMigration, clearLocalStorageData } from "@/lib/db"
+import { getConfig, saveConfig } from "@/lib/config-storage"
 
 // Types
 interface Bookmark {
@@ -598,22 +599,59 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         const loadedSearchFields = await db.getSearchFields()
         const loadedSettings = await db.getAppSettings()
 
-        // 更新状态，但只在有数据或者之前从未加载过数据时才设置（避免刷新回到初始状态）
-        if (loadedBookmarks.length > 0 || !dataLoadedOnce.current) {
-          setBookmarks(loadedBookmarks.length > 0 ? loadedBookmarks : bookmarks)
+        // 获取是否已加载过预置书签的标记
+        const hasLoadedInitialSamples = getConfig<boolean>('hasLoadedInitialSamples', false)
+        console.log("是否已加载过预置书签:", hasLoadedInitialSamples)
+
+        // 判断是否需要加载预置书签数据
+        const shouldLoadSampleData = !hasLoadedInitialSamples &&
+                                    loadedBookmarks.length === 0 &&
+                                    loadedFolders.length === 0 &&
+                                    loadedTags.length === 0
+
+        // 如果需要加载预置数据，则使用 sample 数据
+        if (shouldLoadSampleData) {
+          console.log("首次启动且无数据，加载预置书签数据")
+          
+          // 使用预置数据
+          setBookmarks(sampleBookmarks)
+          setFolders(sampleFolders)
+          setTags(sampleTags)
+          setFavoriteFolders(sampleFavoriteFolders)
+          
+          // 将预置数据保存到数据库
+          await db.saveBookmarks(sampleBookmarks)
+          await db.saveFolders(sampleFolders)
+          await db.saveTags(sampleTags)
+          await db.saveFavoriteFolders(sampleFavoriteFolders)
+          
+          // 标记已加载过预置数据，避免后续重复加载
+          saveConfig('hasLoadedInitialSamples', true)
+          
           // 增加更新计数器，确保UI更新
           bookmarkUpdateCounter.current += 1
+        } else {
+          // 否则使用从数据库加载的数据
+          console.log("使用用户数据或已加载过预置数据，跳过预置书签加载")
+          
+          // 更新状态，但只在有数据或者之前从未加载过数据时才设置（避免刷新回到初始状态）
+          if (loadedBookmarks.length > 0 || !dataLoadedOnce.current) {
+            setBookmarks(loadedBookmarks)
+            // 增加更新计数器，确保UI更新
+            bookmarkUpdateCounter.current += 1
+          }
+          
+          if (loadedFolders.length > 0 || !dataLoadedOnce.current)
+            setFolders(loadedFolders)
+            
+          if (loadedTags.length > 0 || !dataLoadedOnce.current)
+            setTags(loadedTags)
+            
+          if (loadedFavoriteFolders.length > 0 || !dataLoadedOnce.current)
+            setFavoriteFolders(loadedFavoriteFolders)
         }
         
-        if (loadedFolders.length > 0 || !dataLoadedOnce.current)
-          setFolders(loadedFolders.length > 0 ? loadedFolders : folders)
-          
-        if (loadedTags.length > 0 || !dataLoadedOnce.current)
-          setTags(loadedTags.length > 0 ? loadedTags : tags)
-          
-        if (loadedFavoriteFolders.length > 0 || !dataLoadedOnce.current)
-          setFavoriteFolders(loadedFavoriteFolders.length > 0 ? loadedFavoriteFolders : favoriteFolders)
-          
+        // 加载其他设置
         if (loadedSortOption || !dataLoadedOnce.current)
           setCurrentSortOption(loadedSortOption || currentSortOption)
           
@@ -1023,31 +1061,43 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   const deleteFolder = async (id: string) => {
     // Delete folder and all its children
     const childFolderIds = getChildFolderIds(id)
+    
+    try {
+      // 从 IndexedDB 中删除主文件夹
+      await db.deleteFolder(id)
+      console.log(`成功从数据库删除文件夹: ${id}`)
 
-    // 更新文件夹状态
-    setFolders((prev) => prev.filter((f) => f.id !== id && !childFolderIds.includes(f.id)))
+      // 从 IndexedDB 中删除所有子文件夹
+      for (const childId of childFolderIds) {
+        await db.deleteFolder(childId)
+        console.log(`成功从数据库删除子文件夹: ${childId}`)
+      }
 
-    // Update bookmarks that were in this folder
-    setBookmarks((prev) =>
-      prev.map((b) => (b.folderId === id || childFolderIds.includes(b.folderId || "") ? { ...b, folderId: null } : b)),
-    )
+      // 更新文件夹状态
+      setFolders((prev) => prev.filter((f) => f.id !== id && !childFolderIds.includes(f.id)))
 
-    // Remove from favorites if it was favorited
-    if (favoriteFolders.includes(id)) {
-      setFavoriteFolders((prev) => prev.filter((folderId) => folderId !== id))
+      // Update bookmarks that were in this folder
+      setBookmarks((prev) =>
+        prev.map((b) => (b.folderId === id || childFolderIds.includes(b.folderId || "") ? { ...b, folderId: null } : b)),
+      )
+
+      // Remove from favorites if it was favorited
+      if (favoriteFolders.includes(id)) {
+        setFavoriteFolders((prev) => prev.filter((folderId) => folderId !== id))
+      }
+
+      // If the deleted folder was selected, clear the selection
+      if (selectedFolderId === id || childFolderIds.includes(selectedFolderId || "")) {
+        setSelectedFolderId(null)
+      }
+
+      // 清除子文件夹ID缓存
+      childFolderIdsCache.current = {};
+    } catch (error) {
+      console.error(`删除文件夹失败: ${id}`, error)
+      // 删除失败时，仍然尝试更新UI状态，提供更好的用户体验
+      setFolders((prev) => prev.filter((f) => f.id !== id && !childFolderIds.includes(f.id)))
     }
-
-    // If the deleted folder was selected, clear the selection
-    if (selectedFolderId === id || childFolderIds.includes(selectedFolderId || "")) {
-      setSelectedFolderId(null)
-    }
-
-    // 删除 IndexedDB 中的数据 - 因为状态更新已经触发防抖保存，这里不需要重复操作
-    // await db.deleteFolder(id)
-    // 子文件夹也需要删除
-    // for (const childId of childFolderIds) {
-    //   await db.deleteFolder(childId)
-    // }
   }
 
   // 这个函数已经被上面优化的版本替代
@@ -1199,7 +1249,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   // 清除所有书签数据
   const clearAllBookmarkData = async (): Promise<void> => {
     try {
-      // 清除IndexedDB中的书签和文件夹数据
+      // 清除IndexedDB中的书签和文件夹数据，但不重置hasLoadedInitialSamples标记
       await db.clearAllData();
 
       // 重置状态
@@ -1210,7 +1260,8 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
       setSelectedFolderId(null);
       setSelectedTags([]);
 
-      console.log("所有书签数据已清除");
+      // 注意：不重置hasLoadedInitialSamples标记，确保清空数据后不会再次加载预置数据
+      console.log("所有书签数据已清除，但保留了初始化标记");
     } catch (error) {
       console.error("清除书签数据失败:", error);
       throw error;
@@ -1230,6 +1281,9 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
       setFavoriteFolders(sampleFavoriteFolders);
       setSelectedFolderId(null);
       setSelectedTags([]);
+      
+      // 将 hasLoadedInitialSamples 标记设为 true，表示已加载过示例数据
+      saveConfig('hasLoadedInitialSamples', true);
 
       console.log("数据已重置为示例数据");
     } catch (error) {
