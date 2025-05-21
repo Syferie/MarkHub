@@ -12,22 +12,18 @@ export default function TagManager() {
   const [newTag, setNewTag] = useState("")
   const [isAddingTag, setIsAddingTag] = useState(false)
 
-  const handleAddTag = () => {
+  const handleAddTag = async () => {
     if (newTag.trim() && addTag) {
-      // 使用英文逗号分隔标签
-      const tagArray = newTag.split(',')
-
-      // 处理每个标签：去除空格并过滤掉空字符串
-      const validTags = tagArray
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0)
-
-      // 添加每一个有效的标签
-      validTags.forEach(tag => addTag(tag))
-
-      setNewTag("")
-      setIsAddingTag(false)
+      try {
+        await addTag(newTag); // 直接传递原始字符串
+      } catch (error) {
+        console.error("Error adding tags:", error);
+        // 可以在这里添加用户反馈，例如使用 toast 通知
+      }
     }
+    // 无论是否成功添加标签，都清空输入框并关闭添加界面
+    setNewTag("");
+    setIsAddingTag(false);
   }
 
   const toggleTag = (tag: string) => {

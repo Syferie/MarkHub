@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { Tabs, ActionIcon, TextInput, Button, Badge, Checkbox } from "@mantine/core"
+import { Tabs, ActionIcon, TextInput, Button, Badge, Checkbox, Anchor, Text } from "@mantine/core"
 import { IconSearch, IconPlus, IconAdjustments, IconFolder, IconSettings, IconStar, IconX } from "@tabler/icons-react"
 import { AIClassificationIndicator } from "./ai-classification-indicator"
+import { useAuth } from "@/context/auth-context" // 导入认证上下文
+import Link from "next/link" // 导入Link组件用于导航
 import ExtensionMessageListener from "./extension-message-listener"
 import BookmarkList from "./bookmark-list"
 import FolderTree from "./folder-tree"
@@ -89,6 +91,9 @@ export default function BookmarkDashboard() {
   // 使用移动设备检测hook
   const isMobile = useIsMobile();
   
+  // 引入认证上下文以访问用户信息和退出功能
+  const { user, logout } = useAuth();
+
   return (
     <div className="container mx-auto p-4 max-w-6xl h-screen overflow-auto">
       <div className="flex items-center justify-between mb-6">
@@ -96,25 +101,26 @@ export default function BookmarkDashboard() {
           <img src="/icon128.png" alt="MarkHub Logo" className="w-8 h-8 mr-2" />
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">MarkHub</h1>
         </div>
-        <div className="flex space-x-2">
-          <AIClassificationIndicator />
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => setIsAddModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700"
-            size={isMobile ? "xs" : "md"}
-          >
-            {isMobile ? "+" : t("dashboard.addBookmark")}
-          </Button>
-          <ActionIcon
-            variant="light"
-            onClick={() => setIsSettingsModalOpen(true)}
-            size="lg"
-            className="h-[36px] w-[36px] flex items-center justify-center"
-          >
-            <IconSettings size={20} />
-          </ActionIcon>
-        </div>
+        {/* 用户信息/退出按钮 或 登录/注册按钮 放在顶部栏原先按钮的位置 */}
+        {user ? (
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600 dark:text-gray-300">
+              欢迎, {user.email || user.name || '用户'}
+            </span>
+            <Button variant="default" onClick={logout} size="sm">
+              退出
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2">
+            <Button component={Link} href="/login" variant="default" size="sm">
+              登录
+            </Button>
+            <Button component={Link} href="/register" variant="outline" size="sm" ml="xs">
+              注册
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* 移动端使用选项卡切换文件夹/标签和书签列表 */}
@@ -150,14 +156,29 @@ export default function BookmarkDashboard() {
                     className="flex-grow"
                     leftSection={<IconSearch size={16} />}
                   />
-                  <ActionIcon
-                    variant={showSearchFilters ? "filled" : "light"}
-                    color={showSearchFilters ? "blue" : "gray"}
-                    aria-label="Search settings"
-                    onClick={() => setShowSearchFilters(!showSearchFilters)}
-                  >
-                    <IconAdjustments size={20} />
-                  </ActionIcon>
+                  <div className="flex items-center space-x-2">
+                    {/* 筛选按钮 */}
+                    <ActionIcon
+                      variant={showSearchFilters ? "filled" : "light"}
+                      color={showSearchFilters ? "blue" : "gray"}
+                      aria-label="Search settings"
+                      onClick={() => setShowSearchFilters(!showSearchFilters)}
+                    >
+                      <IconAdjustments size={20} />
+                    </ActionIcon>
+                    
+                    {/* 设置齿轮按钮 */}
+                    <ActionIcon
+                      variant="light"
+                      onClick={() => setIsSettingsModalOpen(true)}
+                      size="md"
+                    >
+                      <IconSettings size={18} />
+                    </ActionIcon>
+                    
+                    {/* AI分类指示器 */}
+                    <AIClassificationIndicator />
+                  </div>
                 </div>
     
                 {showSearchFilters && (
@@ -276,6 +297,7 @@ export default function BookmarkDashboard() {
           <div className="md:col-span-3 flex flex-col h-full">
             <div className="bg-white rounded-lg shadow p-4 mb-4">
               <div className="flex items-center space-x-2 mb-4">
+                {/* 搜索框 */}
                 <TextInput
                   placeholder={t("dashboard.search")}
                   value={searchQuery}
@@ -283,14 +305,44 @@ export default function BookmarkDashboard() {
                   className="flex-grow"
                   leftSection={<IconSearch size={16} />}
                 />
-                <ActionIcon
-                  variant={showSearchFilters ? "filled" : "light"}
-                  color={showSearchFilters ? "blue" : "gray"}
-                  aria-label="Search settings"
-                  onClick={() => setShowSearchFilters(!showSearchFilters)}
-                >
-                  <IconAdjustments size={20} />
-                </ActionIcon>
+                
+                {/* 工具栏按钮，按照顺序：筛选、添加书签、设置 */}
+                <div className="flex items-center space-x-2">
+                  {/* 1. 筛选按钮 */}
+                  <ActionIcon
+                    variant={showSearchFilters ? "filled" : "light"}
+                    color={showSearchFilters ? "blue" : "gray"}
+                    aria-label="Search settings"
+                    onClick={() => setShowSearchFilters(!showSearchFilters)}
+                    size="lg"
+                    className="h-[36px] w-[36px] flex items-center justify-center"
+                  >
+                    <IconAdjustments size={20} />
+                  </ActionIcon>
+                  
+                  {/* 2. 添加书签按钮 */}
+                  <Button
+                    leftSection={<IconPlus size={16} />}
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                    size={isMobile ? "xs" : "sm"}
+                  >
+                    {isMobile ? "+" : t("dashboard.addBookmark")}
+                  </Button>
+                  
+                  {/* 3. 设置齿轮按钮 */}
+                  <ActionIcon
+                    variant="light"
+                    onClick={() => setIsSettingsModalOpen(true)}
+                    size="lg"
+                    className="h-[36px] w-[36px] flex items-center justify-center"
+                  >
+                    <IconSettings size={20} />
+                  </ActionIcon>
+                  
+                  {/* AI分类指示器 */}
+                  <AIClassificationIndicator />
+                </div>
               </div>
   
               {showSearchFilters && (

@@ -25,7 +25,7 @@ export interface AIClassificationTask {
 
   // 生成的结果
   generatedTags?: string[]
-  suggestedFolder?: string
+  suggestedFolder?: string | undefined
 
   // 错误信息
   tagError?: string
@@ -287,52 +287,22 @@ export function AIClassificationProvider({ children }: { children: ReactNode }) 
 
   }, [taskQueue, folders, settings])
 
-  // 生成标签的函数
+  // 生成标签的函数 - 已弃用，标签生成已移至后端
   const generateTagsForBookmark = async (task: AIClassificationTask) => {
-    // 更新状态为正在生成标签
+    console.log(`标签生成已移至后端，任务 ${task.id} 的标签将在书签保存时自动生成`);
+    
+    // 更新状态为跳过标签生成（因为已移至后端）
     setTaskQueue(prevQueue =>
       prevQueue.map(t =>
-        t.id === task.id ? { ...t, tagStatus: 'generating_tags' } : t
+        t.id === task.id ? {
+          ...t,
+          tagStatus: 'tags_generated',  // 假装成功以不阻止流程
+          generatedTags: [],  // 空标签数组
+        } : t
       )
     )
 
-    try {
-      // 调用API生成标签，传递现有标签作为filter_tags参数
-      const generatedTags = await generateTags(
-        {
-          url: task.url,
-          filter_tags: tags  // 添加当前用户的所有标签作为参考
-        }
-      )
-
-      // 更新标签状态为成功
-      setTaskQueue(prevQueue =>
-        prevQueue.map(t =>
-          t.id === task.id ? {
-            ...t,
-            tagStatus: 'tags_generated',
-            generatedTags
-          } : t
-        )
-      )
-
-      return generatedTags
-    } catch (error) {
-      console.error(`为书签 ${task.title} 生成标签失败:`, error)
-
-      // 更新标签状态为失败
-      setTaskQueue(prevQueue =>
-        prevQueue.map(t =>
-          t.id === task.id ? {
-            ...t,
-            tagStatus: 'tags_failed',
-            tagError: error instanceof Error ? error.message : 'Failed to generate tags'
-          } : t
-        )
-      )
-
-      throw error
-    }
+    return [];  // 返回空数组
   }
 
   // 建议文件夹的函数
@@ -359,7 +329,7 @@ export function AIClassificationProvider({ children }: { children: ReactNode }) 
           t.id === task.id ? {
             ...t,
             folderStatus: 'folder_suggested',
-            suggestedFolder
+            suggestedFolder: suggestedFolder || undefined // 确保类型兼容
           } : t
         )
       )
@@ -408,10 +378,9 @@ export function AIClassificationProvider({ children }: { children: ReactNode }) 
             // 从任务中提取核心信息
             const { url, title, description, tags: originalTags, addedAt } = task;
             
-            // 处理标签
-            const tags = task.tagStatus === 'tags_generated' && task.generatedTags
-              ? task.generatedTags
-              : (originalTags || []);
+            // 不需要处理标签，后端会自动生成
+            // 我们只传递原始标签，后端会忽略它们并重新生成
+            const tags = originalTags || [];
             
             // 处理文件夹
             let folderId: string | null = null;

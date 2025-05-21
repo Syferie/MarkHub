@@ -12,7 +12,7 @@ export interface Bookmark {
 export interface Folder {
   id: string
   name: string
-  parentId: string | null
+  parentId: string | null | undefined
 }
 
 export interface SortOption {
@@ -27,4 +27,32 @@ export interface ImportData {
   favoriteFolders: string[]
   settings?: any
   exportDate?: string
+}
+
+export interface WebDAVConfigType {
+  Url: string
+  Username: string
+  Password: string
+  Path: string
+  AutoSync: boolean
+}
+
+export interface UserSetting {
+  id: string
+  userId: string
+  darkMode?: boolean
+  accentColor?: string
+  language?: string
+  geminiApiKey?: string
+  webdav_config?: WebDAVConfigType
+  favoriteFolderIds?: string[]
+  tagList?: string[]
+  sortOption?: string // 例如 'createdAt_desc', 'title_asc'
+  searchFields?: string[] // 例如 ['title', 'url', 'tags']
+  defaultView?: 'all' | 'favorites' | string // string for specific folder id
+  geminiApiBaseUrl?: string
+  geminiModelName?: string
+  // PocketBase 集合中可能还有其他字段，如 created, updated
+  created?: string
+  updated?: string
 }

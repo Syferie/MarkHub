@@ -53,3 +53,5 @@ logs
 lib-cov
 
 chrome-s*
+
+markhub-backend*

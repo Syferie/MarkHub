@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import {
   Modal,
   Tabs,
@@ -20,8 +20,10 @@ import ImportExport from "./import-export"
 import WebDAVSync from "./webdav-sync"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
-import { db } from "@/lib/db" // 导入db实例
-import { getAppConfig, saveAppConfig, migrateConfigFromIndexedDB } from "@/lib/config-storage" // 导入配置存储工具
+// import { db } from "@/lib/db" // 不再需要直接操作 IndexedDB 进行配置迁移
+// import { getAppConfig, saveAppConfig, migrateConfigFromIndexedDB } from "@/lib/config-storage" // 不再需要
+import { AuthContext } from "@/context/auth-context" // 导入 AuthContext
+import { toast } from "sonner" // 用于显示通知
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -29,16 +31,25 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { settings, updateSettings, refreshAllFavicons, clearAllBookmarkData, resetToSampleData } = useBookmarks()
-  const { language, setLanguage, t } = useLanguage()
+  const { refreshAllFavicons, clearAllBookmarkData, resetToSampleData } = useBookmarks() // updateSettings 将被 AuthContext 的 updateGlobalSettings 替代
+  const { language: currentLanguageContext, setLanguage, t } = useLanguage()
+  const authContext = useContext(AuthContext)
+  if (!authContext) {
+    // 理论上不应该发生，因为 SettingsModal 应该在 AuthProvider 内部
+    console.error("AuthContext not found in SettingsModal")
+    // 可以返回一个加载状态或者错误提示
+    return null;
+  }
+  const { userSettings, updateGlobalSettings, isLoading: authLoading } = authContext;
+
   const [localSettings, setLocalSettings] = useState({
-    darkMode: false,
-    accentColor: "#3b82f6",
-    defaultView: "all",
-    language: "en",
-    geminiApiBaseUrl: "",
-    geminiModelName: "",
-    geminiApiKey: "",
+    darkMode: userSettings?.darkMode ?? false,
+    accentColor: userSettings?.accentColor ?? "#3b82f6",
+    defaultView: userSettings?.defaultView ?? "all",
+    language: userSettings?.language ?? "en",
+    geminiApiBaseUrl: userSettings?.geminiApiBaseUrl ?? "",
+    geminiModelName: userSettings?.geminiModelName ?? "",
+    geminiApiKey: userSettings?.geminiApiKey ?? "",
   })
   const [hasChanges, setHasChanges] = useState(false)
   const [isRefreshingFavicons, setIsRefreshingFavicons] = useState(false)
@@ -48,115 +59,88 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // 初始化本地设置并在打开模态框时从localStorage加载
   useEffect(() => {
-    const loadSettingsAndMigrate = async () => {
-      if (isOpen) {
-        // 尝试从IndexedDB迁移配置到localStorage（如果还未迁移）
-        // migrateConfigFromIndexedDB 现在是幂等的，只有在未迁移时才会执行实际操作
-        const migrationResult = await migrateConfigFromIndexedDB(db);
-        if (migrationResult) {
-          console.log("配置迁移已在打开设置时执行/确认。");
-        }
-        
-        // 从context获取基础设置
-        const baseSettings = settings || { // settings可能为null
-          darkMode: false,
-          accentColor: "#3b82f6",
-          defaultView: "all",
-          language: language || "en",
-        };
-
-        // 从localStorage获取完整的应用设置
-        const appConfig = getAppConfig();
-        
-        setLocalSettings({
-          darkMode: appConfig.darkMode ?? baseSettings.darkMode,
-          accentColor: appConfig.accentColor ?? baseSettings.accentColor,
-          defaultView: appConfig.defaultView ?? baseSettings.defaultView,
-          language: appConfig.language ?? baseSettings.language ?? "en", // 确保最终是string
-          geminiApiBaseUrl: appConfig.geminiApiBaseUrl || "",
-          geminiModelName: appConfig.geminiModelName || "",
-          geminiApiKey: appConfig.geminiApiKey || "",
-        });
-        setHasChanges(false);
-      }
-    };
-    loadSettingsAndMigrate();
-  }, [isOpen, settings, language]); // settings和language作为依赖项，确保它们更新时重新加载
+    if (isOpen && userSettings) {
+      setLocalSettings({
+        darkMode: userSettings.darkMode ?? false,
+        accentColor: userSettings.accentColor ?? "#3b82f6",
+        defaultView: userSettings.defaultView ?? "all",
+        language: userSettings.language ?? currentLanguageContext ?? "en",
+        geminiApiBaseUrl: userSettings.geminiApiBaseUrl ?? "",
+        geminiModelName: userSettings.geminiModelName ?? "",
+        geminiApiKey: userSettings.geminiApiKey ?? "",
+      });
+      setHasChanges(false);
+    }
+  }, [isOpen, userSettings, currentLanguageContext]);
 
   // 跟踪变更
   useEffect(() => {
-    const checkIfChanged = () => {
-      if (isOpen) { // 只在模态框打开时比较
-        const currentConfig = getAppConfig();
-        const baseSettings = settings || { // 用于比较的基础设置
-          darkMode: false,
-          accentColor: "#3b82f6",
-          defaultView: "all",
-          language: language || "en",
-        };
-
-        const changed =
-          localSettings.darkMode !== (currentConfig.darkMode ?? baseSettings.darkMode) ||
-          localSettings.accentColor !== (currentConfig.accentColor ?? baseSettings.accentColor) ||
-          localSettings.defaultView !== (currentConfig.defaultView ?? baseSettings.defaultView) ||
-          localSettings.language !== (currentConfig.language ?? baseSettings.language) ||
-          localSettings.geminiApiBaseUrl !== (currentConfig.geminiApiBaseUrl || "") ||
-          localSettings.geminiModelName !== (currentConfig.geminiModelName || "") ||
-          localSettings.geminiApiKey !== (currentConfig.geminiApiKey || "");
-        
-        setHasChanges(changed);
-      }
-    };
-    // 只有当localSettings实际发生改变时才触发比较，避免无限循环
-    // isOpen 确保只在模态框打开时执行
-    if (isOpen) {
-      checkIfChanged();
+    if (isOpen && userSettings) {
+      const changed =
+        localSettings.darkMode !== (userSettings.darkMode ?? false) ||
+        localSettings.accentColor !== (userSettings.accentColor ?? "#3b82f6") ||
+        localSettings.defaultView !== (userSettings.defaultView ?? "all") ||
+        localSettings.language !== (userSettings.language ?? currentLanguageContext ?? "en") ||
+        localSettings.geminiApiBaseUrl !== (userSettings.geminiApiBaseUrl ?? "") ||
+        localSettings.geminiModelName !== (userSettings.geminiModelName ?? "") ||
+        localSettings.geminiApiKey !== (userSettings.geminiApiKey ?? "");
+      setHasChanges(changed);
     }
-  }, [localSettings, isOpen, settings, language]);
+  }, [localSettings, isOpen, userSettings, currentLanguageContext]);
 
 
   const handleSaveChanges = async () => {
-    // 从localStorage获取当前的完整设置
-    const currentConfig = getAppConfig();
-    
-    // 构建新的配置对象
-    const newConfig = {
-      ...currentConfig, // 保留其他可能存在的设置
-      darkMode: localSettings.darkMode,
-      accentColor: localSettings.accentColor,
-      defaultView: localSettings.defaultView,
-      language: localSettings.language,
-      geminiApiKey: localSettings.geminiApiKey,
-      geminiApiBaseUrl: localSettings.geminiApiBaseUrl,
-      geminiModelName: localSettings.geminiModelName,
-    };
-
-    // 保存到localStorage
-    saveAppConfig(newConfig);
-    
-    console.log("设置已保存到localStorage", {
-      darkMode: localSettings.darkMode,
-      accentColor: localSettings.accentColor,
-      defaultView: localSettings.defaultView,
-      language: localSettings.language,
-      geminiApiKey: localSettings.geminiApiKey ? "已设置" : "未设置",
-      geminiApiBaseUrl: localSettings.geminiApiBaseUrl,
-      geminiModelName: localSettings.geminiModelName,
-    });
-    
-    // 更新context中的基础设置
-    updateSettings({
-      darkMode: localSettings.darkMode,
-      accentColor: localSettings.accentColor,
-      defaultView: localSettings.defaultView,
-      language: localSettings.language,
-    });
-
-    // 更新语言设置
-    if (localSettings.language !== language) {
-      setLanguage(localSettings.language as "en" | "zh");
+    if (!updateGlobalSettings) {
+      toast.error(t("settings.saveError") || "Failed to save settings. Auth context not available.");
+      return;
     }
 
+    const changedSettings: Partial<typeof localSettings> = {};
+    if (userSettings) {
+        if (localSettings.darkMode !== (userSettings.darkMode ?? false)) {
+            changedSettings.darkMode = localSettings.darkMode;
+        }
+        if (localSettings.accentColor !== (userSettings.accentColor ?? "#3b82f6")) {
+            changedSettings.accentColor = localSettings.accentColor;
+        }
+        if (localSettings.defaultView !== (userSettings.defaultView ?? "all")) {
+            changedSettings.defaultView = localSettings.defaultView;
+        }
+        if (localSettings.language !== (userSettings.language ?? currentLanguageContext ?? "en")) {
+            changedSettings.language = localSettings.language;
+        }
+        if (localSettings.geminiApiBaseUrl !== (userSettings.geminiApiBaseUrl ?? "")) {
+            changedSettings.geminiApiBaseUrl = localSettings.geminiApiBaseUrl;
+        }
+        if (localSettings.geminiModelName !== (userSettings.geminiModelName ?? "")) {
+            changedSettings.geminiModelName = localSettings.geminiModelName;
+        }
+        if (localSettings.geminiApiKey !== (userSettings.geminiApiKey ?? "")) {
+            changedSettings.geminiApiKey = localSettings.geminiApiKey;
+        }
+    } else { // 如果 userSettings 为 null，则所有 localSettings 都是更改
+        Object.assign(changedSettings, localSettings);
+    }
+
+
+    if (Object.keys(changedSettings).length > 0) {
+      try {
+        await updateGlobalSettings(changedSettings);
+        toast.success(t("settings.saveSuccess") || "Settings saved successfully!");
+        
+        // 如果语言更改了，也需要更新 LanguageContext
+        if (changedSettings.language && changedSettings.language !== currentLanguageContext) {
+          setLanguage(changedSettings.language as "en" | "zh");
+        }
+        setHasChanges(false); // 保存成功后重置 hasChanges
+      } catch (error) {
+        console.error("Failed to save settings:", error);
+        toast.error(t("settings.saveError") || "Failed to save settings.");
+      }
+    } else {
+      toast.info(t("settings.noChanges") || "No changes to save.");
+    }
+    
     onClose();
   };
 
@@ -196,21 +180,22 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       <Tabs defaultValue="appearance">
         <Tabs.List>
           <Tabs.Tab value="appearance" leftSection={<IconPalette size={16} />}>
-            {t("settings.appearance")}
+            {t("settings.appearance") || "外观"}
           </Tabs.Tab>
           <Tabs.Tab value="api" leftSection={<IconApi size={16} />}>
-            {t("settings.api")}
+            {t("settings.api") || "API"}
           </Tabs.Tab>
           <Tabs.Tab value="sync" leftSection={<IconCloud size={16} />}>
-            {t("settings.sync")}
+            {t("settings.sync") || "同步"}
           </Tabs.Tab>
           <Tabs.Tab value="data" leftSection={<IconFileExport size={16} />}>
-            {t("settings.data")}
+            {t("settings.data") || "数据"}
           </Tabs.Tab>
           <Tabs.Tab value="about" leftSection={<IconInfoCircle size={16} />}>
-            {t("settings.about") || "About"}
+            {t("settings.about") || "关于"}
           </Tabs.Tab>
         </Tabs.List>
+
 
         <Tabs.Panel value="appearance" pt="md">
           <div className="space-y-6">
@@ -344,7 +329,11 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <p className="text-sm text-gray-500 mb-4">
                 {t("settings.webdavDescription")}
               </p>
-              <WebDAVSync />
+              {authLoading ? (
+                <p>加载中...</p>
+              ) : (
+                <WebDAVSync userSettings={userSettings} updateSettings={updateGlobalSettings} />
+              )}
             </div>
           </div>
         </Tabs.Panel>

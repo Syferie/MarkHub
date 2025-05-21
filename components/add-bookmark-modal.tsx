@@ -8,7 +8,9 @@ import { useLanguage } from "@/context/language-context"
 import { HierarchicalFolderSelect } from "./hierarchical-folder-select"
 import { generateTags } from "@/lib/tag-api"
 import { suggestFolder } from "@/lib/folder-api"
-import { uploadBookmarksToWebDAV, getWebDAVStatus } from "./webdav-sync"
+import { uploadBookmarksToWebDAV } from "./webdav-sync"
+import { useContext } from "react"
+import { AuthContext } from "@/context/auth-context"
 
 interface AddBookmarkModalProps {
   isOpen: boolean
@@ -16,14 +18,16 @@ interface AddBookmarkModalProps {
 }
 
 export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalProps) {
-  const { addBookmark, tags, settings, folders } = useBookmarks()
+  const { addBookmark, updateBookmark, tags, settings, folders, bookmarks } = useBookmarks()
   const { t } = useLanguage()
+  const authContext = useContext(AuthContext)
   const [title, setTitle] = useState("")
   const [url, setUrl] = useState("")
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [isLoadingTags, setIsLoadingTags] = useState(false)
   const [isLoadingFolder, setIsLoadingFolder] = useState(false)
+  const [loading, setLoading] = useState(false) // 添加加载状态
   const [tagError, setTagError] = useState<string | null>(null)
   const [folderError, setFolderError] = useState<string | null>(null)
   const [tagGenerationStatus, setTagGenerationStatus] = useState<{
@@ -58,11 +62,20 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
     }
   }, [isOpen])
 
+  // 封装显示toast的函数（假设系统中有这样的函数）
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    // 这里可以调用实际的toast显示逻辑
+    console.log(`Toast: ${message} (${type})`);
+  }
+
   const handleSubmit = async () => {
     if (title && url) {
+      setLoading(true);
       try {
         const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`)
-        addBookmark({
+        
+        // 创建书签数据对象
+        const bookmarkData = {
           id: `bookmark-${Date.now()}`,
           title,
           url: urlObj.toString(),
@@ -70,93 +83,91 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           tags: selectedTags,
           createdAt: new Date().toISOString(),
           isFavorite: false,
-        })
-
+        };
+        
+        // 添加书签并获取后端返回的带有真实ID的书签
+        // 日志记录调试信息
+        console.log("发送到后端的书签数据:", JSON.stringify(bookmarkData));
+        
+        // 先添加书签
+        const createdBookmark = await addBookmark(bookmarkData);
+        
+        // 显示成功提示
+        showToast("书签已添加", "success");
+        
+        // 立即关闭模态框
+        onClose();
+        
         // 添加书签后，尝试自动上传（内部会检查WebDAV是否启用）
         try {
           console.log("Bookmark added, attempting automatic upload...");
           console.log("Calling uploadBookmarksToWebDAV...");
-          const uploadResult = await uploadBookmarksToWebDAV();
-          console.log("Automatic upload result:", uploadResult);
+          
+          if (authContext && authContext.userSettings) {
+            const uploadResult = await uploadBookmarksToWebDAV(authContext.userSettings);
+            console.log("Automatic upload result:", uploadResult);
 
-          if (!uploadResult) {
-            console.warn("Automatic upload returned false, WebDAV may not be enabled or upload failed");
+            if (!uploadResult) {
+              console.warn("Automatic upload returned false, WebDAV may not be enabled or upload failed");
+            }
+          } else {
+            console.warn("AuthContext or userSettings not available, skipping WebDAV sync");
           }
         } catch (syncError) {
           console.error("Failed to automatically sync bookmark data:", syncError)
         }
-
-        onClose()
       } catch (e) {
         console.error("Invalid URL:", e)
+        showToast("添加书签失败", "error");
         // Handle invalid URL error
+      } finally {
+        setLoading(false);  // 无论成功或失败，都重置加载状态
       }
     }
   }
+  
+  
 
+  // 处理AI建议标签
   const handleSuggestTags = async () => {
     if (!url) {
       setTagError(t("bookmarkModal.enterUrlFirst"))
       return
     }
 
+    // 从authContext获取用户认证信息
+    if (!authContext?.token) {
+      setTagError("未登录或会话已过期")
+      return
+    }
+
     try {
       setIsLoadingTags(true)
       setTagError(null)
-      setTagGenerationStatus({ status: 'pending', message: 'Initializing...' })
+      setTagGenerationStatus({ status: 'pending', message: '正在生成标签...' })
 
       // 确保URL格式正确
       const formattedUrl = url.startsWith("http") ? url : `https://${url}`
+      
+      // 获取用户的标签列表
+      const userTagList = authContext?.userSettings?.tagList || []
 
-      // 调用新的标签生成API
-      const suggestedTags = await generateTags({
-        url: formattedUrl,
-        filter_tags: tags // 传递已存在的标签列表
-      }, {
-        onProgressUpdate: (status) => {
-          console.log("Tag generation progress:", status)
-          // 根据API返回的状态更新进度展示
-          if (status.status === 'pending') {
-            setTagGenerationStatus({
-              status: 'pending',
-              progress: 10,
-              message: 'Task submitted, waiting...'
-            })
-          } else if (status.status === 'processing') {
-            setTagGenerationStatus({
-              status: 'processing',
-              progress: status.progress || 50,
-              message: status.message || 'Analyzing content...'
-            })
-          } else if (status.status === 'completed') {
-            setTagGenerationStatus({
-              status: 'completed',
-              progress: 100,
-              message: 'Tag generation completed!'
-            })
-          } else if (status.status === 'failed') {
-            setTagGenerationStatus({
-              status: 'failed',
-              message: status.error || 'Generation failed'
-            })
-          }
-        }
-      })
+      // 调用新的标签建议API
+      const suggestedTags = await generateTags(
+        authContext?.token || "",
+        title,
+        formattedUrl,
+        userTagList
+      )
 
-      // 将推荐标签添加到已选标签中（避免重复）
-      setSelectedTags((prev) => {
-        const newTags = [...prev]
-        suggestedTags.forEach((tag) => {
-          if (!newTags.includes(tag)) {
-            newTags.push(tag)
-          }
-        })
-        return newTags
-      })
+      // 更新标签状态
+      setTagGenerationStatus({ status: 'completed', message: '标签生成完成！' })
+      setSelectedTags(suggestedTags)
+      
     } catch (error) {
-      console.error("Tag generation error:", error)
-      setTagError(error instanceof Error ? error.message : "Failed to get tag recommendations")
-      setTagGenerationStatus({ status: 'failed', message: error instanceof Error ? error.message : "Failed to get tag recommendations" })
+      console.error("Tag suggestion error:", error)
+      setTagError(error instanceof Error ? error.message : "生成标签建议失败")
+      setTagGenerationStatus({ status: 'failed', message: error instanceof Error ? error.message : "生成标签建议失败" })
     } finally {
       setIsLoadingTags(false)
       // 延迟将状态重置为idle，让用户有时间看到完成状态
@@ -177,94 +188,87 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
     : []
 
   const createTag = (query: string) => {
-    const item = { value: query, label: query }
-    setSelectedTags((prev) => [...prev, query])
-    return item
+    const newTagsRaw = query.split(/[,;]/); // 按逗号或分号分割
+    const newTagsProcessed = newTagsRaw
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0); // 确保标签有效且非空
+
+    if (newTagsProcessed.length > 0) {
+      // 将处理后的标签数组捕获到 setSelectedTags 的闭包中
+      const tagsToAddSnapshot = [...newTagsProcessed];
+      setSelectedTags((currentSelectedTags) => {
+        const updatedTags = [...new Set([...currentSelectedTags, ...tagsToAddSnapshot])];
+        return updatedTags;
+      });
+    }
+    // createTag 不再返回 item，它只负责更新状态
   }
 
   // 处理AI建议文件夹
   const handleSuggestFolder = async () => {
-    if (!url) {
-      setFolderError(t("bookmarkModal.enterUrlFirst"))
-      return
+    if (!url || !title) { // 确保标题和URL都存在
+      setFolderError(t("bookmarkModal.enterUrlAndTitleFirst"));
+      return;
+    }
+
+    if (!authContext?.token) {
+      setFolderError("用户未认证，无法获取文件夹建议。");
+      return;
+    }
+    // 预检查API Key配置，主要用于用户提示，实际验证由后端完成
+    if (!authContext?.userSettings?.geminiApiKey) {
+      setFolderError("AI推荐功能需要配置Gemini API密钥，请在设置中配置。");
+      return;
     }
 
     try {
-      setIsLoadingFolder(true)
-      setFolderError(null)
-      setFolderGenerationStatus({ status: 'pending', message: 'Initializing...' })
+      setIsLoadingFolder(true);
+      setFolderError(null);
+      // 更新状态为处理中，因为API现在是同步的
+      setFolderGenerationStatus({ status: 'processing', message: '正在获取文件夹建议...' });
 
-      // 确保URL格式正确
-      const formattedUrl = url.startsWith("http") ? url : `https://${url}`
+      const formattedUrl = url.startsWith("http") ? url : `https://${url}`;
 
-      // 获取所有文件夹名称列表
-      const folderNames = Array.isArray(folders)
-        ? folders.map(folder => folder.name)
-        : []
+      // 调用更新后的 suggestFolder API
+      const suggestedFolderName = await suggestFolder(
+        authContext.token,
+        title,
+        formattedUrl
+      );
 
-      // 调用文件夹建议API
-      const suggestedFolder = await suggestFolder({
-        url: formattedUrl,
-        folders: folderNames
-      }, {
-        onProgressUpdate: (status) => {
-          console.log("Folder generation progress:", status)
-          // 根据API返回的状态更新进度展示
-          if (status.status === 'pending') {
-            setFolderGenerationStatus({
-              status: 'pending',
-              progress: 10,
-              message: 'Task submitted, waiting...'
-            })
-          } else if (status.status === 'processing') {
-            setFolderGenerationStatus({
-              status: 'processing',
-              progress: status.progress || 50,
-              message: status.message || 'Analyzing content...'
-            })
-          } else if (status.status === 'completed') {
-            setFolderGenerationStatus({
-              status: 'completed',
-              progress: 100,
-              message: 'Folder suggestion completed!'
-            })
-          } else if (status.status === 'failed') {
-            setFolderGenerationStatus({
-              status: 'failed',
-              message: status.error || 'Generation failed'
-            })
-          }
-        }
-      })
-
-      // 查找匹配的文件夹ID
-      if (suggestedFolder) {
-        const matchedFolder = folders.find(folder => folder.name === suggestedFolder)
+      if (suggestedFolderName) {
+        const matchedFolder = folders.find(folder => folder.name === suggestedFolderName);
         if (matchedFolder) {
-          setSelectedFolder(matchedFolder.id)
+          setSelectedFolder(matchedFolder.id);
+          setFolderGenerationStatus({ status: 'completed', message: `建议文件夹: ${suggestedFolderName}` });
         } else {
-          // 如果没有找到匹配的文件夹，可以根据业务需求决定是否创建新文件夹
-          console.log("Suggested folder does not exist:", suggestedFolder)
+          // AI建议了一个不存在于用户列表中的文件夹，或者没有明确建议
+           setFolderGenerationStatus({ status: 'completed', message: `AI建议 '${suggestedFolderName}' (不在现有列表)` });
+          console.log("AI suggested folder not in existing list:", suggestedFolderName);
         }
+      } else {
+        // AI没有返回建议，或者返回了空字符串
+        setFolderGenerationStatus({ status: 'completed', message: '未找到合适的文件夹建议' });
       }
 
     } catch (error) {
-      console.error("Folder suggestion error:", error)
-      setFolderError(error instanceof Error ? error.message : "Failed to get folder suggestion")
-      setFolderGenerationStatus({ status: 'failed', message: error instanceof Error ? error.message : "Failed to get folder suggestion" })
+      console.error("Folder suggestion error in modal:", error);
+      const errorMessage = error instanceof Error ? error.message : "获取文件夹建议时发生未知错误";
+      setFolderError(errorMessage);
+      setFolderGenerationStatus({ status: 'failed', message: errorMessage });
     } finally {
-      setIsLoadingFolder(false)
-      // 延迟将状态重置为idle，让用户有时间看到完成状态
+      setIsLoadingFolder(false);
+      // 延长消息显示时间，并在完成后（无论成功失败）一段时间后清除状态
       setTimeout(() => {
-        if (folderGenerationStatus.status === 'completed') {
-          setFolderGenerationStatus({ status: 'idle' })
-        }
-      }, 3000)
+        setFolderGenerationStatus({ status: 'idle' });
+      }, 5000);
     }
   }
 
-  const isTagApiConfigured = !!(settings?.tagApiUrl && settings?.tagApiKey)
-  const isFolderApiConfigured = !!(settings?.tagApiUrl && settings?.tagApiKey) // 复用标签API的配置
+  // 检查是否配置了Gemini API
+  const isApiConfigured = !!authContext?.userSettings?.geminiApiKey
+  const isTagApiConfigured = isApiConfigured
+  const isFolderApiConfigured = isApiConfigured
 
   // 新添加的TagSelector组件，使用最新的Mantine API
   function TagSelector({
@@ -276,7 +280,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
     tagOptions: { value: string; label: string }[],
     selectedTags: string[],
     setSelectedTags: React.Dispatch<React.SetStateAction<string[]>>,
-    createTag: (query: string) => { value: string; label: string }
+    createTag: (query: string) => void // 修改 createTag 的预期返回类型
   }) {
     // 添加一个控制下拉框开关状态的状态变量
     const [opened, setOpened] = useState(false)
@@ -292,20 +296,20 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
     const exactOptionMatch = tagOptions.some((item) => item.value === search)
 
     const handleValueSelect = (val: string) => {
-      setSearch('')
-
       if (val === '$create') {
         // 创建新标签
-        createTag(search)
+        createTag(search); // createTag 使用当前的 search 值
+        setSearch('');    // 然后清空 search
         // 确保下拉框保持打开状态
-        setOpened(true)
+        setOpened(true);
       } else {
         // 选择或取消选择现有标签
         setSelectedTags((current) =>
           current.includes(val) ? current.filter((v) => v !== val) : [...current, val]
-        )
+        );
+        setSearch(''); // 清空搜索框，即使用户选择了现有标签
         // 确保下拉框保持打开状态
-        setOpened(true)
+        setOpened(true);
       }
     }
 
@@ -313,8 +317,8 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
       setSelectedTags((current) => current.filter((v) => v !== val))
 
     // 渲染已选择的标签
-    const values = selectedTags.map((item, index) => (
-      <Pill key={`${item}-${index}`} withRemoveButton onRemove={() => handleValueRemove(item)}>
+    const values = selectedTags.map((item) => (
+      <Pill key={item} withRemoveButton onRemove={() => handleValueRemove(item)}>
         {item}
       </Pill>
     ))
@@ -355,9 +359,15 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                     setSearch(event.currentTarget.value)
                   }}
                   onKeyDown={(event) => {
-                    if (event.key === 'Backspace' && search.length === 0) {
-                      event.preventDefault()
-                      handleValueRemove(selectedTags[selectedTags.length - 1])
+                    if (event.key === 'Enter' && search.trim().length > 0) {
+                      event.preventDefault();
+                      createTag(search);
+                      setSearch('');
+                      // 保持下拉框打开，让用户可以继续输入或选择
+                      setOpened(true);
+                    } else if (event.key === 'Backspace' && search.length === 0) {
+                      event.preventDefault();
+                      handleValueRemove(selectedTags[selectedTags.length - 1]);
                     }
                   }}
                 />
@@ -405,7 +415,10 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
         <div>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">{t("bookmarkModal.folder")}</label>
+              <label className="text-sm font-medium">
+                {t("bookmarkModal.folder")}
+                
+              </label>
 
               {/* 文件夹生成状态指示器 */}
               {folderGenerationStatus.status !== 'idle' && (
@@ -469,7 +482,10 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
         <div>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">{t("bookmarkModal.tags")}</label>
+              <label className="text-sm font-medium">
+                {t("bookmarkModal.tags")}
+                
+              </label>
 
               {/* 标签生成状态指示器 */}
               {tagGenerationStatus.status !== 'idle' && (
@@ -485,13 +501,13 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
               )}
             </div>
 
-            <Tooltip label={!url ? t("bookmarkModal.configureTags") : t("bookmarkModal.suggestTags")}>
+            <Tooltip label={!url || !isTagApiConfigured ? t("bookmarkModal.configureTags") : t("bookmarkModal.suggestTags")}>
               <ActionIcon
                 size="sm"
                 color="blue"
                 onClick={handleSuggestTags}
                 loading={isLoadingTags}
-                disabled={!url}
+                disabled={!url || !isTagApiConfigured}
                 className="disabled:opacity-40 disabled:bg-transparent dark:disabled:bg-transparent"
               >
                 <IconSparkles size={16} />
@@ -540,7 +556,8 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={tagGenerationStatus.status === 'pending' || tagGenerationStatus.status === 'processing' || folderGenerationStatus.status === 'pending' || folderGenerationStatus.status === 'processing'}
+            loading={loading}
+            disabled={loading || tagGenerationStatus.status === 'pending' || tagGenerationStatus.status === 'processing' || folderGenerationStatus.status === 'pending' || folderGenerationStatus.status === 'processing'}
           >
             {t("bookmarkModal.save")}
           </Button>
@@ -549,3 +566,4 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
     </Modal>
   )
 }
+

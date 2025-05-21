@@ -4,6 +4,7 @@ import React, { type ReactNode, useState, MouseEvent, useEffect, useRef } from "
 import { useIsMobile } from "@/hooks/use-mobile"
 import { ActionIcon, Badge, Text, Tooltip, Checkbox, Button, Group, Select, Progress, Popover, Drawer } from "@mantine/core"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/auth-context"
 import {
   IconPencil,
   IconTrash,
@@ -93,6 +94,7 @@ export default function BookmarkList({
   const { deleteBookmark, updateBookmark, folders, tags, setSelectedFolderId, setSelectedTags, toggleFavoriteBookmark, settings } =
     useBookmarks()
   const { t } = useLanguage()
+  const { token } = useAuth()
   const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null)
   const [selectedBookmarks, setSelectedBookmarks] = useState<string[]>([])
   const [bulkMode, setBulkMode] = useState(false)
@@ -373,31 +375,46 @@ export default function BookmarkList({
           return updatedDetails;
         });
 
+        // 检查token是否可用
+        if (!token) {
+          console.error("BulkGenerateTags: Auth token not available.");
+          // 向用户显示错误并中止操作
+          setTagGenerationDetails(prev => {
+            const updatedDetails = {
+              ...prev,
+              [bookmarkId]: {
+                status: "failed" as const,
+                errorMessage: "认证失败：未提供认证令牌"
+              }
+            };
+            // 同步更新ref
+            tagGenerationDetailsRef.current = updatedDetails;
+            // 保存到 localStorage
+            localStorage.setItem(STORAGE_KEYS.TAG_DETAILS, JSON.stringify(updatedDetails));
+            return updatedDetails;
+          });
+          
+          // 更新总进度
+          setBulkTagGeneration(prev => {
+            if (!prev) return null;
+            const updatedGeneration = {
+              ...prev,
+              failed: prev.failed + 1,
+              completed: prev.completed + 1
+            };
+            bulkTagGenerationRef.current = updatedGeneration;
+            localStorage.setItem(STORAGE_KEYS.BULK_GENERATION, JSON.stringify(updatedGeneration));
+            return updatedGeneration;
+          });
+          return;
+        }
+
         // 调用 API 生成标签
         const generatedTags = await generateTags(
-          {
-            url: bookmark.url,
-            filter_tags: tags
-          },
-          {
-            onProgressUpdate: (status) => {
-              // 更新进度状态
-              setTagGenerationDetails(prev => {
-                const updatedDetails = {
-                  ...prev,
-                  [bookmarkId]: {
-                    status: "processing" as const,
-                    message: status.status === 'processing' ? status.message : undefined
-                  }
-                };
-                // 同步更新ref
-                tagGenerationDetailsRef.current = updatedDetails;
-                // 保存到 localStorage
-                localStorage.setItem(STORAGE_KEYS.TAG_DETAILS, JSON.stringify(updatedDetails));
-                return updatedDetails;
-              });
-            }
-          }
+          token,
+          bookmark.title,
+          bookmark.url,
+          tags || []
         );
 
         // API调用结束，记录结果
@@ -414,7 +431,7 @@ export default function BookmarkList({
         };
 
         // 更新全局状态
-        updateBookmark(updatedBookmark);
+        updateBookmark && updateBookmark(bookmark.id, { tags: mergedTags });
 
         // 更新成功状态
         setTagGenerationDetails(prev => {
@@ -787,31 +804,45 @@ export default function BookmarkList({
           return updatedDetails;
         });
 
+        // 检查token是否可用
+        if (!token) {
+          console.error("BulkSuggestFolders: Auth token not available.");
+          // 向用户显示错误并中止操作
+          setFolderGenerationDetails(prev => {
+            const updatedDetails = {
+              ...prev,
+              [bookmarkId]: {
+                status: "failed" as const,
+                errorMessage: "认证失败：未提供认证令牌"
+              }
+            };
+            // 同步更新ref
+            folderGenerationDetailsRef.current = updatedDetails;
+            // 保存到 localStorage
+            localStorage.setItem(STORAGE_KEYS.FOLDER_DETAILS, JSON.stringify(updatedDetails));
+            return updatedDetails;
+          });
+          
+          // 更新总进度
+          setBulkFolderGeneration(prev => {
+            if (!prev) return null;
+            const updatedGeneration = {
+              ...prev,
+              failed: prev.failed + 1,
+              completed: prev.completed + 1
+            };
+            bulkFolderGenerationRef.current = updatedGeneration;
+            localStorage.setItem(STORAGE_KEYS.BULK_FOLDER_GENERATION, JSON.stringify(updatedGeneration));
+            return updatedGeneration;
+          });
+          return;
+        }
+
         // 调用 API 生成文件夹建议
         const suggestedFolder = await suggestFolder(
-          {
-            url: bookmark.url,
-            folders: folderNames
-          },
-          {
-            onProgressUpdate: (status) => {
-              // 更新进度状态
-              setFolderGenerationDetails(prev => {
-                const updatedDetails = {
-                  ...prev,
-                  [bookmarkId]: {
-                    status: "processing" as const,
-                    message: status.status === 'processing' ? status.message : undefined
-                  }
-                };
-                // 同步更新ref
-                folderGenerationDetailsRef.current = updatedDetails;
-                // 保存到 localStorage
-                localStorage.setItem(STORAGE_KEYS.FOLDER_DETAILS, JSON.stringify(updatedDetails));
-                return updatedDetails;
-              });
-            }
-          }
+          token,
+          bookmark.title,
+          bookmark.url
         );
 
         // API调用结束，记录结果
@@ -828,7 +859,7 @@ export default function BookmarkList({
             };
 
             // 更新全局状态
-            updateBookmark(updatedBookmark);
+            updateBookmark && updateBookmark(bookmark.id, { folderId: matchedFolder.id });
 
             // 更新成功状态
             setFolderGenerationDetails(prev => {

@@ -2,26 +2,27 @@
 
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react"
 import Fuse from "fuse.js"
-import { db, migrateFromLocalStorage, needMigration, clearLocalStorageData } from "@/lib/db"
+// import { db, migrateFromLocalStorage, needMigration, clearLocalStorageData } from "@/lib/db" // Removed IndexedDB
 import { getConfig, saveConfig } from "@/lib/config-storage"
+import { useAuth } from "@/context/auth-context"
+import {
+  getBookmarks,
+  getFolders,
+  createBookmark as apiCreateBookmark, // Alias to avoid naming conflict
+  updateBookmark as apiUpdateBookmark,
+  deleteBookmark as apiDeleteBookmark,
+  createFolder as apiCreateFolder,
+  updateFolder as apiUpdateFolder,
+  deleteFolder as apiDeleteFolder,
+  setBookmarkFavoriteStatus, // Added import
+  type Bookmark,
+  type Folder,
+} from "@/lib/api-client" // Added API client and types
+import { updateGlobalBookmarkData } from "@/components/webdav-sync" // 导入全局数据更新函数
 
 // Types
-interface Bookmark {
-  id: string
-  title: string
-  url: string
-  folderId: string | null
-  tags?: string[]
-  createdAt: string
-  favicon?: string
-  isFavorite?: boolean
-}
-
-interface Folder {
-  id: string
-  name: string
-  parentId: string | null
-}
+// Local Bookmark and Folder interfaces are removed as they are now imported from lib/api-client.ts
+// The commented out interface properties below were causing TS errors and are now fully removed.
 
 interface SortOption {
   value: string
@@ -30,13 +31,13 @@ interface SortOption {
 
 // 应用设置类型
 interface AppSettings {
-  darkMode: boolean
-  accentColor: string
+  // darkMode: boolean; // 由 AuthContext.userSettings 管理
+  // accentColor: string; // 由 AuthContext.userSettings 管理
   defaultView: string
   tagApiUrl?: string
   tagApiKey?: string
   tagConcurrencyLimit?: number // 添加标签生成并发限制配置
-  language?: string // 添加语言设置
+  language?: string // 由 AuthContext.userSettings 管理, 但此处可能仍用于旧逻辑或非用户特定设置
 }
 
 interface BookmarkContextType {
@@ -48,18 +49,19 @@ interface BookmarkContextType {
   selectedTags: string[]
   setSelectedTags: (tags: string[]) => void
   favoriteFolders: string[]
-  toggleFavoriteFolder: (id: string) => void
+  toggleFavoriteFolder: (id: string) => Promise<void>
   toggleFavoriteBookmark: (id: string) => void
-  addBookmark: (bookmark: Bookmark) => void
-  updateBookmark: (bookmark: Bookmark) => void
-  deleteBookmark: (id: string) => void
-  addFolder: (folder: Folder) => void
-  updateFolder: (folder: Folder) => void
-  deleteFolder: (id: string) => void
-  addTag: (tag: string) => void
-  deleteTag: (tag: string) => void
+  // Updated signatures for CRUD operations
+  addBookmark: (bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'tags'>) => Promise<void>
+  updateBookmark: (bookmarkId: string, updatedFields: Partial<Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'tags'>>) => Promise<void>
+  deleteBookmark: (id: string) => Promise<void>
+  addFolder: (folderData: Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>
+  updateFolder: (folderId: string, updatedFields: Partial<Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>) => Promise<void>
+  deleteFolder: (id: string) => Promise<void>
+  addTag: (tagOrTags: string | string[]) => Promise<void>
+  deleteTag: (tag: string) => Promise<void>
   exportBookmarks: () => void
-  importBookmarks: (data: any) => void
+  importBookmarks: (data: any) => Promise<void>
   filteredBookmarks: (activeTab: string, searchQuery: string, searchFields: string[]) => Bookmark[]
   sortOptions: SortOption[]
   currentSortOption: string
@@ -75,428 +77,11 @@ interface BookmarkContextType {
   resetToSampleData: () => Promise<void>
 }
 
-// 示例数据
-const sampleBookmarks: Bookmark[] = [
-  // 搜索引擎类 - General文件夹
-  {
-    id: "bookmark-1",
-    title: "Google",
-    url: "https://www.google.com",
-    folderId: "folder-1",
-    tags: ["search", "tools"],
-    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-  {
-    id: "bookmark-2",
-    title: "Bing",
-    url: "https://www.bing.com",
-    folderId: "folder-1",
-    tags: ["search", "microsoft"],
-    createdAt: new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-  {
-    id: "bookmark-3",
-    title: "DuckDuckGo",
-    url: "https://duckduckgo.com",
-    folderId: "folder-1",
-    tags: ["search", "privacy"],
-    createdAt: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-
-  // 开发工具 - Development文件夹
-  {
-    id: "bookmark-4",
-    title: "GitHub",
-    url: "https://github.com",
-    folderId: "folder-2",
-    tags: ["development", "git", "code"],
-    createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-  {
-    id: "bookmark-5",
-    title: "Stack Overflow",
-    url: "https://stackoverflow.com",
-    folderId: "folder-2",
-    tags: ["development", "programming", "help"],
-    createdAt: new Date(Date.now() - 24 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-  {
-    id: "bookmark-6",
-    title: "MDN Web Docs",
-    url: "https://developer.mozilla.org",
-    folderId: "folder-2",
-    tags: ["development", "documentation", "web"],
-    createdAt: new Date(Date.now() - 23 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-  {
-    id: "bookmark-7",
-    title: "CodePen",
-    url: "https://codepen.io",
-    folderId: "folder-2",
-    tags: ["development", "web", "frontend"],
-    createdAt: new Date(Date.now() - 22 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-
-  // 前端框架 - Frontend子文件夹
-  {
-    id: "bookmark-8",
-    title: "React",
-    url: "https://reactjs.org",
-    folderId: "folder-3",
-    tags: ["development", "frontend", "javascript", "framework"],
-    createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-  {
-    id: "bookmark-9",
-    title: "Vue.js",
-    url: "https://vuejs.org",
-    folderId: "folder-3",
-    tags: ["development", "frontend", "javascript", "framework"],
-    createdAt: new Date(Date.now() - 19 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-  {
-    id: "bookmark-10",
-    title: "Angular",
-    url: "https://angular.io",
-    folderId: "folder-3",
-    tags: ["development", "frontend", "typescript", "framework"],
-    createdAt: new Date(Date.now() - 18 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-
-  // 后端技术 - Backend子文件夹
-  {
-    id: "bookmark-11",
-    title: "Node.js",
-    url: "https://nodejs.org",
-    folderId: "folder-4",
-    tags: ["development", "backend", "javascript"],
-    createdAt: new Date(Date.now() - 17 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-  {
-    id: "bookmark-12",
-    title: "Django",
-    url: "https://www.djangoproject.com",
-    folderId: "folder-4",
-    tags: ["development", "backend", "python", "framework"],
-    createdAt: new Date(Date.now() - 16 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-  {
-    id: "bookmark-13",
-    title: "Spring",
-    url: "https://spring.io",
-    folderId: "folder-4",
-    tags: ["development", "backend", "java", "framework"],
-    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-
-  // 娱乐 - Entertainment文件夹
-  {
-    id: "bookmark-14",
-    title: "YouTube",
-    url: "https://www.youtube.com",
-    folderId: "folder-5",
-    tags: ["entertainment", "video", "streaming"],
-    createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-  {
-    id: "bookmark-15",
-    title: "Netflix",
-    url: "https://www.netflix.com",
-    folderId: "folder-5",
-    tags: ["entertainment", "streaming", "movies"],
-    createdAt: new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-  {
-    id: "bookmark-16",
-    title: "Spotify",
-    url: "https://www.spotify.com",
-    folderId: "folder-5",
-    tags: ["entertainment", "music", "streaming"],
-    createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-
-  // 购物 - Shopping文件夹
-  {
-    id: "bookmark-17",
-    title: "Amazon",
-    url: "https://www.amazon.com",
-    folderId: "folder-6",
-    tags: ["shopping", "ecommerce"],
-    createdAt: new Date(Date.now() - 11 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-  {
-    id: "bookmark-18",
-    title: "eBay",
-    url: "https://www.ebay.com",
-    folderId: "folder-6",
-    tags: ["shopping", "auction", "ecommerce"],
-    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-  {
-    id: "bookmark-19",
-    title: "Etsy",
-    url: "https://www.etsy.com",
-    folderId: "folder-6",
-    tags: ["shopping", "handmade", "crafts"],
-    createdAt: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-
-  // 社交媒体 - Social Media文件夹
-  {
-    id: "bookmark-20",
-    title: "Twitter",
-    url: "https://twitter.com",
-    folderId: "folder-7",
-    tags: ["social", "news"],
-    createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-  {
-    id: "bookmark-21",
-    title: "Facebook",
-    url: "https://www.facebook.com",
-    folderId: "folder-7",
-    tags: ["social", "networking"],
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-  {
-    id: "bookmark-22",
-    title: "LinkedIn",
-    url: "https://www.linkedin.com",
-    folderId: "folder-7",
-    tags: ["social", "professional", "networking"],
-    createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-  {
-    id: "bookmark-23",
-    title: "Instagram",
-    url: "https://www.instagram.com",
-    folderId: "folder-7",
-    tags: ["social", "photos"],
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-
-  // 学习 - Learning文件夹
-  {
-    id: "bookmark-24",
-    title: "Coursera",
-    url: "https://www.coursera.org",
-    folderId: "folder-8",
-    tags: ["education", "courses", "learning"],
-    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-  {
-    id: "bookmark-25",
-    title: "Khan Academy",
-    url: "https://www.khanacademy.org",
-    folderId: "folder-8",
-    tags: ["education", "learning", "free"],
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-  {
-    id: "bookmark-26",
-    title: "edX",
-    url: "https://www.edx.org",
-    folderId: "folder-8",
-    tags: ["education", "courses", "university"],
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-
-  // 无文件夹的书签
-  {
-    id: "bookmark-27",
-    title: "Wikipedia",
-    url: "https://www.wikipedia.org",
-    folderId: null,
-    tags: ["reference", "encyclopedia", "knowledge"],
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-
-  // 无标签的书签
-  {
-    id: "bookmark-28",
-    title: "Weather.com",
-    url: "https://weather.com",
-    folderId: "folder-1",
-    tags: [],
-    createdAt: new Date(Date.now() - 0.5 * 24 * 60 * 60 * 1000).toISOString(),
-    favicon: "",
-    isFavorite: false,
-  },
-
-  // 最新添加的书签
-  {
-    id: "bookmark-29",
-    title: "ChatGPT",
-    url: "https://chat.openai.com",
-    folderId: "folder-9",
-    tags: ["ai", "tools", "chatbot"],
-    createdAt: new Date().toISOString(),
-    favicon: "",
-    isFavorite: true,
-  },
-  {
-    id: "bookmark-30",
-    title: "Midjourney",
-    url: "https://www.midjourney.com",
-    folderId: "folder-9",
-    tags: ["ai", "tools", "image-generation"],
-    createdAt: new Date().toISOString(),
-    favicon: "",
-    isFavorite: false,
-  }
-]
-
-const sampleFolders: Folder[] = [
-  {
-    id: "folder-1",
-    name: "General",
-    parentId: null,
-  },
-  {
-    id: "folder-2",
-    name: "Development",
-    parentId: null,
-  },
-  {
-    id: "folder-3",
-    name: "Frontend",
-    parentId: "folder-2",
-  },
-  {
-    id: "folder-4",
-    name: "Backend",
-    parentId: "folder-2",
-  },
-  {
-    id: "folder-5",
-    name: "Entertainment",
-    parentId: null,
-  },
-  {
-    id: "folder-6",
-    name: "Shopping",
-    parentId: null,
-  },
-  {
-    id: "folder-7",
-    name: "Social Media",
-    parentId: null,
-  },
-  {
-    id: "folder-8",
-    name: "Learning",
-    parentId: null,
-  },
-  {
-    id: "folder-9",
-    name: "AI Tools",
-    parentId: null,
-  }
-]
-
-const sampleTags: string[] = [
-  "search",
-  "development",
-  "tools",
-  "microsoft",
-  "privacy",
-  "git",
-  "code",
-  "programming",
-  "help",
-  "documentation",
-  "web",
-  "frontend",
-  "javascript",
-  "framework",
-  "typescript",
-  "backend",
-  "python",
-  "java",
-  "entertainment",
-  "video",
-  "streaming",
-  "movies",
-  "music",
-  "shopping",
-  "ecommerce",
-  "auction",
-  "handmade",
-  "crafts",
-  "social",
-  "news",
-  "networking",
-  "professional",
-  "photos",
-  "education",
-  "courses",
-  "learning",
-  "free",
-  "university",
-  "reference",
-  "encyclopedia",
-  "knowledge",
-  "ai",
-  "chatbot",
-  "image-generation"
-]
-
-// Initial favorite folders
-const sampleFavoriteFolders: string[] = ["folder-2", "folder-5", "folder-9"]
+// 示例数据 (将被移除或替换为从API加载)
+// const sampleBookmarks: Bookmark[] = [ ... ] // Removed
+// const sampleFolders: Folder[] = [ ... ] // Removed
+// const sampleTags: string[] = [ ... ] // Removed
+// const sampleFavoriteFolders: string[] = [] // Removed, will be initialized to empty array
 
 // Sort options
 const sortOptions: SortOption[] = [
@@ -513,10 +98,11 @@ const defaultSearchFields = ["title", "url", "tags"]
 
 // Default app settings
 const defaultSettings: AppSettings = {
-  darkMode: false,
-  accentColor: "#3b82f6", // Blue
+  // darkMode: false, // 由 AuthContext.userSettings 管理
+  // accentColor: "#3b82f6", // 由 AuthContext.userSettings 管理
   defaultView: "all",
   tagConcurrencyLimit: 5, // 默认并发限制为5
+  // language: "en" // 语言也由 AuthContext.userSettings 管理
 }
 
 // Create context
@@ -524,288 +110,162 @@ const BookmarkContext = createContext<BookmarkContextType | undefined>(undefined
 
 // Provider component
 export function BookmarkProvider({ children }: { children: ReactNode }) {
+  const { token, userSettings, updateGlobalSettings } = useAuth()
+ 
   // 初始化状态
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>(sampleBookmarks)
-  const [folders, setFolders] = useState<Folder[]>(sampleFolders)
-  const [tags, setTags] = useState<string[]>(sampleTags)
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]) // Initialize with empty array
+  const [folders, setFolders] = useState<Folder[]>([]) // Initialize with empty array
+  // const [tags, setTags] = useState<string[]>([]) // Removed, will derive from userSettings
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [favoriteFolders, setFavoriteFolders] = useState<string[]>(sampleFavoriteFolders)
-  const [currentSortOption, setCurrentSortOption] = useState<string>("newest")
-  const [searchFields, setSearchFields] = useState<string[]>(defaultSearchFields)
+  // const [favoriteFolders, setFavoriteFolders] = useState<string[]>([]) // Removed, will derive from userSettings
+  // const [currentSortOption, setCurrentSortOption] = useState<string>("newest") // 移除本地状态
+  // const [searchFields, setSearchFields] = useState<string[]>(defaultSearchFields) // 移除本地状态
   const [settings, setSettings] = useState<AppSettings>(defaultSettings)
 
-  // 添加迁移状态
-  const [isMigrating, setIsMigrating] = useState(false)
-  const [migrationComplete, setMigrationComplete] = useState(false)
-
+  // 从 AuthContext 获取设置数据
+  const tags = userSettings?.tagList || []
+  const favoriteFolders = userSettings?.favoriteFolderIds || []
+  const currentSortOption = userSettings?.sortOption || "newest" // 从 userSettings 获取，提供默认值
+  const searchFields = userSettings?.searchFields || defaultSearchFields // 从 userSettings 获取，提供默认值
+ 
+  // 添加迁移状态 (将被移除)
+  // const [isMigrating, setIsMigrating] = useState(false) // Removed
+  // const [migrationComplete, setMigrationComplete] = useState(false) // Removed
+ 
   // 添加数据加载状态
   const [isLoading, setIsLoading] = useState(true)
-  const [isDataSaving, setIsDataSaving] = useState(false)
-
+  const [isDataSaving, setIsDataSaving] = useState(false) // This might be removed or repurposed later
+ 
   // 添加客户端状态标记
   const [isClient, setIsClient] = useState(false)
-  
+   
   // 添加更新计数器，用于触发UI更新
   const bookmarkUpdateCounter = useRef<number>(0)
-  
+   
   // 添加数据已加载标志，解决刷新后使用初始数据问题
   const dataLoadedOnce = useRef<boolean>(false)
-
-  // 防抖定时器引用
+ 
+  // 防抖定时器引用 (暂时保留，可能用于未来的API调用防抖)
   const saveTimeout = useRef<NodeJS.Timeout | null>(null)
-
+ 
   // 确保只在客户端执行
   useEffect(() => {
     setIsClient(true)
   }, [])
-
-  // 数据迁移和加载 (只在客户端执行)
+ 
+  // 数据加载 (从 API)
   useEffect(() => {
-    // 确保只在客户端执行
     if (!isClient) return
-
-    // 异步加载数据函数
-    const loadData = async () => {
-      try {
-        setIsLoading(true)
-
-        // 检查是否需要从 localStorage 迁移数据到 IndexedDB
-        if (needMigration()) {
-          console.log("开始从 localStorage 迁移数据...")
-          setIsMigrating(true)
-
-          // 执行迁移
-          const migrationSuccess = await migrateFromLocalStorage()
-
-          if (migrationSuccess) {
-            console.log("迁移成功，清除旧数据...")
-            // 迁移成功后清除 localStorage 中的旧数据
-            clearLocalStorageData()
-            setMigrationComplete(true)
-          } else {
-            console.error("迁移失败，使用默认数据")
-          }
-
-          setIsMigrating(false)
-        }
-
-        // 从 IndexedDB 加载数据
-        const loadedBookmarks = await db.getAllBookmarks()
-        const loadedFolders = await db.getAllFolders()
-        const loadedTags = await db.getTags()
-        const loadedFavoriteFolders = await db.getFavoriteFolders()
-        const loadedSortOption = await db.getSortOption()
-        const loadedSearchFields = await db.getSearchFields()
-        const loadedSettings = await db.getAppSettings()
-
-        // 获取是否已加载过预置书签的标记
-        const hasLoadedInitialSamples = getConfig<boolean>('hasLoadedInitialSamples', false)
-        console.log("是否已加载过预置书签:", hasLoadedInitialSamples)
-
-        // 判断是否需要加载预置书签数据
-        const shouldLoadSampleData = !hasLoadedInitialSamples &&
-                                    loadedBookmarks.length === 0 &&
-                                    loadedFolders.length === 0 &&
-                                    loadedTags.length === 0
-
-        // 如果需要加载预置数据，则使用 sample 数据
-        if (shouldLoadSampleData) {
-          console.log("首次启动且无数据，加载预置书签数据")
-          
-          // 使用预置数据
-          setBookmarks(sampleBookmarks)
-          setFolders(sampleFolders)
-          setTags(sampleTags)
-          setFavoriteFolders(sampleFavoriteFolders)
-          
-          // 将预置数据保存到数据库
-          await db.saveBookmarks(sampleBookmarks)
-          await db.saveFolders(sampleFolders)
-          await db.saveTags(sampleTags)
-          await db.saveFavoriteFolders(sampleFavoriteFolders)
-          
-          // 标记已加载过预置数据，避免后续重复加载
-          saveConfig('hasLoadedInitialSamples', true)
-          
-          // 增加更新计数器，确保UI更新
-          bookmarkUpdateCounter.current += 1
-        } else {
-          // 否则使用从数据库加载的数据
-          console.log("使用用户数据或已加载过预置数据，跳过预置书签加载")
-          
-          // 更新状态，但只在有数据或者之前从未加载过数据时才设置（避免刷新回到初始状态）
-          if (loadedBookmarks.length > 0 || !dataLoadedOnce.current) {
-            setBookmarks(loadedBookmarks)
-            // 增加更新计数器，确保UI更新
-            bookmarkUpdateCounter.current += 1
-          }
-          
-          if (loadedFolders.length > 0 || !dataLoadedOnce.current)
-            setFolders(loadedFolders)
-            
-          if (loadedTags.length > 0 || !dataLoadedOnce.current)
-            setTags(loadedTags)
-            
-          if (loadedFavoriteFolders.length > 0 || !dataLoadedOnce.current)
-            setFavoriteFolders(loadedFavoriteFolders)
-        }
-        
-        // 加载其他设置
-        if (loadedSortOption || !dataLoadedOnce.current)
-          setCurrentSortOption(loadedSortOption || currentSortOption)
-          
-        if (loadedSearchFields.length > 0 || !dataLoadedOnce.current)
-          setSearchFields(loadedSearchFields.length > 0 ? loadedSearchFields : searchFields)
-          
-        if (loadedSettings || !dataLoadedOnce.current)
-          setSettings(loadedSettings || settings)
-
-        // 标记数据已加载过一次
+ 
+    const loadDataFromAPI = async () => {
+      if (!token) {
+        console.log("用户未认证，不加载书签数据。")
+        setBookmarks([])
+        setFolders([])
+        // Tags and favoriteFolders are derived from userSettings, no need to set them here
+        // settings, sortOption, searchFields will be handled in a later step
+        setIsLoading(false)
         dataLoadedOnce.current = true
-
-        console.log("从 IndexedDB 加载数据完成")
+        return
+      }
+ 
+      setIsLoading(true)
+      try {
+        console.log("从 API 加载书签和文件夹数据...")
+        const [loadedBookmarks, loadedFolders] = await Promise.all([
+          getBookmarks(token),
+          getFolders(token),
+        ])
+ 
+        setBookmarks(loadedBookmarks)
+        setFolders(loadedFolders)
+        
+        // Tags and favoriteFolders are derived from userSettings
+        // setCurrentSortOption("newest") // Keep default or load from settings later
+        // setSearchFields(defaultSearchFields) // Keep default or load from settings later
+        // setSettings(defaultSettings) // Keep default or load from settings later
+ 
+        console.log("从 API 加载数据完成。")
+        // 触发 filteredBookmarks 的更新
+        bookmarkUpdateCounter.current += 1;
+        
+        // 更新全局书签数据，用于WebDAV同步
+        updateGlobalBookmarkData({
+          bookmarks: loadedBookmarks,
+          folders: loadedFolders,
+          tags,
+          favoriteFolders,
+          settings,
+        });
       } catch (error) {
-        console.error("从 IndexedDB 加载数据失败:", error)
+        console.error("从 API 加载数据失败:", error)
+        // Optionally set an error state here to inform the user
+        setBookmarks([]) // Clear data on error
+        setFolders([])
+        // Tags and favoriteFolders are derived from userSettings
       } finally {
         setIsLoading(false)
+        dataLoadedOnce.current = true
       }
     }
-
-    loadData()
-  }, [isClient]) // 依赖于 isClient 变量，确保只在客户端执行
-
-  // 数据变更时保存到 IndexedDB (使用防抖)
-  useEffect(() => {
-    // 确保只在客户端执行且已加载完成
-    if (!isClient || isLoading) return
-
-    // 清除之前的定时器
-    if (saveTimeout.current) {
-      clearTimeout(saveTimeout.current)
-    }
-
-    // 设置新的防抖定时器
-    saveTimeout.current = setTimeout(async () => {
-      try {
-        setIsDataSaving(true)
-
-        // 保存书签
-        await db.saveBookmarks(bookmarks)
-
-        // 保存文件夹
-        await db.saveFolders(folders)
-
-        // 保存标签
-        await db.saveTags(tags)
-
-        // 保存收藏文件夹
-        await db.saveFavoriteFolders(favoriteFolders)
-
-        // 保存排序选项
-        await db.saveSortOption(currentSortOption)
-
-        // 保存搜索字段
-        await db.saveSearchFields(searchFields)
-
-        // 保存应用设置
-        await db.saveAppSettings(settings)
-
-        console.log("数据已保存到 IndexedDB")
-      } catch (error) {
-        console.error("保存数据到 IndexedDB 失败:", error)
-      } finally {
-        setIsDataSaving(false)
-      }
-    }, 300)
-
-    // 组件卸载时清除定时器
-    return () => {
-      if (saveTimeout.current) {
-        clearTimeout(saveTimeout.current)
-      }
-    }
-  }, [isClient, isLoading, bookmarks, folders, tags, favoriteFolders, currentSortOption, searchFields, settings])
-
+ 
+    loadDataFromAPI()
+  }, [isClient, token]) // Re-run if token changes (e.g., user logs in/out)
+ 
   // 辅助函数：防抖
   const debounce = <F extends (...args: any[]) => any>(func: F, wait: number): ((...args: Parameters<F>) => void) => {
     let timeout: NodeJS.Timeout | null = null;
-
+ 
     return (...args: Parameters<F>) => {
       if (timeout) clearTimeout(timeout);
       timeout = setTimeout(() => func(...args), wait);
     };
   }
-
-  // Apply dark mode when settings change
-  useEffect(() => {
-    if (settings.darkMode) {
-      document.documentElement.classList.add("dark")
-    } else {
-      document.documentElement.classList.remove("dark")
-    }
-
-    // Apply accent color
-    document.documentElement.style.setProperty("--accent-color", settings.accentColor)
-
-    // Generate lighter and darker variants of the accent color
-    const hexToRgb = (hex: string) => {
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-      return result
-        ? {
-            r: Number.parseInt(result[1], 16),
-            g: Number.parseInt(result[2], 16),
-            b: Number.parseInt(result[3], 16),
-          }
-        : null
-    }
-
-    const rgb = hexToRgb(settings.accentColor)
-    if (rgb) {
-      document.documentElement.style.setProperty("--accent-rgb", `${rgb.r}, ${rgb.g}, ${rgb.b}`)
-
-      // Lighter variant (for hover)
-      const lighter = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`
-      document.documentElement.style.setProperty("--accent-light", lighter)
-
-      // Darker variant (for active/pressed)
-      const darker = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`
-      document.documentElement.style.setProperty("--accent-dark", darker)
-    }
-  }, [settings.darkMode, settings.accentColor])
-
-  // Update settings
+ 
+  // The useEffect hook for applying darkMode and accentColor (lines 216-250) is removed
+  // as this is now handled by AppSpecificMantineProvider in app/layout.tsx.
+ 
+  // Update settings - ensure this doesn't conflict with AuthContext for darkMode/accentColor
   const updateSettings = (newSettings: Partial<AppSettings>) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }))
+    // Filter out darkMode and accentColor if they are accidentally passed
+    const { darkMode, accentColor, ...otherSettings } = newSettings as any;
+    // The 'as any' is a temporary workaround if AppSettings still has them due to other dependencies.
+    // Ideally, AppSettings type itself should not have darkMode/accentColor.
+ 
+    setSettings((prev) => ({ ...prev, ...otherSettings }))
+    // Note: If 'language' is also fully managed by AuthContext and global,
+    // it might also need to be excluded here or handled carefully.
+    // For now, we assume 'language' in AppSettings might serve a different or legacy purpose.
   }
-
+ 
   // 简化的 favicon 生成函数，只使用书签标题首字母
   const fetchAndStoreFavicon = async (url: string, title: string): Promise<string> => {
     // 不再尝试获取网页的真实 favicon，直接返回空值
     // 将会使用书签列表中的备选显示机制（标题首字母）
     return ""
   }
-
+ 
   // 辅助函数：将字符串转换为颜色
   const stringToColor = (str: string): string => {
     let hash = 0
     for (let i = 0; i < str.length; i++) {
       hash = str.charCodeAt(i) + ((hash << 5) - hash)
     }
-
+ 
     let color = "#"
     for (let i = 0; i < 3; i++) {
       const value = (hash >> (i * 8)) & 0xff
       color += ("00" + value.toString(16)).substr(-2)
     }
-
+ 
     return color
   }
-
+ 
   // Refresh all favicons
   const refreshAllFavicons = async () => {
     const updatedBookmarks = [...bookmarks]
-
+ 
     for (let i = 0; i < updatedBookmarks.length; i++) {
       const bookmark = updatedBookmarks[i]
       try {
@@ -815,34 +275,111 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         console.error(`Error refreshing favicon for ${bookmark.title}:`, error)
       }
     }
-
+ 
     setBookmarks(updatedBookmarks)
   }
-
+ 
   // Toggle favorite folder
-  const toggleFavoriteFolder = (folderId: string) => {
-    setFavoriteFolders((prev) => (prev.includes(folderId) ? prev.filter((id) => id !== folderId) : [...prev, folderId]))
+  const toggleFavoriteFolder = async (folderId: string) => {
+    if (!userSettings || !updateGlobalSettings) {
+      console.error("User settings or update function not available");
+      return;
+    }
+    const currentFavoriteFolderIds = userSettings.favoriteFolderIds || [];
+    let newFavoriteFolderIds: string[];
+    if (currentFavoriteFolderIds.includes(folderId)) {
+      newFavoriteFolderIds = currentFavoriteFolderIds.filter((id) => id !== folderId);
+    } else {
+      newFavoriteFolderIds = [...currentFavoriteFolderIds, folderId];
+    }
+    try {
+      await updateGlobalSettings({ favoriteFolderIds: newFavoriteFolderIds });
+    } catch (error) {
+      console.error("Failed to update favoriteFolderIds:", error);
+    }
   }
-
+ 
   // Toggle favorite bookmark
-  const toggleFavoriteBookmark = (id: string) => {
+  const toggleFavoriteBookmark = async (id: string) => {
+    const bookmark = bookmarks.find(b => b.id === id);
+    if (!bookmark) {
+      console.error(`Bookmark with id ${id} not found.`);
+      return;
+    }
+ 
+    const newFavoriteStatus = !bookmark.isFavorite;
+ 
+    // Optimistically update local state
     setBookmarks((prev) =>
-      prev.map((bookmark) => (bookmark.id === id ? { ...bookmark, isFavorite: !bookmark.isFavorite } : bookmark)),
-    )
-    
-    // 增加更新计数器，确保UI更新
+      prev.map((b) => (b.id === id ? { ...b, isFavorite: newFavoriteStatus } : b)),
+    );
     bookmarkUpdateCounter.current += 1;
+ 
+    if (!token) {
+      console.error("User not authenticated, cannot sync favorite status.");
+      // Optionally revert optimistic update or show error to user
+      setBookmarks((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, isFavorite: bookmark.isFavorite } : b)),
+      );
+      bookmarkUpdateCounter.current += 1;
+      return;
+    }
+ 
+    try {
+      const updatedBookmark = await setBookmarkFavoriteStatus(token, id, newFavoriteStatus);
+      // Optionally, update local state with the response from the server
+      // This ensures data consistency if the backend modifies the bookmark in other ways
+      setBookmarks((prev) =>
+        prev.map((b) => (b.id === id ? updatedBookmark : b)),
+      );
+      bookmarkUpdateCounter.current += 1;
+      console.log(`Bookmark ${id} favorite status updated to ${newFavoriteStatus} on the server.`);
+    } catch (error) {
+      console.error(`Error updating bookmark ${id} favorite status on the server:`, error);
+      // Revert optimistic update if API call fails
+      setBookmarks((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, isFavorite: bookmark.isFavorite } : b)),
+      );
+      bookmarkUpdateCounter.current += 1;
+      // Optionally, show an error message to the user
+    }
+  }
+ 
+  // 设置当前排序选项 - 更新为使用 AuthContext
+  const setCurrentSortOption = (newSortOption: string) => {
+    if (!userSettings || !updateGlobalSettings) {
+      console.error("User settings or update function not available for setCurrentSortOption");
+      return;
+    }
+    
+    updateGlobalSettings({ sortOption: newSortOption })
+      .catch((error) => {
+        console.error("Failed to update sortOption:", error);
+      });
   }
 
-  // Toggle search field
+  // Toggle search field - 更新为使用 AuthContext
   const toggleSearchField = (field: string) => {
-    setSearchFields((prev) => (prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]))
+    if (!userSettings || !updateGlobalSettings) {
+      console.error("User settings or update function not available for toggleSearchField");
+      return;
+    }
+    
+    const currentFields = userSettings.searchFields || defaultSearchFields;
+    const newFields = currentFields.includes(field)
+      ? currentFields.filter((f) => f !== field)
+      : [...currentFields, field];
+      
+    updateGlobalSettings({ searchFields: newFields })
+      .catch((error) => {
+        console.error("Failed to update searchFields:", error);
+      });
   }
-
+ 
   // Sort bookmarks based on current sort option
   const sortBookmarks = (bookmarksToSort: Bookmark[]): Bookmark[] => {
     const sorted = [...bookmarksToSort]
-
+ 
     switch (currentSortOption) {
       case "newest":
         return sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -860,56 +397,56 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         return sorted
     }
   }
-
+ 
   // 用于缓存子文件夹ID的映射
   const childFolderIdsCache = useRef<Record<string, string[]>>({});
-
+ 
   // 优化的getChildFolderIds函数，使用缓存避免重复计算
   const getChildFolderIds = (folderId: string): string[] => {
     // 如果缓存中已有结果，直接返回
     if (childFolderIdsCache.current[folderId]) {
       return childFolderIdsCache.current[folderId];
     }
-
+ 
     const directChildren = folders.filter((f) => f.parentId === folderId);
     const childIds = directChildren.map((f) => f.id);
-
+ 
     // 递归获取所有子文件夹ID
     const allChildIds = [...childIds];
     for (const childId of childIds) {
       allChildIds.push(...getChildFolderIds(childId));
     }
-
+ 
     // 缓存结果
     childFolderIdsCache.current[folderId] = allChildIds;
     return allChildIds;
   }
-
+ 
   // 当文件夹结构变化时，清除缓存
   useEffect(() => {
     childFolderIdsCache.current = {};
   }, [folders]);
-
+ 
   // 使用useMemo优化的filteredBookmarks函数，但添加更新计数器避免缓存问题
   const filteredBookmarksCache = useRef<Record<string, Bookmark[]>>({});
   const filteredBookmarksCacheKey = useRef<string>('');
-
+ 
   // Filter bookmarks based on selected folder, tags, and search query
   const filteredBookmarks = (activeTab: string, searchQuery: string, fields: string[] = searchFields) => {
     // 创建缓存键，添加更新计数器确保在数据变化时缓存失效
     const cacheKey = `${activeTab}_${selectedFolderId || 'null'}_${selectedTags.join(',')}_${searchQuery}_${fields.join(',')}_${currentSortOption}_${bookmarkUpdateCounter.current}`;
-
+ 
     // 如果缓存键与上次相同，直接返回缓存结果
     if (cacheKey === filteredBookmarksCacheKey.current && filteredBookmarksCache.current[cacheKey]) {
       return filteredBookmarksCache.current[cacheKey];
     }
-
+ 
     // 更新缓存键
     filteredBookmarksCacheKey.current = cacheKey;
-
+ 
     // 开始过滤
     let filtered = [...bookmarks];
-
+ 
     // 使用更高效的过滤方式
     // Filter by active tab
     if (activeTab === "favorites") {
@@ -917,7 +454,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     } else if (activeTab !== "all") {
       filtered = filtered.filter((bookmark) => bookmark.folderId === activeTab);
     }
-
+ 
     // Filter by selected folder - 使用缓存的子文件夹ID
     if (selectedFolderId) {
       const childFolderIds = getChildFolderIds(selectedFolderId);
@@ -927,15 +464,15 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         (bookmark) => bookmark.folderId && folderIdSet.has(bookmark.folderId)
       );
     }
-
+ 
     // Filter by selected tags - 使用Set提高性能
     if (selectedTags.length > 0) {
       const tagSet = new Set(selectedTags);
       filtered = filtered.filter(
-        (bookmark) => bookmark.tags && bookmark.tags.some((tag) => tagSet.has(tag))
+        (bookmark) => bookmark.tags && bookmark.tags.some((tag: string) => tagSet.has(tag))
       );
     }
-
+ 
     // Filter by search query using fuzzy search
     if (searchQuery) {
       // 只有当搜索查询不为空时才创建Fuse实例，避免不必要的计算
@@ -947,180 +484,390 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
       const result = fuse.search(searchQuery);
       filtered = result.map((item) => item.item);
     }
-
+ 
     // Sort the filtered bookmarks
     const sortedResult = sortBookmarks(filtered);
-
+ 
     // 缓存结果
     filteredBookmarksCache.current[cacheKey] = sortedResult;
-
+ 
     return sortedResult;
   }
-
+ 
   // Bookmark operations
-  const addBookmark = async (bookmark: Bookmark) => {
-    // If favicon is not provided, fetch it
-    if (!bookmark.favicon) {
-      try {
-        bookmark.favicon = await fetchAndStoreFavicon(bookmark.url, bookmark.title)
-      } catch (error) {
-        console.error("Error fetching favicon:", error)
-      }
+  const addBookmark = async (bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'tags'>) => {
+    if (!token) {
+      console.error("用户未认证，无法添加书签。")
+      return
     }
-
-    // 更新状态
-    setBookmarks((prev) => [...prev, bookmark])
-    
-    // 增加更新计数器，确保UI更新
-    bookmarkUpdateCounter.current += 1;
-
-    // 保存到 IndexedDB - 因为状态更新已经触发防抖保存，这里不需要重复保存
-    // await db.saveBookmark(bookmark)
-
-    // Add any new tags
-    if (bookmark.tags) {
-      const newTags = bookmark.tags.filter((tag) => !tags.includes(tag))
-      if (newTags.length > 0) {
-        setTags((prev) => [...prev, ...newTags])
-        // 同样，状态更新已经触发防抖保存
-        // await db.saveTags([...tags, ...newTags])
-      }
+ 
+    // Explicitly pick allowed fields for creation to prevent sending disallowed fields like id, userId, etc.
+    const dataToSend: {
+      title: string;
+      url: string;
+      folderId?: string | null;
+      favicon?: string;
+      isFavorite?: boolean;
+      // Ensure other client-settable fields are included if they exist in Bookmark type (excluding Omit ones)
+    } = {
+      title: bookmarkData.title,
+      url: bookmarkData.url,
+    };
+ 
+    if (bookmarkData.folderId !== undefined && bookmarkData.folderId !== null) {
+      dataToSend.folderId = bookmarkData.folderId;
     }
-  }
-
-  const updateBookmark = async (bookmark: Bookmark) => {
-    // If URL has changed, fetch new favicon
-    const existingBookmark = bookmarks.find((b) => b.id === bookmark.id)
-    if (existingBookmark && existingBookmark.url !== bookmark.url) {
-      try {
-        bookmark.favicon = await fetchAndStoreFavicon(bookmark.url, bookmark.title)
-      } catch (error) {
-        console.error("Error fetching favicon:", error)
-      }
+    if (bookmarkData.favicon !== undefined) {
+      dataToSend.favicon = bookmarkData.favicon;
     }
-
-    // 更新状态
-    setBookmarks((prev) => prev.map((b) => (b.id === bookmark.id ? bookmark : b)))
-    
-    // 增加更新计数器，确保UI更新
-    bookmarkUpdateCounter.current += 1;
-
-    // 保存到 IndexedDB - 因为状态更新已经触发防抖保存，这里不需要重复保存
-    // await db.saveBookmark(bookmark)
-
-    // Update tags
-    if (bookmark.tags) {
-      const newTags = bookmark.tags.filter((tag) => !tags.includes(tag))
-      if (newTags.length > 0) {
-        setTags((prev) => [...prev, ...newTags])
-        // 同样，状态更新已经触发防抖保存
-        // await db.saveTags([...tags, ...newTags])
-      }
+    if (bookmarkData.isFavorite !== undefined) {
+      dataToSend.isFavorite = bookmarkData.isFavorite;
     }
-  }
-
-  const deleteBookmark = async (id: string) => {
+    // Note: 'tags' are handled by the backend hook for bookmarks.
+ 
+    // If favicon is not provided, fetch it (or prepare for backend to handle it)
+    // For now, we assume favicon is part of bookmarkData or handled by backend.
+    // If client-side favicon generation is still needed before sending:
+    // if (!dataToSend.favicon && dataToSend.url && dataToSend.title) {
+    //   try {
+    //     dataToSend.favicon = await fetchAndStoreFavicon(dataToSend.url, dataToSend.title);
+    //   } catch (error) {
+    //     console.error("Error fetching favicon for new bookmark:", error);
+    //   }
+    // }
+ 
     try {
-      // 先直接从数据库中删除书签
-      await db.deleteBookmark(id);
-
-      // 然后更新状态
-      setBookmarks((prev) => prev.filter((b) => b.id !== id));
+      const newBookmark = await apiCreateBookmark(token, dataToSend as Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'tags'>) // Cast as Omit type
+      setBookmarks((prev) => [...prev, newBookmark])
+      bookmarkUpdateCounter.current += 1
       
-      // 增加更新计数器，确保UI更新
-      bookmarkUpdateCounter.current += 1;
-
-      console.log(`成功删除书签: ${id}`);
+      // 更新全局书签数据
+      updateGlobalBookmarkData({
+        bookmarks: [...bookmarks, newBookmark],
+        folders,
+        tags,
+        favoriteFolders,
+        settings,
+      });
+ 
+      // Add any new tags from the created bookmark to the global tags list
+      if (newBookmark.tags && userSettings && updateGlobalSettings) {
+        const currentGlobalTags = userSettings.tagList || [];
+        const tagsToAdd = newBookmark.tags.filter((tag: string) => !currentGlobalTags.includes(tag));
+        if (tagsToAdd.length > 0) {
+          const newFullTagList = [...currentGlobalTags, ...tagsToAdd];
+          try {
+            await updateGlobalSettings({ tagList: newFullTagList });
+          } catch (error) {
+            console.error("Failed to update tagList after adding bookmark:", error);
+          }
+        }
+      }
+      console.log("书签已创建:", newBookmark)
     } catch (error) {
-      console.error(`删除书签失败: ${id}`, error);
-      // 删除失败，但仍然尝试更新UI状态，提供更好的用户体验
-      setBookmarks((prev) => prev.filter((b) => b.id !== id));
-      
-      // 依然增加更新计数器，确保UI更新
-      bookmarkUpdateCounter.current += 1;
+      console.error("创建书签失败:", error)
+      // Optionally, re-throw or set an error state for the UI
     }
   }
-
-  // Folder operations
-  const addFolder = async (folder: Folder) => {
-    // 更新状态
-    setFolders((prev) => [...prev, folder])
-
-    // 保存到 IndexedDB - 因为状态更新已经触发防抖保存，这里不需要重复保存
-    // await db.saveFolder(folder)
-  }
-
-  const updateFolder = async (folder: Folder) => {
-    // 更新状态
-    setFolders((prev) => prev.map((f) => (f.id === folder.id ? folder : f)))
-
-    // 保存到 IndexedDB - 因为状态更新已经触发防抖保存，这里不需要重复保存
-    // await db.saveFolder(folder)
-  }
-
-  const deleteFolder = async (id: string) => {
-    // Delete folder and all its children
-    const childFolderIds = getChildFolderIds(id)
-    
+ 
+  const updateBookmark = async (
+    bookmarkId: string,
+    updatedFields: Partial<Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'tags'>>
+  ) => {
+    if (!token) {
+      console.error("用户未认证，无法更新书签。")
+      return
+    }
+ 
+    let dataToUpdate = { ...updatedFields };
+ 
+    // If URL has changed, fetch new favicon (or prepare for backend to handle it)
+    // This logic might need adjustment based on whether favicon is part of updatedFields
+    // const existingBookmark = bookmarks.find((b) => b.id === bookmarkId);
+    // if (existingBookmark && dataToUpdate.url && existingBookmark.url !== dataToUpdate.url && dataToUpdate.title) {
+    //   try {
+    //     dataToUpdate.favicon = await fetchAndStoreFavicon(dataToUpdate.url, dataToUpdate.title);
+    //   } catch (error) {
+    //     console.error("Error fetching favicon for updated bookmark:", error);
+    //   }
+    // }
+ 
+ 
     try {
-      // 从 IndexedDB 中删除主文件夹
-      await db.deleteFolder(id)
-      console.log(`成功从数据库删除文件夹: ${id}`)
-
-      // 从 IndexedDB 中删除所有子文件夹
-      for (const childId of childFolderIds) {
-        await db.deleteFolder(childId)
-        console.log(`成功从数据库删除子文件夹: ${childId}`)
+      const updatedBookmark = await apiUpdateBookmark(token, bookmarkId, dataToUpdate)
+      setBookmarks((prev) => prev.map((b) => (b.id === bookmarkId ? updatedBookmark : b)))
+      bookmarkUpdateCounter.current += 1
+      
+      // 更新全局书签数据
+      const updatedBookmarks = bookmarks.map((b) => (b.id === bookmarkId ? updatedBookmark : b));
+      updateGlobalBookmarkData({
+        bookmarks: updatedBookmarks,
+        folders,
+        tags,
+        favoriteFolders,
+        settings,
+      });
+ 
+      // Update global tags if necessary
+      if (updatedBookmark.tags && userSettings && updateGlobalSettings) {
+        const currentGlobalTags = userSettings.tagList || [];
+        const tagsToAdd = updatedBookmark.tags.filter((tag: string) => !currentGlobalTags.includes(tag));
+        if (tagsToAdd.length > 0) {
+          const newFullTagList = [...currentGlobalTags, ...tagsToAdd];
+          try {
+            await updateGlobalSettings({ tagList: newFullTagList });
+          } catch (error) {
+            console.error("Failed to update tagList after updating bookmark:", error);
+          }
+        }
       }
-
-      // 更新文件夹状态
+      console.log("书签已更新:", updatedBookmark)
+    } catch (error) {
+      console.error(`更新书签失败 (ID: ${bookmarkId}):`, error)
+    }
+  }
+ 
+  const deleteBookmark = async (id: string) => {
+    if (!token) {
+      console.error("用户未认证，无法删除书签。")
+      return
+    }
+ 
+    try {
+      await apiDeleteBookmark(token, id)
+      setBookmarks((prev) => prev.filter((b) => b.id !== id))
+      bookmarkUpdateCounter.current += 1
+      
+      // 更新全局书签数据
+      const updatedBookmarks = bookmarks.filter((b) => b.id !== id);
+      updateGlobalBookmarkData({
+        bookmarks: updatedBookmarks,
+        folders,
+        tags,
+        favoriteFolders,
+        settings,
+      });
+      console.log(`书签已删除 (ID: ${id})`)
+    } catch (error) {
+      console.error(`删除书签失败 (ID: ${id}):`, error)
+      // Consider how to handle UI in case of API failure.
+      // For now, we optimistically update, but you might want to revert or show an error.
+    }
+  }
+ 
+  // Folder operations
+  const addFolder = async (folderData: Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
+    if (!token) {
+      console.error("用户未认证，无法添加文件夹。")
+      return
+    }
+    try {
+      // Explicitly pick allowed fields for folder creation
+      const dataToSend: {
+        name: string;
+        parentId?: string | null;
+      } = {
+        name: folderData.name,
+      };
+ 
+      if (folderData.parentId !== undefined && folderData.parentId !== null) {
+        dataToSend.parentId = folderData.parentId;
+      }
+ 
+      const newFolder = await apiCreateFolder(token, dataToSend as Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) // Cast as Omit type
+      setFolders((prev) => [...prev, newFolder]) // 使用 newFolder
+      console.log("文件夹已创建:", newFolder)
+      
+      // 更新全局书签数据
+      updateGlobalBookmarkData({
+        bookmarks,
+        folders: [...folders, newFolder],
+        tags,
+        favoriteFolders,
+        settings,
+      });
+    } catch (error) {
+      console.error("创建文件夹失败:", error)
+    }
+  }
+ 
+  const updateFolder = async (
+    folderId: string, // 匹配 BookmarkContextType 中的签名
+    updatedFields: Partial<Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>> // 匹配 BookmarkContextType
+  ) => {
+    if (!token) {
+      console.error("用户未认证，无法更新文件夹。")
+      return
+    }
+    try {
+      const updatedFolderData = await apiUpdateFolder(token, folderId, updatedFields)
+      setFolders((prev) => prev.map((f) => (f.id === folderId ? updatedFolderData : f)))
+      console.log("文件夹已更新:", updatedFolderData)
+      
+      // 更新全局书签数据
+      const updatedFolders = folders.map((f) => (f.id === folderId ? updatedFolderData : f));
+      updateGlobalBookmarkData({
+        bookmarks,
+        folders: updatedFolders,
+        tags,
+        favoriteFolders,
+        settings,
+      });
+    } catch (error) {
+      console.error(`更新文件夹失败 (ID: ${folderId}):`, error)
+    }
+  }
+ 
+  const deleteFolder = async (id: string) => {
+    if (!token) {
+      console.error("用户未认证，无法删除文件夹。")
+      return
+    }
+ 
+    const childFolderIds = getChildFolderIds(id) // 这部分逻辑可以保留
+ 
+    try {
+      await apiDeleteFolder(token, id)
+      // 假设后端会级联删除或我们需要单独处理子文件夹的删除
+      // 如果后端不处理子文件夹，我们可能需要迭代 childFolderIds 并逐个删除
+      // for (const childId of childFolderIds) {
+      //   await apiDeleteFolder(token, childId);
+      // }
+ 
       setFolders((prev) => prev.filter((f) => f.id !== id && !childFolderIds.includes(f.id)))
-
-      // Update bookmarks that were in this folder
+ 
+      // Update bookmarks that were in this folder or its children
       setBookmarks((prev) =>
-        prev.map((b) => (b.folderId === id || childFolderIds.includes(b.folderId || "") ? { ...b, folderId: null } : b)),
+        prev.map((b) =>
+          b.folderId === id || (b.folderId && childFolderIds.includes(b.folderId))
+            ? { ...b, folderId: null }
+            : b
+        )
       )
-
-      // Remove from favorites if it was favorited
-      if (favoriteFolders.includes(id)) {
-        setFavoriteFolders((prev) => prev.filter((folderId) => folderId !== id))
+      bookmarkUpdateCounter.current += 1;
+      
+      // 更新全局书签数据
+      const updatedFolders = folders.filter((f) => f.id !== id && !childFolderIds.includes(f.id));
+      const updatedBookmarks = bookmarks.map((b) =>
+        b.folderId === id || (b.folderId && childFolderIds.includes(b.folderId))
+          ? { ...b, folderId: null }
+          : b
+      );
+      updateGlobalBookmarkData({
+        bookmarks: updatedBookmarks,
+        folders: updatedFolders,
+        tags,
+        favoriteFolders,
+        settings,
+      });
+ 
+ 
+      if (userSettings?.favoriteFolderIds?.includes(id) && updateGlobalSettings) {
+        const newFavoriteFolderIds = (userSettings.favoriteFolderIds || []).filter(folderId => folderId !== id);
+        try {
+          await updateGlobalSettings({ favoriteFolderIds: newFavoriteFolderIds });
+        } catch (error) {
+          console.error("Failed to update favoriteFolderIds after deleting folder:", error);
+        }
       }
-
-      // If the deleted folder was selected, clear the selection
-      if (selectedFolderId === id || childFolderIds.includes(selectedFolderId || "")) {
+ 
+      if (selectedFolderId === id || (selectedFolderId && childFolderIds.includes(selectedFolderId))) {
         setSelectedFolderId(null)
       }
-
-      // 清除子文件夹ID缓存
-      childFolderIdsCache.current = {};
+ 
+      childFolderIdsCache.current = {}; // 清除缓存
+      console.log(`文件夹已删除 (ID: ${id}) 及其子文件夹`)
     } catch (error) {
-      console.error(`删除文件夹失败: ${id}`, error)
-      // 删除失败时，仍然尝试更新UI状态，提供更好的用户体验
-      setFolders((prev) => prev.filter((f) => f.id !== id && !childFolderIds.includes(f.id)))
+      console.error(`删除文件夹失败 (ID: ${id}):`, error)
     }
   }
-
+ 
   // 这个函数已经被上面优化的版本替代
-
+ 
   // Tag operations
-  const addTag = (tag: string) => {
-    if (!tags.includes(tag)) {
-      setTags((prev) => [...prev, tag])
+  const addTag = async (tagOrTags: string | string[]) => {
+    if (!userSettings || !updateGlobalSettings) {
+      console.error("User settings or update function not available for addTag");
+      return;
+    }
+
+    let tagsToAdd: string[] = [];
+    if (typeof tagOrTags === 'string') {
+      //尝试按逗号和分号分割
+      const splitTags = tagOrTags.split(/[,;]/).map(t => t.trim()).filter(t => t.length > 0);
+      if (splitTags.length > 1) {
+        tagsToAdd = splitTags;
+      } else if (splitTags.length === 1 && splitTags[0].length > 0) { // 单个标签或无分隔符的单个标签
+        tagsToAdd = [splitTags[0]];
+      }
+    } else if (Array.isArray(tagOrTags)) {
+      tagsToAdd = tagOrTags.map(t => t.trim()).filter(t => t.length > 0);
+    }
+
+    if (tagsToAdd.length === 0) {
+      return; // 没有有效的标签可添加
+    }
+
+    const currentTagList = userSettings.tagList || [];
+    const newUniqueTags = tagsToAdd.filter(t => !currentTagList.includes(t));
+
+    if (newUniqueTags.length > 0) {
+      const finalUpdatedTagList = [...currentTagList, ...newUniqueTags];
+      try {
+        await updateGlobalSettings({ tagList: finalUpdatedTagList });
+        console.log("Global tags updated with:", newUniqueTags);
+        
+        // 更新全局书签数据，标签已更新
+        updateGlobalBookmarkData({
+          bookmarks,
+          folders,
+          tags: finalUpdatedTagList,
+          favoriteFolders,
+          settings,
+        });
+      } catch (error) {
+        console.error("Failed to update tagList:", error);
+      }
     }
   }
-
-  const deleteTag = (tag: string) => {
-    setTags((prev) => prev.filter((t) => t !== tag))
-
-    // Remove tag from all bookmarks
-    setBookmarks((prev) =>
-      prev.map((b) => ({
+ 
+  const deleteTag = async (tag: string) => {
+    if (!userSettings || !updateGlobalSettings) {
+      console.error("User settings or update function not available for deleteTag");
+      return;
+    }
+    const currentTagList = userSettings.tagList || [];
+    const updatedTagList = currentTagList.filter((t) => t !== tag);
+    try {
+      await updateGlobalSettings({ tagList: updatedTagList });
+ 
+      // Remove tag from all bookmarks - this part remains as it modifies bookmark objects
+      setBookmarks((prev) =>
+        prev.map((b) => ({
+          ...b,
+          tags: b.tags ? b.tags.filter((t: string) => t !== tag) : [],
+        })),
+      );
+      
+      // 更新全局书签数据
+      const updatedBookmarks = bookmarks.map((b) => ({
         ...b,
-        tags: b.tags ? b.tags.filter((t) => t !== tag) : [],
-      })),
-    )
+        tags: b.tags ? b.tags.filter((t: string) => t !== tag) : [],
+      }));
+      updateGlobalBookmarkData({
+        bookmarks: updatedBookmarks,
+        folders,
+        tags: updatedTagList,
+        favoriteFolders,
+        settings,
+      });
+      // If bookmark's tags need individual API update, that's a separate concern.
+      // The prompt implies this is handled by updateBookmark.
+    } catch (error) {
+      console.error("Failed to update tagList after deleting tag:", error);
+    }
   }
-
+ 
   // Import/Export
   const exportBookmarks = () => {
     // 避免序列化大字符串，使用 Blob 直接创建流式处理
@@ -1135,7 +882,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         settings,
         exportDate: new Date().toISOString(),
       };
-
+ 
       // 使用 Blob 直接创建文件，避免在内存中构建完整的大字符串
       const blob = new Blob(
         [JSON.stringify(exportData, (key, value) => {
@@ -1147,9 +894,9 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         }, 2)],
         { type: "application/json" }
       );
-
+ 
       const url = URL.createObjectURL(blob);
-
+ 
       const a = document.createElement("a");
       a.href = url;
       a.download = `bookmark-export-${new Date().toISOString().slice(0, 10)}.json`;
@@ -1158,15 +905,15 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     };
-
+ 
     streamData();
   }
-
+ 
   const importBookmarks = async (data: any) => {
     try {
       // 开始导入处理
       console.log("开始导入数据...")
-
+ 
       // 处理书签数据 - 使用批量处理来提高性能
       if (data.bookmarks) {
         console.log(`导入 ${data.bookmarks.length} 个书签...`)
@@ -1174,45 +921,64 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         // 批量保存到 IndexedDB - 防抖机制已经处理批量保存
         // await db.saveBookmarks(data.bookmarks)
       }
-
+ 
       // 处理其他数据
       if (data.folders) {
         console.log(`导入 ${data.folders.length} 个文件夹...`)
         setFolders(data.folders)
         // await db.saveFolders(data.folders)
       }
-
-      if (data.tags) {
-        console.log(`导入 ${data.tags.length} 个标签...`)
-        setTags(data.tags)
-        // await db.saveTags(data.tags)
+ 
+      if (data.tags && Array.isArray(data.tags) && userSettings && updateGlobalSettings) {
+        console.log(`导入 ${data.tags.length} 个标签...`);
+        try {
+          const currentTags = userSettings.tagList || [];
+          const combinedTags = Array.from(new Set([...currentTags, ...data.tags]));
+          await updateGlobalSettings({ tagList: combinedTags });
+        } catch (error) {
+          console.error("Failed to import tags:", error);
+        }
       }
-
-      if (data.favoriteFolders) {
-        console.log(`导入 ${data.favoriteFolders.length} 个收藏文件夹...`)
-        setFavoriteFolders(data.favoriteFolders)
-        // await db.saveFavoriteFolders(data.favoriteFolders)
+ 
+      if (data.favoriteFolders && Array.isArray(data.favoriteFolders) && userSettings && updateGlobalSettings) {
+        console.log(`导入 ${data.favoriteFolders.length} 个收藏文件夹...`);
+        try {
+          const currentFavorites = userSettings.favoriteFolderIds || [];
+          const combinedFavorites = Array.from(new Set([...currentFavorites, ...data.favoriteFolders]));
+          await updateGlobalSettings({ favoriteFolderIds: combinedFavorites });
+        } catch (error) {
+          console.error("Failed to import favorite folders:", error);
+        }
       }
-
+ 
       if (data.settings) {
         console.log("导入应用设置...")
         setSettings(data.settings)
         // await db.saveAppSettings(data.settings)
       }
-
+ 
       console.log("数据导入完成")
+      
+      // 更新全局书签数据，导入的数据已设置
+      updateGlobalBookmarkData({
+        bookmarks: data.bookmarks || [],
+        folders: data.folders || [],
+        tags: userSettings?.tagList || [],
+        favoriteFolders: userSettings?.favoriteFolderIds || [],
+        settings: data.settings || settings,
+      });
     } catch (error) {
       console.error("导入数据失败:", error)
       throw error
     }
   }
-
+ 
   // 添加标签推荐函数
   const suggestTags = async (url: string): Promise<string[]> => {
     if (!settings.tagApiUrl || !settings.tagApiKey) {
       throw new Error("Tag API not configured. Please set up the API in settings.")
     }
-
+ 
     try {
       const response = await fetch(settings.tagApiUrl, {
         method: "POST",
@@ -1225,73 +991,95 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
           existingTags: tags,
         }),
       })
-
+ 
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error("API authentication failed. Please check your API key.")
         }
         throw new Error(`API request failed with status: ${response.status}`)
       }
-
+ 
       const data = await response.json()
-
+ 
       if (!data.tags || !Array.isArray(data.tags)) {
         throw new Error("Invalid API response format. Expected { tags: string[] }")
       }
-
+ 
       return data.tags
     } catch (error) {
       console.error("Error suggesting tags:", error)
       throw error
     }
   }
-
+ 
   // 清除所有书签数据
   const clearAllBookmarkData = async (): Promise<void> => {
     try {
-      // 清除IndexedDB中的书签和文件夹数据，但不重置hasLoadedInitialSamples标记
-      await db.clearAllData();
+      // 清除IndexedDB中的书签和文件夹数据 - API call will be needed for backend
+      // await db.clearAllData();
+      console.log("清除所有书签数据 - API 调用待实现");
 
       // 重置状态
       setBookmarks([]);
       setFolders([]);
-      setTags([]);
-      setFavoriteFolders([]);
+      if (updateGlobalSettings) {
+        try {
+          await updateGlobalSettings({
+            tagList: [],
+            favoriteFolderIds: [],
+            sortOption: "newest", // 重置排序选项为默认值
+            searchFields: defaultSearchFields // 重置搜索字段为默认值
+          });
+        } catch (error) {
+          console.error("Failed to clear tags and favorite folders in userSettings:", error);
+        }
+      }
       setSelectedFolderId(null);
       setSelectedTags([]);
-
+ 
       // 注意：不重置hasLoadedInitialSamples标记，确保清空数据后不会再次加载预置数据
-      console.log("所有书签数据已清除，但保留了初始化标记");
+      // console.log("所有书签数据已清除，但保留了初始化标记"); // This logic might change
     } catch (error) {
       console.error("清除书签数据失败:", error);
       throw error;
     }
   }
-
-  // 重置为示例数据
+ 
+  // 重置为示例数据 - This function's behavior will change significantly
   const resetToSampleData = async (): Promise<void> => {
     try {
-      // 清除现有数据
-      await db.clearAllData();
-
-      // 重置为示例数据
-      setBookmarks(sampleBookmarks);
-      setFolders(sampleFolders);
-      setTags(sampleTags);
-      setFavoriteFolders(sampleFavoriteFolders);
+      // 清除现有数据 - API call will be needed for backend
+      // await db.clearAllData();
+      console.log("重置为示例数据 - 此功能需要重新设计以适应后端API");
+ 
+      // 重置为示例数据 - Sample data is removed, so this needs rethinking
+      setBookmarks([]); // Clears bookmarks
+      setFolders([]);   // Clears folders
+      if (updateGlobalSettings) {
+        try {
+          await updateGlobalSettings({
+            tagList: [],
+            favoriteFolderIds: [],
+            sortOption: "newest", // 重置排序选项为默认值
+            searchFields: defaultSearchFields // 重置搜索字段为默认值
+          });
+        } catch (error) {
+          console.error("Failed to reset tags and favorite folders in userSettings:", error);
+        }
+      }
       setSelectedFolderId(null);
       setSelectedTags([]);
       
       // 将 hasLoadedInitialSamples 标记设为 true，表示已加载过示例数据
-      saveConfig('hasLoadedInitialSamples', true);
-
-      console.log("数据已重置为示例数据");
+      // saveConfig('hasLoadedInitialSamples', true); // This logic might change
+ 
+      // console.log("数据已重置为示例数据");
     } catch (error) {
       console.error("重置数据失败:", error);
       throw error;
     }
   }
-
+ 
   return (
     <BookmarkContext.Provider
       value={{
