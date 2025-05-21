@@ -4,7 +4,6 @@ import React, { useContext, useEffect } from 'react';
 import { MantineProvider, createTheme } from '@mantine/core';
 import { AuthProvider, useAuth } from '../context/auth-context';
 import { BookmarkProvider } from '../context/bookmark-context';
-import { AIClassificationProvider } from '../context/ai-classification-context';
 import FirstVisitHandler from './first-visit-handler';
 import LoadingScreen from './loading-screen';
 import { LanguageProvider } from '../context/language-context'; // Added
@@ -84,20 +83,18 @@ const AppSpecificMantineProvider = ({ children }: { children: React.ReactNode })
 export default function ClientLayoutWrapper({ children }: { children: React.ReactNode }) {
   return (
     <NextThemesProvider attribute="class" defaultTheme="system" enableSystem>
-      <LanguageProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <LanguageProvider>
           <AppSpecificMantineProvider>
             <BookmarkProvider>
-              <AIClassificationProvider>
-                <FirstVisitHandler>
-                  <LoadingScreen />
-                  {children}
-                </FirstVisitHandler>
-              </AIClassificationProvider>
+              <FirstVisitHandler>
+                <LoadingScreen />
+                {children}
+              </FirstVisitHandler>
             </BookmarkProvider>
           </AppSpecificMantineProvider>
-        </AuthProvider>
-      </LanguageProvider>
+        </LanguageProvider>
+      </AuthProvider>
     </NextThemesProvider>
   );
 }

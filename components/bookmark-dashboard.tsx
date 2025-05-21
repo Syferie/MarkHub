@@ -4,10 +4,8 @@ import { useState, useEffect, useMemo } from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Tabs, ActionIcon, TextInput, Button, Badge, Checkbox, Anchor, Text } from "@mantine/core"
 import { IconSearch, IconPlus, IconAdjustments, IconFolder, IconSettings, IconStar, IconX } from "@tabler/icons-react"
-import { AIClassificationIndicator } from "./ai-classification-indicator"
 import { useAuth } from "@/context/auth-context" // 导入认证上下文
 import Link from "next/link" // 导入Link组件用于导航
-import ExtensionMessageListener from "./extension-message-listener"
 import BookmarkList from "./bookmark-list"
 import FolderTree from "./folder-tree"
 import TagManager from "./tag-manager"
@@ -18,6 +16,7 @@ import { useLanguage } from "@/context/language-context"
 import { uploadBookmarksToWebDAV } from "./webdav-sync"
 
 export default function BookmarkDashboard() {
+  // Re-evaluating types
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
@@ -35,18 +34,19 @@ export default function BookmarkDashboard() {
     setCurrentSortOption,
     searchFields,
     toggleSearchField,
-    settings,
+    // settings, // settings is now managed by AuthContext
   } = useBookmarks()
+  const { userSettings } = useAuth() // Get userSettings from AuthContext
   const { t } = useLanguage()
   const [folderName, setFolderName] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState(settings?.defaultView || "all")
+  const [activeTab, setActiveTab] = useState(userSettings?.defaultView || "all")
 
-  // Update active tab when default view setting changes
+  // Update active tab when default view setting changes from AuthContext
   useEffect(() => {
-    if (settings?.defaultView) {
-      setActiveTab(settings.defaultView)
+    if (userSettings?.defaultView) {
+      setActiveTab(userSettings.defaultView)
     }
-  }, [settings?.defaultView])
+  }, [userSettings?.defaultView])
 
   // 当用户通过文件夹树选择文件夹时，自动切换到"All bookmarks"标签
   // 这解决了用户在收藏文件夹标签激活时点击左侧文件夹树导致的显示问题
@@ -57,10 +57,6 @@ export default function BookmarkDashboard() {
       setActiveTab("all");
     }
   }, [selectedFolderId, activeTab, favoriteFolders]);
-
-  // 使用新的 ExtensionMessageListener 组件替代直接编写在 BookmarkDashboard 中的消息处理逻辑
-  // ExtensionMessageListener 组件不会渲染任何内容，只是设置事件监听器
-  // 这样可以让组件职责更加清晰，AI分类任务由专门的组件处理
 
   useEffect(() => {
     const getFolderName = () => {
@@ -176,8 +172,6 @@ export default function BookmarkDashboard() {
                       <IconSettings size={18} />
                     </ActionIcon>
                     
-                    {/* AI分类指示器 */}
-                    <AIClassificationIndicator />
                   </div>
                 </div>
     
@@ -340,8 +334,6 @@ export default function BookmarkDashboard() {
                     <IconSettings size={20} />
                   </ActionIcon>
                   
-                  {/* AI分类指示器 */}
-                  <AIClassificationIndicator />
                 </div>
               </div>
   
@@ -450,8 +442,6 @@ export default function BookmarkDashboard() {
 
       <AddBookmarkModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />
-      {/* 添加消息监听器组件 */}
-      <ExtensionMessageListener />
     </div>
   )
 }

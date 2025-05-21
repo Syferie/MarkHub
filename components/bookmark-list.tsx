@@ -91,10 +91,11 @@ export default function BookmarkList({
   setCurrentSortOption,
 }: BookmarkListProps) {
   const isMobile = useIsMobile();
-  const { deleteBookmark, updateBookmark, folders, tags, setSelectedFolderId, setSelectedTags, toggleFavoriteBookmark, settings } =
+  const { deleteBookmark, updateBookmark, folders, tags, setSelectedFolderId, setSelectedTags, toggleFavoriteBookmark } =
     useBookmarks()
+  const { userSettings, token } = useAuth() // 从 AuthContext 获取 userSettings 和 token
   const { t } = useLanguage()
-  const { token } = useAuth()
+  // const { token } = useAuth() // 重复声明，已在上一行解构
   const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null)
   const [selectedBookmarks, setSelectedBookmarks] = useState<string[]>([])
   const [bulkMode, setBulkMode] = useState(false)
@@ -137,7 +138,7 @@ export default function BookmarkList({
     REMAINING_FOLDER_IDS: "markHub_remaining_folder_bookmark_ids"
   }
 
-  const getFolderName = (folderId: string | null) => {
+  const getFolderName = (folderId: string | null | undefined) => {
     if (!folderId || !Array.isArray(folders)) return null
     const folder = folders.find((f) => f && f.id === folderId)
     return folder ? folder.name : null
@@ -149,7 +150,7 @@ export default function BookmarkList({
     setSelectedTags && setSelectedTags([tag])
   }
 
-  const handleFolderClick = (folderId: string | null, e: MouseEvent<HTMLElement>) => {
+  const handleFolderClick = (folderId: string | null | undefined, e: MouseEvent<HTMLElement>) => {
     e.preventDefault()
     e.stopPropagation()
     if (folderId) {
@@ -245,7 +246,6 @@ export default function BookmarkList({
 
     // 显示状态面板
     setShowTagGenerationStatus(true)
-
     // 将初始状态保存到 localStorage
     saveStateToLocalStorage(newGeneration, initialStatus, selectedBookmarkIds)
 
@@ -255,7 +255,6 @@ export default function BookmarkList({
     // 批量操作完成后关闭批量操作面板
     setShowBulkActions(false)
   }
-
   // 保存状态到 localStorage 的函数
   const saveStateToLocalStorage = (
     generation: BulkTagGeneration | null,
@@ -286,8 +285,11 @@ export default function BookmarkList({
 
   // 获取并发处理的限制数
   const getConcurrencyLimit = (): number => {
-    // 从设置中获取并发数量，默认为5
-    return (settings?.tagConcurrencyLimit && settings.tagConcurrencyLimit > 0) ? settings.tagConcurrencyLimit : 5;
+    // AI核心逻辑已移至后端。客户端的批量文件夹建议仍然使用并发控制，
+    // 但 tagConcurrencyLimit 字段已从 UserSetting 类型中移除。
+    // 因此，这里我们使用一个固定的默认值。
+    // 如果将来需要在用户设置中配置此值，应在 UserSetting 类型和后端添加相应字段。
+    return 5; // 使用固定的默认并发限制
   }
 
   // 处理书签列表的函数 - 支持并行处理和取消
@@ -389,7 +391,6 @@ export default function BookmarkList({
             };
             // 同步更新ref
             tagGenerationDetailsRef.current = updatedDetails;
-            // 保存到 localStorage
             localStorage.setItem(STORAGE_KEYS.TAG_DETAILS, JSON.stringify(updatedDetails));
             return updatedDetails;
           });
@@ -414,8 +415,10 @@ export default function BookmarkList({
           token,
           bookmark.title,
           bookmark.url,
-          tags || []
+          tags || [] // Pass existing global tags for context if needed by API
         );
+        
+        console.log(`[DEBUG] API call for tag generation completed for ${bookmarkId}, tags:`, generatedTags);
 
         // API调用结束，记录结果
         console.log(`[DEBUG] API call completed successfully for ${bookmarkId}`);
@@ -423,12 +426,6 @@ export default function BookmarkList({
         // 合并新标签和现有标签
         const existingTags = bookmark.tags || [];
         const mergedTags = [...new Set([...existingTags, ...generatedTags])];
-
-        // 更新书签对象
-        const updatedBookmark = {
-          ...bookmark,
-          tags: mergedTags
-        };
 
         // 更新全局状态
         updateBookmark && updateBookmark(bookmark.id, { tags: mergedTags });
@@ -444,7 +441,6 @@ export default function BookmarkList({
           };
           // 同步更新ref
           tagGenerationDetailsRef.current = updatedDetails;
-          // 保存到 localStorage
           localStorage.setItem(STORAGE_KEYS.TAG_DETAILS, JSON.stringify(updatedDetails));
           return updatedDetails;
         });
@@ -458,7 +454,6 @@ export default function BookmarkList({
           };
           // 同步更新ref
           bulkTagGenerationRef.current = updatedGeneration;
-          // 保存到 localStorage
           localStorage.setItem(STORAGE_KEYS.BULK_GENERATION, JSON.stringify(updatedGeneration));
           return updatedGeneration;
         });
@@ -477,7 +472,6 @@ export default function BookmarkList({
           };
           // 同步更新ref
           tagGenerationDetailsRef.current = updatedDetails;
-          // 保存到 localStorage
           localStorage.setItem(STORAGE_KEYS.TAG_DETAILS, JSON.stringify(updatedDetails));
           return updatedDetails;
         });
@@ -492,7 +486,6 @@ export default function BookmarkList({
           };
           // 同步更新ref
           bulkTagGenerationRef.current = updatedGeneration;
-          // 保存到 localStorage
           localStorage.setItem(STORAGE_KEYS.BULK_GENERATION, JSON.stringify(updatedGeneration));
           return updatedGeneration;
         });
@@ -513,7 +506,6 @@ export default function BookmarkList({
           };
           // 同步更新ref
           bulkTagGenerationRef.current = updatedGeneration;
-          // 保存到 localStorage
           localStorage.setItem(STORAGE_KEYS.BULK_GENERATION, JSON.stringify(updatedGeneration));
           return updatedGeneration;
         });
@@ -532,7 +524,6 @@ export default function BookmarkList({
             };
             // 同步更新ref
             bulkTagGenerationRef.current = updatedGeneration;
-            // 清理 localStorage
             saveStateToLocalStorage(null);
             return updatedGeneration;
           });
@@ -591,7 +582,6 @@ export default function BookmarkList({
               };
               // 同步更新ref
               bulkTagGenerationRef.current = updatedGeneration;
-              // 清理 localStorage
               saveStateToLocalStorage(null);
               return updatedGeneration;
             });
@@ -858,8 +848,11 @@ export default function BookmarkList({
               folderId: matchedFolder.id
             };
 
-            // 更新全局状态
-            updateBookmark && updateBookmark(bookmark.id, { folderId: matchedFolder.id });
+            // 更新全局状态（传递原有标签，避免标签被清空）
+            updateBookmark && updateBookmark(bookmark.id, {
+              folderId: matchedFolder.id,
+              tags: bookmark.tags || [] // 保留原有标签
+            });
 
             // 更新成功状态
             setFolderGenerationDetails(prev => {
@@ -1163,7 +1156,6 @@ export default function BookmarkList({
         currentBookmarkIds: []
       }
 
-      // 清理 localStorage
       saveStateToLocalStorage(null)
 
       return updatedGeneration
@@ -1180,30 +1172,22 @@ export default function BookmarkList({
     const syncTagGenerationState = () => {
       if (!bulkTagGeneration) return;
 
-      // 使用 requestIdleCallback 延迟处理状态同步，避免阻塞主线程
       const scheduleUpdate = window.requestIdleCallback || ((cb) => setTimeout(cb, 50));
 
       scheduleUpdate(() => {
-        // 同步状态到ref，不再打印调试日志
         if (bulkTagGeneration !== bulkTagGenerationRef.current) {
           bulkTagGenerationRef.current = bulkTagGeneration;
         }
 
-        // 当任务完成时自动隐藏状态面板
         if (!bulkTagGeneration.inProgress &&
             bulkTagGeneration.completed === bulkTagGeneration.total &&
             bulkTagGeneration.failed === 0) {
-          // 使用延迟隐藏，不立即清理状态
           const timer = setTimeout(() => {
             setShowTagGenerationStatus(false);
-            // 使用函数式更新，减少依赖状态变化
             setBulkTagGeneration(() => null);
             bulkTagGenerationRef.current = null;
-
-            // 异步清理 localStorage，避免同步IO阻塞
             setTimeout(() => saveStateToLocalStorage(null), 0);
-          }, 5000); // 5秒后自动隐藏
-
+          }, 5000);
           return () => clearTimeout(timer);
         }
       });
@@ -1280,61 +1264,74 @@ export default function BookmarkList({
     // 确保只在浏览器环境中运行
     if (typeof window === 'undefined') return;
 
+    // 恢复标签生成任务
     try {
-      // 检查 localStorage 中是否有未完成的任务数据
-      const storedGeneration = localStorage.getItem(STORAGE_KEYS.BULK_GENERATION)
-      if (storedGeneration) {
-        const parsedGeneration = JSON.parse(storedGeneration) as BulkTagGeneration
+      const storedTagGeneration = localStorage.getItem(STORAGE_KEYS.BULK_GENERATION);
+      if (storedTagGeneration) {
+        const parsedTagGeneration = JSON.parse(storedTagGeneration) as BulkTagGeneration;
+        const isTagTaskTooOld = parsedTagGeneration.timestamp && (Date.now() - parsedTagGeneration.timestamp > 12 * 60 * 60 * 1000);
 
-        // 如果存储的任务已经完成或太旧（超过12小时），则清理并不恢复
-        const isTaskTooOld = parsedGeneration.timestamp &&
-                            (Date.now() - parsedGeneration.timestamp > 12 * 60 * 60 * 1000)
-
-        if (!parsedGeneration.inProgress || isTaskTooOld) {
-          saveStateToLocalStorage(null)
-          return
-        }
-
-        // 获取详细状态信息，用于日志记录
-        const storedDetails = localStorage.getItem(STORAGE_KEYS.TAG_DETAILS)
-        const storedRemainingIds = localStorage.getItem(STORAGE_KEYS.REMAINING_IDS)
-
-        console.log("检测到页面刷新时有未完成任务，标记为已取消")
-
-        // 创建新的状态对象，标记为已取消
-        const newGeneration = {
-          ...parsedGeneration,
-          inProgress: false,
-          isCancelled: true,
-          currentBookmarkIds: []
-        }
-
-        // 设置已取消状态
-        setBulkTagGeneration(newGeneration)
-        bulkTagGenerationRef.current = newGeneration
-
-        // 恢复其他引用状态
-        if (storedDetails) {
-          try {
-            const parsedDetails = JSON.parse(storedDetails);
-            tagGenerationDetailsRef.current = parsedDetails;
-          } catch (e) {
-            console.error("解析存储的任务详情失败:", e);
+        if (!parsedTagGeneration.inProgress || isTagTaskTooOld) {
+          saveStateToLocalStorage(null); // 清理旧的或已完成的标签任务
+        } else {
+          const storedTagDetails = localStorage.getItem(STORAGE_KEYS.TAG_DETAILS);
+          console.log("检测到页面刷新时有未完成的标签生成任务，标记为已取消");
+          const newTagGeneration = {
+            ...parsedTagGeneration,
+            inProgress: false,
+            isCancelled: true,
+            currentBookmarkIds: []
+          };
+          setBulkTagGeneration(newTagGeneration);
+          bulkTagGenerationRef.current = newTagGeneration;
+          if (storedTagDetails) {
+            try {
+              tagGenerationDetailsRef.current = JSON.parse(storedTagDetails);
+            } catch (e) { console.error("解析存储的标签任务详情失败:", e); }
           }
+          setShowTagGenerationStatus(true);
+          saveStateToLocalStorage(null); // 清理，因为已标记为取消
         }
-
-        // 显示状态面板
-        setShowTagGenerationStatus(true)
-
-        // 清理localStorage中的任务状态
-        saveStateToLocalStorage(null)
       }
     } catch (error) {
-      console.error("Failed to restore task state:", error)
-      // 出错时清理存储，避免未来继续出错
-      saveStateToLocalStorage(null)
+      console.error("恢复标签任务状态失败:", error);
+      saveStateToLocalStorage(null);
     }
-  }, [router])
+
+    // 恢复文件夹建议任务
+    try {
+      const storedFolderGeneration = localStorage.getItem(STORAGE_KEYS.BULK_FOLDER_GENERATION);
+      if (storedFolderGeneration) {
+        const parsedFolderGeneration = JSON.parse(storedFolderGeneration) as BulkFolderGeneration;
+        const isFolderTaskTooOld = parsedFolderGeneration.timestamp && (Date.now() - parsedFolderGeneration.timestamp > 12 * 60 * 60 * 1000);
+
+        if (!parsedFolderGeneration.inProgress || isFolderTaskTooOld) {
+          saveFolderStateToLocalStorage(null); // 清理旧的或已完成的文件夹任务
+        } else {
+          const storedFolderDetails = localStorage.getItem(STORAGE_KEYS.FOLDER_DETAILS);
+          console.log("检测到页面刷新时有未完成的文件夹建议任务，标记为已取消");
+          const newFolderGeneration = {
+            ...parsedFolderGeneration,
+            inProgress: false,
+            isCancelled: true,
+            currentBookmarkIds: []
+          };
+          setBulkFolderGeneration(newFolderGeneration);
+          bulkFolderGenerationRef.current = newFolderGeneration;
+          if (storedFolderDetails) {
+            try {
+              folderGenerationDetailsRef.current = JSON.parse(storedFolderDetails);
+            } catch (e) { console.error("解析存储的文件夹任务详情失败:", e); }
+          }
+          setShowFolderGenerationStatus(true);
+          saveFolderStateToLocalStorage(null); // 清理，因为已标记为取消
+        }
+      }
+    } catch (error) {
+      console.error("恢复文件夹任务状态失败:", error);
+      saveFolderStateToLocalStorage(null);
+    }
+  }, [router]); // 依赖 router 保持不变，或者根据实际情况调整
 
   // 移除 handleRefreshFavicons 函数，不再需要
 

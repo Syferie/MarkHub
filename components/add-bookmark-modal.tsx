@@ -18,7 +18,7 @@ interface AddBookmarkModalProps {
 }
 
 export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalProps) {
-  const { addBookmark, updateBookmark, tags, settings, folders, bookmarks } = useBookmarks()
+  const { addBookmark, updateBookmark, tags,  folders, bookmarks } = useBookmarks()
   const { t } = useLanguage()
   const authContext = useContext(AuthContext)
   const [title, setTitle] = useState("")

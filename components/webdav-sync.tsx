@@ -10,7 +10,6 @@ declare global {
 }
 
 import { useState, useEffect, useCallback } from "react"
-import { db } from "@/lib/db"
 import { Button, Modal, TextInput, PasswordInput, Group, Text, Switch, Alert, Progress } from "@mantine/core"
 import { IconCloud, IconCloudUpload, IconCloudDownload, IconAlertCircle } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
@@ -60,23 +59,34 @@ export const generateTimestampStr = (): string => {
          now.getSeconds().toString().padStart(2, '0');
 };
 
-// 全局引用，用于存储当前书签数据
-let globalBookmarkData = {
+// 全局引用，用于存储当前书签数据 (移除了 settings)
+let globalBookmarkData: {
+  bookmarks: any[];
+  folders: any[];
+  tags: any[];
+  favoriteFolders: any[];
+} = {
   bookmarks: [],
   folders: [],
   tags: [],
   favoriteFolders: [],
-  settings: {},
 };
 
 // 更新全局书签数据的函数，供BookmarkContext使用
-export function updateGlobalBookmarkData(data) {
-  globalBookmarkData = {...data};
-  console.log("全局书签数据已更新:", {
-    bookmarksCount: globalBookmarkData.bookmarks.length,
-    foldersCount: globalBookmarkData.folders.length,
+export function updateGlobalBookmarkData(data: {
+  bookmarks: any[];
+  folders: any[];
+  tags: any[];
+  favoriteFolders: any[];
+  // settings 字段不再需要，因为核心设置由 AuthContext 管理
+}) {
+  const { bookmarks, folders, tags, favoriteFolders } = data;
+  globalBookmarkData = { bookmarks, folders, tags, favoriteFolders };
+  console.log("全局书签数据已更新 (WebDAV 模块):", {
+    bookmarksCount: globalBookmarkData.bookmarks?.length || 0,
+    foldersCount: globalBookmarkData.folders?.length || 0,
     tagsCount: globalBookmarkData.tags?.length || 0,
-    favoriteFoldersCount: globalBookmarkData.favoriteFolders?.length || 0
+    favoriteFoldersCount: globalBookmarkData.favoriteFolders?.length || 0,
   });
 }
 
@@ -140,7 +150,8 @@ interface WebDAVSyncProps {
 }
 
 export default function WebDAVSync({ userSettings, updateSettings }: WebDAVSyncProps) {
-  const { bookmarks, folders, tags, favoriteFolders, settings, importBookmarks } = useBookmarks()
+  const { bookmarks, folders, tags, favoriteFolders, importBookmarks } = useBookmarks()
+  // settings 从 useBookmarks() 中移除，WebDAV 配置通过 userSettings prop 获取
   const { t } = useLanguage()
   const { token } = useAuth()
   const [syncModalOpen, setSyncModalOpen] = useState(false)

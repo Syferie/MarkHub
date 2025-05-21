@@ -29,16 +29,7 @@ interface SortOption {
   label: string
 }
 
-// 应用设置类型
-interface AppSettings {
-  // darkMode: boolean; // 由 AuthContext.userSettings 管理
-  // accentColor: string; // 由 AuthContext.userSettings 管理
-  defaultView: string
-  tagApiUrl?: string
-  tagApiKey?: string
-  tagConcurrencyLimit?: number // 添加标签生成并发限制配置
-  language?: string // 由 AuthContext.userSettings 管理, 但此处可能仍用于旧逻辑或非用户特定设置
-}
+// AppSettings 接口已移除，相关设置通过 AuthContext.userSettings 管理
 
 interface BookmarkContextType {
   bookmarks: Bookmark[]
@@ -68,11 +59,9 @@ interface BookmarkContextType {
   setCurrentSortOption: (option: string) => void
   searchFields: string[]
   toggleSearchField: (field: string) => void
-  settings: AppSettings
-  updateSettings: (settings: Partial<AppSettings>) => void
+  // settings 和 updateSettings 已移除，相关功能通过 AuthContext 管理
   fetchAndStoreFavicon: (url: string, title: string) => Promise<string>
   refreshAllFavicons: () => Promise<void>
-  suggestTags: (url: string) => Promise<string[]>
   clearAllBookmarkData: () => Promise<void>
   resetToSampleData: () => Promise<void>
 }
@@ -96,14 +85,7 @@ const sortOptions: SortOption[] = [
 // Search field options
 const defaultSearchFields = ["title", "url", "tags"]
 
-// Default app settings
-const defaultSettings: AppSettings = {
-  // darkMode: false, // 由 AuthContext.userSettings 管理
-  // accentColor: "#3b82f6", // 由 AuthContext.userSettings 管理
-  defaultView: "all",
-  tagConcurrencyLimit: 5, // 默认并发限制为5
-  // language: "en" // 语言也由 AuthContext.userSettings 管理
-}
+// defaultSettings 对象已移除，相关默认值应由 AuthContext 或后端处理
 
 // Create context
 const BookmarkContext = createContext<BookmarkContextType | undefined>(undefined)
@@ -121,7 +103,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   // const [favoriteFolders, setFavoriteFolders] = useState<string[]>([]) // Removed, will derive from userSettings
   // const [currentSortOption, setCurrentSortOption] = useState<string>("newest") // 移除本地状态
   // const [searchFields, setSearchFields] = useState<string[]>(defaultSearchFields) // 移除本地状态
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings)
+  // 本地 settings 状态已移除，相关设置通过 AuthContext.userSettings 管理
 
   // 从 AuthContext 获取设置数据
   const tags = userSettings?.tagList || []
@@ -135,7 +117,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
  
   // 添加数据加载状态
   const [isLoading, setIsLoading] = useState(true)
-  const [isDataSaving, setIsDataSaving] = useState(false) // This might be removed or repurposed later
+  // const [isDataSaving, setIsDataSaving] = useState(false) // 旧的客户端保存状态，已移除
  
   // 添加客户端状态标记
   const [isClient, setIsClient] = useState(false)
@@ -145,9 +127,6 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
    
   // 添加数据已加载标志，解决刷新后使用初始数据问题
   const dataLoadedOnce = useRef<boolean>(false)
- 
-  // 防抖定时器引用 (暂时保留，可能用于未来的API调用防抖)
-  const saveTimeout = useRef<NodeJS.Timeout | null>(null)
  
   // 确保只在客户端执行
   useEffect(() => {
@@ -196,7 +175,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
           folders: loadedFolders,
           tags,
           favoriteFolders,
-          settings,
+          // settings 参数已从 updateGlobalBookmarkData 调用中移除，WebDAV同步如需配置应从AuthContext获取
         });
       } catch (error) {
         console.error("从 API 加载数据失败:", error)
@@ -226,18 +205,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   // The useEffect hook for applying darkMode and accentColor (lines 216-250) is removed
   // as this is now handled by AppSpecificMantineProvider in app/layout.tsx.
  
-  // Update settings - ensure this doesn't conflict with AuthContext for darkMode/accentColor
-  const updateSettings = (newSettings: Partial<AppSettings>) => {
-    // Filter out darkMode and accentColor if they are accidentally passed
-    const { darkMode, accentColor, ...otherSettings } = newSettings as any;
-    // The 'as any' is a temporary workaround if AppSettings still has them due to other dependencies.
-    // Ideally, AppSettings type itself should not have darkMode/accentColor.
- 
-    setSettings((prev) => ({ ...prev, ...otherSettings }))
-    // Note: If 'language' is also fully managed by AuthContext and global,
-    // it might also need to be excluded here or handled carefully.
-    // For now, we assume 'language' in AppSettings might serve a different or legacy purpose.
-  }
+  // updateSettings 函数已移除，相关设置通过 AuthContext 的 updateGlobalSettings 管理
  
   // 简化的 favicon 生成函数，只使用书签标题首字母
   const fetchAndStoreFavicon = async (url: string, title: string): Promise<string> => {
@@ -547,7 +515,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         folders,
         tags,
         favoriteFolders,
-        settings,
+        // settings 参数已从 updateGlobalBookmarkData 调用中移除
       });
  
       // Add any new tags from the created bookmark to the global tags list
@@ -605,7 +573,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         folders,
         tags,
         favoriteFolders,
-        settings,
+        // settings 参数已从 updateGlobalBookmarkData 调用中移除
       });
  
       // Update global tags if necessary
@@ -645,7 +613,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         folders,
         tags,
         favoriteFolders,
-        settings,
+        // settings 参数已从 updateGlobalBookmarkData 调用中移除
       });
       console.log(`书签已删除 (ID: ${id})`)
     } catch (error) {
@@ -684,7 +652,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         folders: [...folders, newFolder],
         tags,
         favoriteFolders,
-        settings,
+        // settings 参数已从 updateGlobalBookmarkData 调用中移除
       });
     } catch (error) {
       console.error("创建文件夹失败:", error)
@@ -711,7 +679,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         folders: updatedFolders,
         tags,
         favoriteFolders,
-        settings,
+        // settings 参数已从 updateGlobalBookmarkData 调用中移除
       });
     } catch (error) {
       console.error(`更新文件夹失败 (ID: ${folderId}):`, error)
@@ -758,7 +726,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         folders: updatedFolders,
         tags,
         favoriteFolders,
-        settings,
+        // settings 参数已从 updateGlobalBookmarkData 调用中移除
       });
  
  
@@ -823,7 +791,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
           folders,
           tags: finalUpdatedTagList,
           favoriteFolders,
-          settings,
+          // settings 参数已从 updateGlobalBookmarkData 调用中移除
         });
       } catch (error) {
         console.error("Failed to update tagList:", error);
@@ -859,7 +827,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         folders,
         tags: updatedTagList,
         favoriteFolders,
-        settings,
+        // settings 参数已从 updateGlobalBookmarkData 调用中移除
       });
       // If bookmark's tags need individual API update, that's a separate concern.
       // The prompt implies this is handled by updateBookmark.
@@ -879,7 +847,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         folders,
         tags,
         favoriteFolders,
-        settings,
+        // settings 参数已从 updateGlobalBookmarkData 调用中移除 (WebDAV 可能需要 userSettings)
         exportDate: new Date().toISOString(),
       };
  
@@ -951,10 +919,34 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         }
       }
  
-      if (data.settings) {
-        console.log("导入应用设置...")
-        setSettings(data.settings)
-        // await db.saveAppSettings(data.settings)
+      if (data.settings && updateGlobalSettings) {
+        console.log("导入应用设置并尝试同步到后端...")
+        // 假设 data.settings 的结构与 UserSettingsInput 兼容
+        // 或者需要转换 data.settings 中的字段以匹配 updateGlobalSettings 的期望
+        const { darkMode, accentColor, defaultView, language, geminiApiKey, geminiApiBaseUrl, geminiModelName, webdav_config, favoriteFolderIds, tagList, sortOption, searchFields, tagConcurrencyLimit } = data.settings;
+        const settingsToUpdate: Partial<Parameters<typeof updateGlobalSettings>[0]> = {};
+        if (darkMode !== undefined) settingsToUpdate.darkMode = darkMode;
+        if (accentColor !== undefined) settingsToUpdate.accentColor = accentColor;
+        if (defaultView !== undefined) settingsToUpdate.defaultView = defaultView;
+        if (language !== undefined) settingsToUpdate.language = language;
+        if (geminiApiKey !== undefined) settingsToUpdate.geminiApiKey = geminiApiKey;
+        if (geminiApiBaseUrl !== undefined) settingsToUpdate.geminiApiBaseUrl = geminiApiBaseUrl;
+        if (geminiModelName !== undefined) settingsToUpdate.geminiModelName = geminiModelName;
+        if (webdav_config !== undefined) settingsToUpdate.webdav_config = webdav_config;
+        // favoriteFolderIds 和 tagList 通常通过特定操作更新，但如果导入文件中有，也尝试更新
+        if (favoriteFolderIds !== undefined) settingsToUpdate.favoriteFolderIds = favoriteFolderIds;
+        if (tagList !== undefined) settingsToUpdate.tagList = tagList;
+        if (sortOption !== undefined) settingsToUpdate.sortOption = sortOption;
+        if (searchFields !== undefined) settingsToUpdate.searchFields = searchFields;
+        // tagConcurrencyLimit is not a field in UserSetting, so it's removed from import.
+        // if (tagConcurrencyLimit !== undefined) settingsToUpdate.tagConcurrencyLimit = tagConcurrencyLimit;
+
+
+        if (Object.keys(settingsToUpdate).length > 0) {
+          updateGlobalSettings(settingsToUpdate).catch(error => {
+            console.error("导入时更新全局设置失败:", error);
+          });
+        }
       }
  
       console.log("数据导入完成")
@@ -965,49 +957,10 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         folders: data.folders || [],
         tags: userSettings?.tagList || [],
         favoriteFolders: userSettings?.favoriteFolderIds || [],
-        settings: data.settings || settings,
+        // settings 参数已从 updateGlobalBookmarkData 调用中移除 (WebDAV 可能需要 userSettings)
       });
     } catch (error) {
       console.error("导入数据失败:", error)
-      throw error
-    }
-  }
- 
-  // 添加标签推荐函数
-  const suggestTags = async (url: string): Promise<string[]> => {
-    if (!settings.tagApiUrl || !settings.tagApiKey) {
-      throw new Error("Tag API not configured. Please set up the API in settings.")
-    }
- 
-    try {
-      const response = await fetch(settings.tagApiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${settings.tagApiKey}`,
-        },
-        body: JSON.stringify({
-          url,
-          existingTags: tags,
-        }),
-      })
- 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("API authentication failed. Please check your API key.")
-        }
-        throw new Error(`API request failed with status: ${response.status}`)
-      }
- 
-      const data = await response.json()
- 
-      if (!data.tags || !Array.isArray(data.tags)) {
-        throw new Error("Invalid API response format. Expected { tags: string[] }")
-      }
- 
-      return data.tags
-    } catch (error) {
-      console.error("Error suggesting tags:", error)
       throw error
     }
   }
@@ -1109,11 +1062,10 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         setCurrentSortOption,
         searchFields,
         toggleSearchField,
-        settings,
-        updateSettings,
+        // settings, // 已移除，通过 AuthContext 管理
+        // updateSettings, // 已移除，通过 AuthContext 管理
         fetchAndStoreFavicon,
         refreshAllFavicons,
-        suggestTags,
         clearAllBookmarkData,
         resetToSampleData,
       }}

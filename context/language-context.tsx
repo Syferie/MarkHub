@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { db } from "@/lib/db"
+import { useAuth } from "@/context/auth-context"
 
 // 支持的语言
 export type Language = "en" | "zh"
@@ -502,7 +502,8 @@ const translations: Record<Language, Record<string, string>> = {
 
 // 提供者组件
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>("en")
+  const { userSettings, updateGlobalSettings } = useAuth()
+  const [language, setLanguage] = useState<Language>(userSettings?.language as Language || "en")
   const [isClient, setIsClient] = useState(false)
 
   // 确保只在客户端执行
@@ -510,44 +511,41 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setIsClient(true)
   }, [])
 
-  // 从IndexedDB加载语言设置
+  // 从 AuthContext 同步语言设置
   useEffect(() => {
-    if (!isClient) return
-
-    const loadLanguageSetting = async () => {
-      try {
-        const settings = await db.getAppSettings()
-        if (settings && settings.language) {
-          setLanguage(settings.language as Language)
-        }
-      } catch (error) {
-        console.error("加载语言设置失败:", error)
+    if (isClient && userSettings?.language) {
+      setLanguage(userSettings.language as Language)
+    } else if (isClient) {
+      // 如果 AuthContext 中没有语言设置，则使用默认或当前状态的语言，并尝试更新到后端
+      // 这通常发生在首次加载或用户设置尚未完全同步时
+      const currentDefaultLanguage = "en"; // 或者从某个全局配置读取
+      setLanguage(currentDefaultLanguage);
+      // 只有在 AuthContext 中的 userSettings 和 userSettings.id 都已加载，
+      // 并且语言设置 userSettings.language 确实缺失时，才尝试将本地设置的默认语言同步到后端。
+      if (updateGlobalSettings && userSettings && typeof userSettings.id === 'string' && !userSettings.language) {
+        // console.log("LanguageProvider: 用户设置已加载但无语言偏好，尝试设置默认语言到后端。"); // 保留此日志或按需移除
+        updateGlobalSettings({ language: currentDefaultLanguage }).catch(error => {
+          console.error("尝试将默认语言设置同步到后端失败:", error);
+        });
       }
     }
-
-    loadLanguageSetting()
-  }, [isClient])
+  }, [isClient, userSettings?.language, updateGlobalSettings])
 
   // 更新语言设置
   const handleSetLanguage = async (newLanguage: Language) => {
     setLanguage(newLanguage)
 
-    // 保存到设置
-    try {
-      // 获取当前设置，如果不存在则创建一个基本的设置对象
-      const settings = await db.getAppSettings() || {
-        darkMode: false,
-        accentColor: "#3b82f6",
-        defaultView: "all"
+    // 保存到后端通过 AuthContext
+    if (updateGlobalSettings) {
+      try {
+        await updateGlobalSettings({ language: newLanguage })
+      } catch (error) {
+        console.error("保存语言设置到后端失败:", error)
+        // 可选: 如果后端保存失败，回滚本地状态或提示用户
+        // setLanguage(language); // 回滚示例
       }
-
-      // 更新语言设置
-      await db.saveAppSettings({
-        ...settings,
-        language: newLanguage
-      })
-    } catch (error) {
-      console.error("保存语言设置失败:", error)
+    } else {
+      console.warn("updateGlobalSettings is not available from AuthContext for saving language.")
     }
   }
 

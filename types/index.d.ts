@@ -2,7 +2,7 @@ export interface Bookmark {
   id: string
   title: string
   url: string
-  folderId: string | null
+  folderId?: string | null; // 明确标记为可选，并与 api-client.ts 保持一致
   tags?: string[]
   createdAt: string
   favicon?: string
@@ -12,7 +12,7 @@ export interface Bookmark {
 export interface Folder {
   id: string
   name: string
-  parentId: string | null | undefined
+  parentId?: string | null; // 明确标记为可选，并与 api-client.ts 保持一致
 }
 
 export interface SortOption {

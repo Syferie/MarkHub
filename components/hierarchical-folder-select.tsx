@@ -4,13 +4,9 @@ import { forwardRef } from "react"
 import { Select, type SelectProps } from "@mantine/core"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
+import type { Folder } from "@/lib/api-client"; // 导入统一的 Folder 类型
 
-// 定义内部使用的类型
-interface Folder {
-  id: string
-  name: string
-  parentId: string | null
-}
+// 内部 Folder 类型定义已移除，使用导入的类型
 
 // 定义选项类型
 interface SelectOption {
@@ -39,7 +35,7 @@ export const HierarchicalFolderSelect = forwardRef<HTMLInputElement, Hierarchica
       const rootFolders = folders.filter((folder) => !folder.parentId)
 
       // Function to build options recursively
-      const buildOptions = (parentFolders: Folder[], level = 0): SelectOption[] => {
+      const buildOptions = (parentFolders: Folder[], level = 0): SelectOption[] => { // Folder 类型现在是导入的
         if (!Array.isArray(parentFolders)) {
           return []
         }
