@@ -20,6 +20,7 @@ import ImportExport from "./import-export"
 import WebDAVSync from "./webdav-sync"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
+import { clearAllUserData } from "@/lib/api-client" // 导入 clearAllUserData
 // import { db } from "@/lib/db" // 不再需要直接操作 IndexedDB 进行配置迁移
 // import { getAppConfig, saveAppConfig, migrateConfigFromIndexedDB } from "@/lib/config-storage" // 不再需要
 import { AuthContext } from "@/context/auth-context" // 导入 AuthContext
@@ -31,7 +32,7 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { refreshAllFavicons, clearAllBookmarkData, resetToSampleData } = useBookmarks() // updateSettings 将被 AuthContext 的 updateGlobalSettings 替代
+  const { refreshAllFavicons, resetToSampleData, loadInitialData } = useBookmarks() // 移除了 clearAllBookmarkData, 添加了 loadInitialData
   const { language: currentLanguageContext, setLanguage, t } = useLanguage()
   const authContext = useContext(AuthContext)
   if (!authContext) {
@@ -154,12 +155,24 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }
 
   const handleClearAllData = async () => {
+    if (!authContext || !authContext.token) {
+      toast.error(t("errors.notAuthenticated") || "User not authenticated");
+      return;
+    }
     if (window.confirm(t("settings.confirmClearData"))) {
-      setIsClearingData(true)
+      setIsClearingData(true);
+      const token = authContext.token;
       try {
-        await clearAllBookmarkData()
+        await clearAllUserData(token);
+        toast.success(t("settings.clearDataSuccess") || "All data cleared successfully!");
+        await loadInitialData(); // 重新加载数据以更新前端状态
+        // 可能还需要关闭模态框或执行其他UI更新
+        onClose(); // 清除数据后通常关闭设置模态框
+      } catch (error) {
+        console.error("Failed to clear all data:", error);
+        toast.error(t("settings.clearDataError") + (error instanceof Error ? `: ${error.message}` : ""));
       } finally {
-        setIsClearingData(false)
+        setIsClearingData(false);
       }
     }
   }

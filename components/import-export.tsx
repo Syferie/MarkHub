@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react" // Added useContext
 import {
   Button,
   Modal,
@@ -27,36 +27,42 @@ import {
 } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
+import { AuthContext } from "@/context/auth-context" // 导入 AuthContext
+import { getBookmarks, getFolders, createBookmark, createFolder, Bookmark as ApiBookmark, Folder as ApiFolder } from "@/lib/api-client" // 导入 API 函数和类型
+import { toast } from "sonner" // 用于显示通知
+
 // 直接使用 bookmark-context.tsx 中定义的接口，确保类型一致
-interface Bookmark {
-  id: string
+// 这些接口现在主要用于 previewData 的结构，实际API交互使用 ApiBookmark 和 ApiFolder
+interface PreviewBookmark { // 重命名以避免与 ApiBookmark 冲突，或者确保字段兼容
+  id: string // id 在导入时会被忽略，由后端生成
   title: string
   url: string
   folderId: string | null
   tags?: string[]
-  createdAt: string
+  createdAt: string // createdAt 在导入时会被忽略
   favicon?: string
   isFavorite?: boolean
 }
 
-interface Folder {
-  id: string
+interface PreviewFolder { // 重命名以避免与 ApiFolder 冲突
+  id: string // id 在导入时会被忽略
   name: string
   parentId: string | null
 }
 
 export default function ImportExport() {
-  const { exportBookmarks, importBookmarks, bookmarks: currentBookmarks } = useBookmarks()
+  const { loadInitialData, bookmarks: currentBookmarks } = useBookmarks() // 使用 loadInitialData
   const { t } = useLanguage()
+  const authContext = useContext(AuthContext)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
-  // 明确定义 ImportData 接口，与 importBookmarks 函数接口保持一致
+  // 明确定义 ImportData 接口，与导入时的数据结构保持一致
   interface ImportData {
-    bookmarks?: Bookmark[]
-    folders?: Folder[]
-    tags?: string[]
-    favoriteFolders?: string[]
-    settings?: any
+    bookmarks?: PreviewBookmark[] // 使用 PreviewBookmark
+    folders?: PreviewFolder[]   // 使用 PreviewFolder
+    tags?: string[] // 标签的处理方式可能需要根据后端API调整，目前假设是字符串数组
+    favoriteFolders?: string[] // 这个字段可能不再直接使用，收藏夹状态在书签本身
+    settings?: any // 设置的导入导出可能需要单独处理或移除
     exportDate?: string
   }
 
@@ -118,16 +124,16 @@ export default function ImportExport() {
       }
 
       // 提取文件夹结构
-      const folders: Folder[] = [
+      const folders: PreviewFolder[] = [ // 使用 PreviewFolder 类型
         {
-          id: "folder-import",
+          id: "folder-import", // 临时 ID，将在导入时被忽略
           name: "Imported",
           parentId: null,
         },
       ]
 
       // 从HTML中提取书签
-      const bookmarks: Bookmark[] = []
+      const bookmarks: PreviewBookmark[] = [] // 使用 PreviewBookmark 类型
       const tags: string[] = []
 
       links.forEach((link, index) => {
@@ -136,14 +142,15 @@ export default function ImportExport() {
 
         if (url && !url.startsWith("javascript:")) {
           // 创建书签对象
-          const bookmark: Bookmark = {
-            id: `bookmark-import-${index}`,
+          const bookmark: PreviewBookmark = { // 使用 PreviewBookmark 类型
+            id: `bookmark-import-${index}`, // 临时 ID
             title: title,
             url: url,
-            folderId: "folder-import",
-            tags: [],
-            createdAt: new Date().toISOString(),
-            isFavorite: false,
+            folderId: "folder-import", // 临时文件夹 ID
+            tags: [], // HTML 导入通常不包含标签信息，除非有特定格式
+            createdAt: new Date().toISOString(), // 临时创建时间
+            isFavorite: false, // 默认为 false
+            // favicon 字段在 PreviewBookmark 中是可选的，这里可以不设置或尝试从HTML获取
           }
 
           // 尝试从父元素获取文件夹信息
@@ -188,29 +195,86 @@ export default function ImportExport() {
   }
 
   const handleImport = async () => {
-    if (!previewData) return
+    if (!previewData) return;
+    if (!authContext || !authContext.token) {
+      toast.error(t("errors.notAuthenticated") || "User not authenticated"); // 添加翻译
+      return;
+    }
 
-    setIsImporting(true)
-    setImportError(null)
-    setImportSuccess(false)
+    setIsImporting(true);
+    setImportError(null);
+    setImportSuccess(false);
+
+    const token = authContext.token;
 
     try {
-      // 导入书签是异步操作
-      await importBookmarks(previewData as ImportData)
-      setImportSuccess(true)
+      const { bookmarks: bookmarksToImport, folders: foldersToImport } = previewData;
 
-      // 导入成功后，等待一小段时间再关闭模态窗口，让用户看到成功提示
+      // 导入文件夹
+      const createdFolderMap = new Map<string, string>(); // 用于映射旧ID到新创建的文件夹ID
+
+      if (foldersToImport && foldersToImport.length > 0) {
+        // 为了处理父子关系，可能需要先创建所有没有 parentId 的文件夹，然后再创建子文件夹
+        // 或者，如果后端允许在创建时引用尚不存在的 parentId（不太可能），或者如果数据已排序
+        // 简单起见，这里假设文件夹可以按顺序创建，或者后端能处理好引用
+        // 更健壮的实现可能需要对文件夹列表进行拓扑排序或多次迭代
+        for (const folder of foldersToImport) {
+          const folderData: Omit<ApiFolder, 'id' | 'createdAt' | 'updatedAt' | 'userId'> = {
+            name: folder.name,
+            // parentId 需要映射到新创建的父文件夹ID
+            parentId: folder.parentId ? createdFolderMap.get(folder.parentId) || null : null,
+          };
+          try {
+            const createdFolder = await createFolder(token, folderData);
+            createdFolderMap.set(folder.id, createdFolder.id); // 存储旧ID和新ID的映射
+          } catch (folderError) {
+            console.warn(`Error importing folder "${folder.name}":`, folderError);
+            toast.warning(`${t("importExport.folderImportError", { name: folder.name })}: ${folderError instanceof Error ? folderError.message : "Unknown error"}`);
+            // 如果文件夹已存在或创建失败，可以选择跳过或记录
+          }
+        }
+      }
+
+      // 导入书签
+      if (bookmarksToImport && bookmarksToImport.length > 0) {
+        for (const bookmark of bookmarksToImport) {
+          const bookmarkData: Omit<ApiBookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'> & { tags?: string[] } = {
+            title: bookmark.title,
+            url: bookmark.url,
+            // folderId 需要映射到新创建的文件夹ID
+            folderId: bookmark.folderId ? createdFolderMap.get(bookmark.folderId) || null : null,
+            tags: bookmark.tags || [],
+            isFavorite: bookmark.isFavorite || false,
+            favicon: bookmark.favicon || "",
+          };
+          try {
+            await createBookmark(token, bookmarkData);
+          } catch (bookmarkError) {
+             console.warn(`Error importing bookmark "${bookmark.title}":`, bookmarkError);
+             toast.warning(`${t("importExport.bookmarkImportError", { title: bookmark.title })}: ${bookmarkError instanceof Error ? bookmarkError.message : "Unknown error"}`);
+             // 如果书签已存在或创建失败，可以选择跳过或记录
+          }
+        }
+      }
+
+      setImportSuccess(true);
+      toast.success(t("importExport.importCompleted"));
+      await loadInitialData(); // 导入成功后刷新前端数据
+
       setTimeout(() => {
-        setImportModalOpen(false)
-        setFile(null)
-        setPreviewData(null)
-        setImportSuccess(false)
-      }, 1500)
+        setImportModalOpen(false);
+        setFile(null);
+        setPreviewData(null);
+        setImportSuccess(false);
+        setActiveTab("upload"); // 重置回上传标签页
+      }, 1500);
     } catch (error) {
-      console.error("Error importing bookmarks:", error)
-      setImportError(`Error importing: ${error instanceof Error ? error.message : "Unknown error"}`)
+      console.error("Error importing data:", error); // 更通用的错误消息
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      setImportError(t("importExport.importError") + `: ${errorMessage}`);
+      toast.error(t("importExport.importError") + `: ${errorMessage}`);
     } finally {
-      setIsImporting(false)
+      setIsImporting(false);
     }
   }
 
@@ -235,10 +299,62 @@ export default function ImportExport() {
   return (
     <>
       <Group>
-        <Button leftSection={<IconDownload size={16} />} variant="light" onClick={exportBookmarks}>
+        <Button leftSection={<IconDownload size={16} />} variant="light" onClick={async () => {
+          if (!authContext || !authContext.token) {
+            toast.error(t("errors.notAuthenticated") || "User not authenticated");
+            return;
+          }
+          try {
+            const token = authContext.token;
+            // 获取所有书签和文件夹，包括用户ID，但导出时通常不需要用户ID
+            const apiBookmarks = await getBookmarks(token);
+            const apiFolders = await getFolders(token);
+
+            // 将 ApiBookmark 和 ApiFolder 转换为 PreviewBookmark 和 PreviewFolder 以匹配导出格式
+            const exportData: ImportData = { // 明确类型为 ImportData
+              bookmarks: apiBookmarks.map(b => ({
+                id: b.id,
+                title: b.title,
+                url: b.url,
+                folderId: b.folderId || null, // 确保是 null 而不是 undefined
+                tags: b.tags || [],
+                createdAt: b.createdAt,
+                favicon: b.favicon || "",
+                isFavorite: b.isFavorite || false,
+              })),
+              folders: apiFolders.map(f => ({
+                id: f.id,
+                name: f.name,
+                parentId: f.parentId || null, // 确保是 null 而不是 undefined
+              })),
+              exportDate: new Date().toISOString(),
+              // tags 和 favoriteFolders 可以根据需要添加，如果它们是独立于书签和文件夹导出的
+            };
+            const jsonString = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "markhub_bookmarks_export.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.success(t("importExport.exportSuccess") || "Export successful!");
+          } catch (error) {
+            console.error("Error exporting bookmarks:", error);
+            toast.error(t("importExport.exportError") + (error instanceof Error ? `: ${error.message}` : ""));
+          }
+        }}>
           {t("importExport.export")}
         </Button>
-        <Button leftSection={<IconUpload size={16} />} variant="light" onClick={() => setImportModalOpen(true)}>
+        <Button leftSection={<IconUpload size={16} />} variant="light" onClick={() => {
+          if (!authContext || !authContext.token) {
+             toast.error(t("errors.notAuthenticated") || "User not authenticated. Please log in to import data.");
+             return;
+          }
+          setImportModalOpen(true)
+        }}>
           {t("importExport.import")}
         </Button>
       </Group>

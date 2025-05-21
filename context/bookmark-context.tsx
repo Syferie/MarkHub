@@ -63,7 +63,8 @@ interface BookmarkContextType {
   fetchAndStoreFavicon: (url: string, title: string) => Promise<string>
   refreshAllFavicons: () => Promise<void>
   clearAllBookmarkData: () => Promise<void>
-  resetToSampleData: () => Promise<void>
+  resetToSampleData: () => Promise<void>;
+  loadInitialData: () => Promise<void>; // 添加 loadInitialData
 }
 
 // 示例数据 (将被移除或替换为从API加载)
@@ -134,10 +135,10 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   }, [])
  
   // 数据加载 (从 API)
-  useEffect(() => {
-    if (!isClient) return
- 
-    const loadDataFromAPI = async () => {
+  const loadInitialData = async () => { // 重命名函数以便直接暴露
+    if (!isClient) return;
+
+    // const loadDataFromAPI = async () => { // 原函数名，现在合并
       if (!token) {
         console.log("用户未认证，不加载书签数据。")
         setBookmarks([])
@@ -187,11 +188,19 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         setIsLoading(false)
         dataLoadedOnce.current = true
       }
+    // } // 原函数名结束
+
+    // loadDataFromAPI() // 不再需要单独调用，useEffect 会调用 loadInitialData
+  }; // loadInitialData 函数结束
+
+  useEffect(() => {
+    if (isClient && token) { // 确保 token 存在时才加载
+      loadInitialData();
+    } else if (isClient && !token) { // 如果客户端已准备好但没有 token，也调用一次以处理未登录状态
+      loadInitialData();
     }
- 
-    loadDataFromAPI()
-  }, [isClient, token]) // Re-run if token changes (e.g., user logs in/out)
- 
+  }, [isClient, token]); // Re-run if token changes (e.g., user logs in/out)
+
   // 辅助函数：防抖
   const debounce = <F extends (...args: any[]) => any>(func: F, wait: number): ((...args: Parameters<F>) => void) => {
     let timeout: NodeJS.Timeout | null = null;
@@ -1068,6 +1077,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         refreshAllFavicons,
         clearAllBookmarkData,
         resetToSampleData,
+        loadInitialData, // 将 loadInitialData 添加到 context value
       }}
     >
       {children}

@@ -5,7 +5,7 @@ export interface Bookmark {
   folderId?: string | null; // 明确标记为可选，并与 api-client.ts 保持一致
   tags?: string[]
   createdAt: string
-  favicon?: string
+  faviconUrl?: string | null;
   isFavorite?: boolean
 }
 

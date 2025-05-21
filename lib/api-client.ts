@@ -291,3 +291,13 @@ export async function webdavRestore(token: string, options?: any): Promise<any> 
     { token }
   );
 }
+
+// New API function to clear all user data (bookmarks, folders)
+export async function clearAllUserData(token: string): Promise<void> {
+  await fetchAPI<void>(
+    '/api/custom/user-data/clear-all', // Assuming this endpoint will be created in the backend
+    'POST', // Using POST for actions that modify server state significantly, could also be DELETE
+    {}, // No body needed, action is identified by endpoint and token
+    { token }
+  );
+}
