@@ -32,7 +32,7 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { refreshAllFavicons, resetToSampleData, loadInitialData } = useBookmarks() // 移除了 clearAllBookmarkData, 添加了 loadInitialData
+  const { resetToSampleData, loadInitialData } = useBookmarks() // 移除了 clearAllBookmarkData, 添加了 loadInitialData, 移除了 refreshAllFavicons
   const { language: currentLanguageContext, setLanguage, t } = useLanguage()
   const authContext = useContext(AuthContext)
   if (!authContext) {
@@ -53,7 +53,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     geminiApiKey: userSettings?.geminiApiKey ?? "",
   })
   const [hasChanges, setHasChanges] = useState(false)
-  const [isRefreshingFavicons, setIsRefreshingFavicons] = useState(false)
   const [isClearingData, setIsClearingData] = useState(false)
   const [isResettingData, setIsResettingData] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
@@ -144,15 +143,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     
     onClose();
   };
-
-  const handleRefreshFavicons = async () => {
-    setIsRefreshingFavicons(true)
-    try {
-      await refreshAllFavicons()
-    } finally {
-      setIsRefreshingFavicons(false)
-    }
-  }
 
   const handleClearAllData = async () => {
     if (!authContext || !authContext.token) {
@@ -363,14 +353,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <h3 className="text-lg font-medium mb-2">{t("settings.dataManagement")}</h3>
               <p className="text-sm text-gray-500 mb-4">{t("settings.dataManagement")}</p>
               <Group>
-                <Button
-                  variant="light"
-                  leftSection={<IconRefresh size={16} />}
-                  onClick={handleRefreshFavicons}
-                  loading={isRefreshingFavicons}
-                >
-                  {t("settings.refreshFavicons")}
-                </Button>
                 <Button
                   variant="light"
                   color="red"

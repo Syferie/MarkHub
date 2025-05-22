@@ -139,11 +139,24 @@ export async function updateBookmark(
   bookmarkId: string,
   bookmarkData: Partial<Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'>> & { tags?: string[] }
 ): Promise<Bookmark> {
-  // 确保我们提供明确的tags数组，即使是空的
-  const dataToSend = {
-    ...bookmarkData,
-    tags: bookmarkData.tags || []
-  };
+  // 构造要发送的数据，只包含实际传入的字段
+  const dataToSend: any = { ...bookmarkData };
+
+  // 如果 bookmarkData 中没有显式提供 tags，则从 dataToSend 中删除它
+  // 以避免发送空的 tags: [] (除非明确就是要清空 tags)
+  if (!('tags' in bookmarkData)) {
+    delete dataToSend.tags;
+  } else {
+    // 如果显式提供了 tags (即使是 null 或 undefined)，确保它被正确处理
+    // PocketBase 通常期望一个数组，或者完全不发送该字段
+    // 如果 bookmarkData.tags 是 null 或 undefined，但 'tags' in bookmarkData 为 true，
+    // 我们可能需要根据后端API的具体行为来决定是发送 null 还是 []
+    // 当前逻辑：如果 tags 存在于 bookmarkData，就使用它的值。
+    // 如果 bookmarkData.tags 是 undefined，则 dataToSend.tags 也是 undefined，JSON.stringify 会移除它
+    // 如果 bookmarkData.tags 是 null，则 dataToSend.tags 是 null
+    // 如果 bookmarkData.tags 是 [], 则 dataToSend.tags 是 []
+    dataToSend.tags = bookmarkData.tags;
+  }
   
   // 过滤掉任何特殊控制标志
   if ('_skipAiClassification' in dataToSend) {
@@ -152,6 +165,7 @@ export async function updateBookmark(
   if ('_preventAutoTagging' in dataToSend) {
     delete dataToSend._preventAutoTagging;
   }
+
   
   // 记录调试信息
   console.log("更新书签: 发送到API的数据:", dataToSend);
@@ -298,6 +312,16 @@ export async function clearAllUserData(token: string): Promise<void> {
     '/api/custom/user-data/clear-all', // Assuming this endpoint will be created in the backend
     'POST', // Using POST for actions that modify server state significantly, could also be DELETE
     {}, // No body needed, action is identified by endpoint and token
+    { token }
+  );
+}
+// The refreshBookmarkFaviconAPI function has been removed as per requirements.
+
+export async function fetchFaviconForUrlAPI(token: string, pageUrl: string): Promise<{ requested_url: string; faviconUrl: string | null }> {
+  return fetchAPI<{ requested_url: string; faviconUrl: string | null }>(
+    '/api/custom/get-favicon',
+    'POST',
+    { url: pageUrl },
     { token }
   );
 }

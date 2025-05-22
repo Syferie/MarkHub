@@ -15,6 +15,7 @@ import {
   updateFolder as apiUpdateFolder,
   deleteFolder as apiDeleteFolder,
   setBookmarkFavoriteStatus, // Added import
+  fetchFaviconForUrlAPI, // Updated import for new favicon API
   type Bookmark,
   type Folder,
 } from "@/lib/api-client" // Added API client and types
@@ -65,6 +66,7 @@ interface BookmarkContextType {
   clearAllBookmarkData: () => Promise<void>
   resetToSampleData: () => Promise<void>;
   loadInitialData: () => Promise<void>; // 添加 loadInitialData
+  refreshFavicon: (bookmarkId: string) => Promise<void>;
 }
 
 // 示例数据 (将被移除或替换为从API加载)
@@ -1041,7 +1043,39 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
       throw error;
     }
   }
- 
+
+  const refreshFavicon = async (bookmarkId: string) => {
+    if (!token) {
+      console.error("User not authenticated, cannot refresh favicon.");
+      return;
+    }
+
+    const bookmark = bookmarks.find(b => b.id === bookmarkId);
+    if (!bookmark) {
+      console.error(`Bookmark with id ${bookmarkId} not found for favicon refresh.`);
+      return;
+    }
+
+    try {
+      const apiResponse = await fetchFaviconForUrlAPI(token, bookmark.url);
+      
+      if (apiResponse.faviconUrl !== undefined) { // Check if faviconUrl is present in the response
+        // Even if faviconUrl is null, we should update the bookmark to clear any existing one.
+        await updateBookmark(bookmarkId, { faviconUrl: apiResponse.faviconUrl });
+        console.log(`Favicon processed for bookmark ${bookmarkId}. New URL: ${apiResponse.faviconUrl}`);
+      } else {
+        // This case should ideally not happen if the API always returns faviconUrl (even if null)
+        // but as a fallback, we can choose to do nothing or log a specific warning.
+        console.warn(`Favicon URL not returned by API for bookmark ${bookmarkId}. No update performed.`);
+      }
+      // Note: updateBookmark already handles setBookmarks and bookmarkUpdateCounter.current += 1
+      // and also updates global data via updateGlobalBookmarkData.
+    } catch (error) {
+      console.error(`Error in refreshFavicon process for bookmark ${bookmarkId}:`, error);
+      // Optionally, show a toast notification to the user
+    }
+  };
+
   return (
     <BookmarkContext.Provider
       value={{
@@ -1078,6 +1112,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
         clearAllBookmarkData,
         resetToSampleData,
         loadInitialData, // 将 loadInitialData 添加到 context value
+        refreshFavicon,
       }}
     >
       {children}

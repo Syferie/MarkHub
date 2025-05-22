@@ -87,6 +87,10 @@ const translations: Record<Language, Record<string, string>> = {
     "bookmarks.suggestFolder": "Suggest Folder (AI)",
     "bookmarks.actions": "Actions",
     "bookmarks.cancel": "Cancel",
+    "bookmarks.refreshingFavicons": "Refreshing favicons for {count} bookmarks...",
+    "bookmarks.refreshFaviconsComplete": "Favicon refresh complete for {count} bookmarks.",
+    "bookmarks.refreshFaviconsAttempted": "Favicon refresh attempted for {count} bookmarks. Success: {success}, Failed: {failed}.",
+    "bookmarks.refreshFaviconsAction": "Refresh Favicons",
 
     // 添加/编辑书签模态框
     "bookmarkModal.addTitle": "Add Bookmark",
@@ -327,6 +331,10 @@ const translations: Record<Language, Record<string, string>> = {
     "bookmarks.suggestFolder": "推荐文件夹 (AI)",
     "bookmarks.actions": "操作",
     "bookmarks.cancel": "取消",
+    "bookmarks.refreshingFavicons": "正在为 {count} 个书签刷新 Favicon...",
+    "bookmarks.refreshFaviconsComplete": "{count} 个书签的 Favicon 已刷新完成。",
+    "bookmarks.refreshFaviconsAttempted": "已尝试为 {count} 个书签刷新 Favicon。成功: {success}，失败: {failed}。",
+    "bookmarks.refreshFaviconsAction": "刷新图标",
 
     // 添加/编辑书签模态框
     "bookmarkModal.addTitle": "添加书签",

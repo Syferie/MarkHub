@@ -1,6 +1,6 @@
 "use client"
 
-import React, { type ReactNode, useState, MouseEvent, useEffect, useRef } from "react"
+import React, { type ReactNode, useState, MouseEvent, useEffect, useRef, useCallback } from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { ActionIcon, Badge, Text, Tooltip, Checkbox, Button, Group, Select, Progress, Popover, Drawer } from "@mantine/core"
 import { useRouter } from "next/navigation"
@@ -24,12 +24,14 @@ import {
   IconCircleXFilled,
   IconInfoCircle,
 } from "@tabler/icons-react"
+import { toast } from "sonner"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
 import EditBookmarkModal from "./edit-bookmark-modal"
 import type { Bookmark } from "@/types"
 import { generateTags } from "@/lib/tag-api"
 import { suggestFolder } from "@/lib/folder-api"
+// import { getOptimalFaviconUrl } from "@/lib/utils" // Removed
 // @ts-ignore - 忽略类型检查，因为我们无法安装类型声明包
 import { VariableSizeList as List } from "react-window"
 // @ts-ignore - 忽略类型检查，因为我们无法安装类型声明包
@@ -91,7 +93,7 @@ export default function BookmarkList({
   setCurrentSortOption,
 }: BookmarkListProps) {
   const isMobile = useIsMobile();
-  const { deleteBookmark, updateBookmark, folders, tags, setSelectedFolderId, setSelectedTags, toggleFavoriteBookmark } =
+  const { deleteBookmark, updateBookmark, folders, tags, setSelectedFolderId, setSelectedTags, toggleFavoriteBookmark, refreshFavicon } =
     useBookmarks()
   const { userSettings, token } = useAuth() // 从 AuthContext 获取 userSettings 和 token
   const { t } = useLanguage()
@@ -201,6 +203,46 @@ export default function BookmarkList({
     setSelectedBookmarks([])
     setBulkMode(false)
     setShowBulkActions(false)
+  }
+
+  // 批量刷新 Favicons 函数
+  const handleBulkRefreshFavicons = async () => {
+    if (!refreshFavicon || selectedBookmarks.length === 0) return;
+
+    const totalToRefresh = selectedBookmarks.length;
+    toast.info(t("bookmarks.refreshingFavicons", { count: totalToRefresh.toString() }));
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // 创建一个副本进行迭代，以防在操作过程中 selectedBookmarks 被修改
+    const bookmarksToRefresh = [...selectedBookmarks];
+
+    for (const bookmarkId of bookmarksToRefresh) {
+      try {
+        await refreshFavicon(bookmarkId);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to refresh favicon for bookmark ${bookmarkId}:`, error);
+        failCount++;
+      }
+    }
+
+    if (failCount > 0) {
+      toast.warning(
+        t("bookmarks.refreshFaviconsAttempted", {
+          count: totalToRefresh.toString(),
+          success: successCount.toString(),
+          failed: failCount.toString(),
+        }),
+      )
+    } else {
+      toast.success(t("bookmarks.refreshFaviconsComplete", { count: successCount.toString() }));
+    }
+
+    setSelectedBookmarks([])
+    // setBulkMode(false) // 保持批量模式，但清除选择，允许用户执行其他批量操作
+    setShowBulkActions(false) // 关闭批量操作面板
   }
 
   // 批量生成标签函数
@@ -1389,6 +1431,57 @@ export default function BookmarkList({
     index,
     style,
   }: { bookmark: Bookmark; index: number; style: React.CSSProperties }) => {
+    const { refreshFavicon } = useBookmarks();
+    const [currentFaviconUrl, setCurrentFaviconUrl] = useState<string | null | undefined>(bookmark.faviconUrl);
+    const [faviconError, setFaviconError] = useState(false);
+    const [isLoadingFavicon, setIsLoadingFavicon] = useState(false);
+
+    useEffect(() => {
+      // Update currentFaviconUrl if bookmark.faviconUrl changes from props
+      // This will also reset the error state if a new valid URL is provided
+      const url = bookmark.faviconUrl;
+      setCurrentFaviconUrl(url);
+      // If we get a new, non-blank URL, assume it might be valid and reset error.
+      // The <img> onError will catch actual loading failures.
+      if (typeof url === 'string' && url.trim() !== '') {
+        setFaviconError(false);
+      }
+    }, [bookmark.faviconUrl, bookmark.id]);
+
+    // useEffect(() => {
+    //   let isMounted = true;
+
+    //   const attemptRefreshFavicon = async () => {
+    //     if (bookmark && bookmark.id && (!bookmark.faviconUrl || bookmark.faviconUrl.trim() === "") && !isLoadingFavicon) {
+    //       if (isMounted) {
+    //         setIsLoadingFavicon(true);
+    //         setFaviconError(false); // Reset error before attempting refresh
+    //       }
+    //       try {
+    //         console.log(`BookmarkItem: Refreshing favicon for ${bookmark.id} (${bookmark.title})`);
+    //         await refreshFavicon(bookmark.id);
+    //         // The faviconUrl in the bookmark object will be updated by the context,
+    //         // and the first useEffect will update currentFaviconUrl.
+    //       } catch (error) {
+    //         console.error(`BookmarkItem: Error refreshing favicon for ${bookmark.id}:`, error);
+    //         if (isMounted) {
+    //           setFaviconError(true); // Set error if refresh fails
+    //         }
+    //       } finally {
+    //         if (isMounted) {
+    //           setIsLoadingFavicon(false);
+    //         }
+    //       }
+    //     }
+    //   };
+
+    //   attemptRefreshFavicon();
+
+    //   return () => {
+    //     isMounted = false;
+    //   };
+    // }, [bookmark.id, bookmark.faviconUrl, refreshFavicon, isLoadingFavicon]); // Ensure all dependencies are listed
+
     if (!bookmark) return null
 
     const folderName = getFolderName(bookmark.folderId)
@@ -1414,11 +1507,19 @@ export default function BookmarkList({
             {bulkMode && (
               <Checkbox checked={isSelected} onChange={() => toggleBookmarkSelection(bookmark.id)} className="mt-1 flex-shrink-0" />
             )}
-            <div className="w-8 h-8 flex-shrink-0 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden transition-all duration-200 hover:shadow-inner">
-              {/* 简化为始终使用标题首字母作为图标 */}
-              <div className="w-6 h-6 bg-blue-500 rounded-sm flex items-center justify-center text-white font-bold transition-transform duration-200 hover:scale-110">
-                {bookmark.title?.charAt(0)?.toUpperCase() || "B"}
-              </div>
+            <div className="w-8 h-8 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center overflow-hidden transition-all duration-200 hover:shadow-inner">
+              {typeof currentFaviconUrl === 'string' && currentFaviconUrl.trim() !== '' && !faviconError ? (
+                <img
+                  src={currentFaviconUrl}
+                  alt={`${bookmark.title} favicon`}
+                  className="w-full h-full object-contain"
+                  onError={() => setFaviconError(true)}
+                />
+              ) : (
+                <div className="w-6 h-6 bg-blue-500 rounded-sm flex items-center justify-center text-white font-bold transition-transform duration-200 hover:scale-110">
+                  {bookmark.title?.charAt(0)?.toUpperCase() || "B"}
+                </div>
+              )}
             </div>
 
             <div className="flex-1 min-w-0">
@@ -1524,20 +1625,31 @@ export default function BookmarkList({
     if (prevProps.bookmark.url !== nextProps.bookmark.url) return false;
     if (prevProps.bookmark.isFavorite !== nextProps.bookmark.isFavorite) return false;
     if (prevProps.bookmark.folderId !== nextProps.bookmark.folderId) return false;
+    if (prevProps.bookmark.faviconUrl !== nextProps.bookmark.faviconUrl) return false; // Check faviconUrl
     if (prevProps.style !== nextProps.style) return false;
-    
-    // 检查标签数组是否变化
+
+    // Check selected state - this needs access to selectedBookmarks from the outer scope
+    // This comparison might be tricky if selectedBookmarks is not passed down or context is not used inside memo
+    // For now, let's assume selectedBookmarks is stable or handled by parent re-render if it changes.
+    // A more robust way would be to pass `isSelected` as a prop to BookmarkItem.
+
     const prevTags = prevProps.bookmark.tags || [];
     const nextTags = nextProps.bookmark.tags || [];
     if (prevTags.length !== nextTags.length) return false;
     for (let i = 0; i < prevTags.length; i++) {
       if (prevTags[i] !== nextTags[i]) return false;
     }
+
+    // If `isSelected` prop was passed:
+    // if (prevProps.isSelected !== nextProps.isSelected) return false;
     
-    // 检查是否在选择状态中
-    if (selectedBookmarks.includes(prevProps.bookmark.id) !==
-        selectedBookmarks.includes(nextProps.bookmark.id)) return false;
-        
+    // Check if the selection status derived from the outer scope's `selectedBookmarks` has changed.
+    // This is a bit of a hack for React.memo if `selectedBookmarks` is not a direct prop.
+    // It's generally better to pass all varying data as props.
+    const isPrevSelected = selectedBookmarks.includes(prevProps.bookmark.id);
+    const isNextSelected = selectedBookmarks.includes(nextProps.bookmark.id);
+    if (isPrevSelected !== isNextSelected) return false;
+
     return true;
   });
 
@@ -2135,10 +2247,18 @@ export default function BookmarkList({
               onClick={() => handleBulkFavorite(false)}
             >
               {isMobile ? "-" + t("bookmarks.removeFromFavorites").split(" ").pop() : t("bookmarks.removeFromFavorites")}
-            </Button>
-            <Button
-              size="xs"
-              variant="light"
+           </Button>
+           <Button
+             size="xs"
+             variant="light"
+             leftSection={!isMobile && <IconRefresh size={14} />}
+             onClick={handleBulkRefreshFavicons}
+           >
+             {isMobile ? t("bookmarks.refreshFaviconsAction").split(" ")[0] : t("bookmarks.refreshFaviconsAction")}
+           </Button>
+           <Button
+             size="xs"
+             variant="light"
               color="red"
               leftSection={!isMobile && <IconTrash size={14} />}
               onClick={handleBulkDelete}
