@@ -297,8 +297,8 @@ export async function webdavBackup(token: string): Promise<any> {
 }
 
 // WebDAV API 函数 - 新增用于恢复的函数
-export async function webdavRestore(token: string, options?: any): Promise<any> {
-  return fetchAPI<any>(
+export async function webdavRestore(token: string, options?: any): Promise<{ success: boolean; message: string; restored_bookmarks?: number; restored_folders?: number; }> {
+  return fetchAPI<{ success: boolean; message: string; restored_bookmarks?: number; restored_folders?: number; }>(
     '/api/custom/webdav/restore',
     'POST',
     options || {},

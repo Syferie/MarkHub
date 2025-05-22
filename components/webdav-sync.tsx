@@ -150,7 +150,7 @@ interface WebDAVSyncProps {
 }
 
 export default function WebDAVSync({ userSettings, updateSettings }: WebDAVSyncProps) {
-  const { bookmarks, folders, tags, favoriteFolders, importBookmarks } = useBookmarks()
+  const { bookmarks, folders, tags, favoriteFolders, importBookmarks, loadInitialData } = useBookmarks()
   // settings 从 useBookmarks() 中移除，WebDAV 配置通过 userSettings prop 获取
   const { t } = useLanguage()
   const { token } = useAuth()
@@ -397,43 +397,26 @@ export default function WebDAVSync({ userSettings, updateSettings }: WebDAVSyncP
 
       // 使用新的 API 恢复数据
       const responseData = await webdavRestore(token);
-      console.log("WebDAV 恢复 API 响应:", responseData);
-      
-      if (!responseData || !responseData.success) {
-        throw new Error("WebDAV 恢复失败: " + (responseData.message || "未知错误"));
-      }
+      console.log("Full response from /api/webdav/restore:", responseData); // 添加的日志
+      console.log("WebDAV 恢复 API 原始响应 (完整):", JSON.stringify(responseData));
 
-      setSyncProgress(70)
-      setMessage("正在处理下载的数据...")
-      console.log("正在处理下载的书签数据...");
+      if (responseData && responseData.success) {
+        setMessage("后端数据恢复成功，正在刷新本地数据...");
+        console.log("WebDAV 恢复成功:", responseData.message);
+        console.log("已恢复书签数量:", responseData.restored_bookmarks);
+        console.log("已恢复文件夹数量:", responseData.restored_folders);
 
-      // 导入书签
-      if (responseData.data && typeof responseData.data === "object") {
-        // 添加类型断言解决TypeScript错误
-        type BackupData = {
-          bookmarks: any[];
-          folders: any[];
-          tags: string[];
-          favoriteFolders: string[];
-          settings: any;
-          syncDate?: string;
-        };
+        // 调用 BookmarkContext 中的 loadInitialData 重新加载数据
+        await loadInitialData();
 
-        const typedData = responseData.data as BackupData;
-
-        console.log("正在导入下载的书签数据", {
-          bookmarksCount: typedData.bookmarks?.length || 0,
-          foldersCount: typedData.folders?.length || 0,
-          tagsCount: typedData.tags?.length || 0
-        })
-        
-        importBookmarks(responseData.data)
-        setSyncProgress(100)
-        setMessage("下载完成!")
-        setSyncSuccess(t("webdav.downloadSuccess") || "成功从 WebDAV 服务器恢复书签")
-        return true
+        setSyncProgress(100);
+        setMessage(responseData.message || "数据恢复完成，本地数据已刷新!");
+        setSyncSuccess(responseData.message || t("webdav.downloadSuccess") || "成功从 WebDAV 服务器恢复书签并刷新本地数据");
+        return true;
       } else {
-        throw new Error("从服务器接收到的数据格式无效")
+        const errorMsg = "WebDAV 恢复失败: " + (responseData?.message || "API未返回成功状态或响应体无效");
+        console.error(errorMsg, "完整响应:", responseData);
+        throw new Error(errorMsg);
       }
     } catch (error) {
       console.error("下载书签时出错:", error)
