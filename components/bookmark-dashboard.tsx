@@ -12,6 +12,7 @@ import FolderTree from "./folder-tree"
 import TagPanel from "./tag-panel" // 导入新的 TagPanel
 import AddBookmarkModal from "./add-bookmark-modal"
 import SettingsModal from "./settings-modal"
+import ActiveFiltersDisplay from "./ActiveFiltersDisplay" // 导入新的筛选条件显示组件
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
 import { uploadBookmarksToWebDAV } from "./webdav-sync"
@@ -205,51 +206,33 @@ export default function BookmarkDashboard() {
                   </div>
                 )}
     
-                {/* 始终显示过滤器区域，避免UI浮动 */}
-                <div className="mb-3 flex flex-wrap items-center gap-2 min-h-[32px]">
-                  {selectedFolderId || (Array.isArray(selectedTags) && selectedTags.length > 0) ? (
-                    <>
-                      <span className="text-sm text-gray-500">{t("dashboard.filteredBy")}</span>
-    
-                      {folderName && (
-                        <Badge color="blue" variant="light" size="lg">
-                          {t("dashboard.folder")} {folderName}
-                        </Badge>
-                      )}
-    
-                      {Array.isArray(selectedTags) &&
-                        selectedTags.map((tag) => (
-                          <Badge key={tag} color="green" variant="light" size="lg">
-                            {t("dashboard.tag")} {tag}
-                          </Badge>
-                        ))}
-    
-                      <Button
-                        variant="subtle"
-                        size="xs"
-                        onClick={() => {
-                          setSelectedFolderId && setSelectedFolderId(null)
-                          setSelectedTags && setSelectedTags([])
-                          setActiveTab("all") // 重置活动标签为"all"
-                        }}
-                      >
-                        {t("dashboard.clearFilters")}
-                      </Button>
-                    </>
-                  ) : (
-                    <span className="text-sm text-gray-400">{t("dashboard.noFilters")}</span>
-                  )}
-                </div>
+                {/* 使用新的 ActiveFiltersDisplay 组件 */}
+                <ActiveFiltersDisplay
+                  selectedFolderId={selectedFolderId}
+                  selectedTags={selectedTags}
+                  folders={folders}
+                  setSelectedFolderId={setSelectedFolderId}
+                  setSelectedTags={setSelectedTags}
+                  setActiveTab={setActiveTab}
+                  t={t}
+                />
     
                 <Tabs
                   value={activeTab}
                   onChange={(value) => {
-                    setActiveTab(value || "all")
-                    // If selecting a folder tab, set the selectedFolderId
-                    if (value !== "all" && value !== "favorites") {
-                      setSelectedFolderId && setSelectedFolderId(value)
-                    } else if (value === "all") {
-                      setSelectedFolderId && setSelectedFolderId(null)
+                    const newActiveTab = value || "all";
+                    setActiveTab(newActiveTab);
+
+                    if (newActiveTab === "favorites") {
+                      // 当点击 "收藏夹" 时，清除文件夹选择
+                      setSelectedFolderId && setSelectedFolderId(null);
+                    } else if (newActiveTab !== "all") {
+                      // 如果是其他文件夹标签 (不是 "all" 也不是 "favorites")
+                      // 这些是收藏的文件夹，其 value 是 folderId
+                      setSelectedFolderId && setSelectedFolderId(newActiveTab);
+                    } else { // newActiveTab === "all"
+                      // 如果是 "所有书签" 标签
+                      setSelectedFolderId && setSelectedFolderId(null);
                     }
                   }}
                 >
@@ -285,6 +268,18 @@ export default function BookmarkDashboard() {
           <div className="md:col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
             <h2 className="text-lg font-semibold mb-4 text-gray-700">{t("dashboard.collections")}</h2>
             <FolderTree />
+            {/* 在 FolderTree 下方添加 ActiveFiltersDisplay */}
+            <div className="mt-4"> {/* 添加一些边距 */}
+              <ActiveFiltersDisplay
+                selectedFolderId={selectedFolderId}
+                selectedTags={selectedTags}
+                folders={folders}
+                setSelectedFolderId={setSelectedFolderId}
+                setSelectedTags={setSelectedTags}
+                // setActiveTab={setActiveTab} // setActiveTab 可能不需要在这里，因为它主要影响主内容区的标签页
+                t={t}
+              />
+            </div>
             {/* 桌面端不再显示旧的 TagManager */}
             {/* <h2 className="text-lg font-semibold mb-4 mt-6 text-gray-700">{t("dashboard.tags")}</h2> */}
             {/* <TagManager /> */}
@@ -377,51 +372,24 @@ export default function BookmarkDashboard() {
                 </div>
               )}
   
-              {/* 始终显示过滤器区域，避免UI浮动 */}
-              <div className="mb-3 flex flex-wrap items-center gap-2 min-h-[32px]">
-                {selectedFolderId || (Array.isArray(selectedTags) && selectedTags.length > 0) ? (
-                  <>
-                    <span className="text-sm text-gray-500">{t("dashboard.filteredBy")}</span>
-  
-                    {folderName && (
-                      <Badge color="blue" variant="light" size="lg">
-                        {t("dashboard.folder")} {folderName}
-                      </Badge>
-                    )}
-  
-                    {Array.isArray(selectedTags) &&
-                      selectedTags.map((tag) => (
-                        <Badge key={tag} color="green" variant="light" size="lg">
-                          {t("dashboard.tag")} {tag}
-                        </Badge>
-                      ))}
-  
-                    <Button
-                      variant="subtle"
-                      size="xs"
-                      onClick={() => {
-                        setSelectedFolderId && setSelectedFolderId(null)
-                        setSelectedTags && setSelectedTags([])
-                        setActiveTab("all") // 重置活动标签为"all"
-                      }}
-                    >
-                      {t("dashboard.clearFilters")}
-                    </Button>
-                  </>
-                ) : (
-                  <span className="text-sm text-gray-400">{t("dashboard.noFilters")}</span>
-                )}
-              </div>
+              {/* ActiveFiltersDisplay 已移至左侧边栏，此处不再渲染 */}
   
               <Tabs
                 value={activeTab}
                 onChange={(value) => {
-                  setActiveTab(value || "all")
-                  // If selecting a folder tab, set the selectedFolderId
-                  if (value !== "all" && value !== "favorites") {
-                    setSelectedFolderId && setSelectedFolderId(value)
-                  } else if (value === "all") {
-                    setSelectedFolderId && setSelectedFolderId(null)
+                  const newActiveTab = value || "all";
+                  setActiveTab(newActiveTab);
+
+                  if (newActiveTab === "favorites") {
+                    // 当点击 "收藏夹" 时，清除文件夹选择
+                    setSelectedFolderId && setSelectedFolderId(null);
+                  } else if (newActiveTab !== "all") {
+                    // 如果是其他文件夹标签 (不是 "all" 也不是 "favorites")
+                    // 这些是收藏的文件夹，其 value 是 folderId
+                    setSelectedFolderId && setSelectedFolderId(newActiveTab);
+                  } else { // newActiveTab === "all"
+                    // 如果是 "所有书签" 标签
+                    setSelectedFolderId && setSelectedFolderId(null);
                   }
                 }}
               >
