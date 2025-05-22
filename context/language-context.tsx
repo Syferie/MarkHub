@@ -22,6 +22,8 @@ const translations: Record<Language, Record<string, string>> = {
     // 通用
     "app.name": "MarkHub",
     "app.description": "A modern bookmark manager",
+    "common.close": "Close",
+    "dashboard.tagsButton": "Tags",
 
     // 日期格式
     "dateFormat.today": "Today",
@@ -66,7 +68,12 @@ const translations: Record<Language, Record<string, string>> = {
     "tags.enterTags": "Enter tags, separated by commas.",
     "tags.add": "Add",
     "tags.cancel": "Cancel",
-
+    "tags.manageTags": "Manage Tags",
+    "tags.searchTags": "Search tags...",
+    "tags.batchEdit": "Batch Edit",
+    "tags.cancelBatchEdit": "Cancel Batch Edit",
+    "tags.deleteSelected": "Delete Selected",
+ 
     // 书签列表
     "bookmarks.noBookmarks": "No bookmarks found",
     "bookmarks.addYourFirst": "Add your first bookmark",
@@ -266,6 +273,8 @@ const translations: Record<Language, Record<string, string>> = {
     // 通用
     "app.name": "MarkHub",
     "app.description": "现代书签管理器",
+    "common.close": "关闭",
+    "dashboard.tagsButton": "标签",
 
     // 日期格式
     "dateFormat.today": "今天",
@@ -310,7 +319,12 @@ const translations: Record<Language, Record<string, string>> = {
     "tags.enterTags": "输入标签，用逗号分隔。",
     "tags.add": "添加",
     "tags.cancel": "取消",
-
+    "tags.manageTags": "管理标签",
+    "tags.searchTags": "搜索标签...",
+    "tags.batchEdit": "批量编辑",
+    "tags.cancelBatchEdit": "取消批量编辑",
+    "tags.deleteSelected": "删除选中标签",
+ 
     // 书签列表
     "bookmarks.noBookmarks": "未找到书签",
     "bookmarks.addYourFirst": "添加您的第一个书签",

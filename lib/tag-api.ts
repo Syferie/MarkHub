@@ -1,4 +1,4 @@
-// 不再需要从api-client导入不存在的函数
+import { fetchAPI } from './api-client'; // 导入 fetchAPI
 
 /**
  * 标签API接口
@@ -137,4 +137,40 @@ export interface GenerateTagsOptions {
     wait_until?: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2';
     debug?: boolean;
   };
+}
+
+// 新增：批量删除标签API的响应类型
+export interface BatchDeleteTagsSuccessResponse {
+  success: true;
+  message: string;
+  deleted_tags_from_global_list?: string[]; // 可选，因为第二种成功响应没有这个字段
+  attempted_tags?: string[]; // 可选，对应第二种成功响应
+}
+
+// 新增：批量删除标签API的函数
+/**
+ * 批量删除标签
+ *
+ * @param token 用户认证令牌
+ * @param tagNames 要删除的标签名称数组
+ * @returns API响应
+ */
+export async function batchDeleteTagsAPI(
+  token: string,
+  tagNames: string[]
+): Promise<BatchDeleteTagsSuccessResponse> {
+  if (!token) {
+    throw new ApiError('未提供用户认证令牌', 401);
+  }
+  if (!tagNames || tagNames.length === 0) {
+    // 或者根据API行为决定是否允许发送空数组
+    throw new ApiError('必须提供要删除的标签名称', 400);
+  }
+
+  return fetchAPI<BatchDeleteTagsSuccessResponse>(
+    '/api/custom/tags/batch-delete',
+    'POST',
+    { tags: tagNames },
+    { token }
+  );
 }

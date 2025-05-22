@@ -5,7 +5,7 @@ interface FetchAPIOptions extends RequestInit {
   token?: string;
 }
 
-async function fetchAPI<T = any>(
+export async function fetchAPI<T = any>( // 添加 export
   endpoint: string,
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
   body?: any,

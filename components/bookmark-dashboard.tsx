@@ -3,12 +3,13 @@
 import { useState, useEffect, useMemo } from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Tabs, ActionIcon, TextInput, Button, Badge, Checkbox, Anchor, Text } from "@mantine/core"
-import { IconSearch, IconPlus, IconAdjustments, IconFolder, IconSettings, IconStar, IconX } from "@tabler/icons-react"
+import { IconSearch, IconPlus, IconAdjustments, IconFolder, IconSettings, IconStar, IconX, IconTags } from "@tabler/icons-react"
 import { useAuth } from "@/context/auth-context" // 导入认证上下文
 import Link from "next/link" // 导入Link组件用于导航
 import BookmarkList from "./bookmark-list"
 import FolderTree from "./folder-tree"
-import TagManager from "./tag-manager"
+// import TagManager from "./tag-manager" // 旧的 TagManager 不再直接使用
+import TagPanel from "./tag-panel" // 导入新的 TagPanel
 import AddBookmarkModal from "./add-bookmark-modal"
 import SettingsModal from "./settings-modal"
 import { useBookmarks } from "@/context/bookmark-context"
@@ -20,6 +21,7 @@ export default function BookmarkDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
+  const [isTagPanelOpen, setIsTagPanelOpen] = useState(false) // 新增状态控制 TagPanel
   const [showSearchFilters, setShowSearchFilters] = useState(false)
   const {
     selectedFolderId,
@@ -136,9 +138,9 @@ export default function BookmarkDashboard() {
               <div className="bg-white rounded-lg shadow p-4 mb-4 mt-2">
                 <h2 className="text-lg font-semibold mb-4 text-gray-700">{t("dashboard.collections")}</h2>
                 <FolderTree />
-    
-                <h2 className="text-lg font-semibold mb-4 mt-6 text-gray-700">{t("dashboard.tags")}</h2>
-                <TagManager />
+                {/* 移动端不再显示旧的 TagManager */}
+                {/* <h2 className="text-lg font-semibold mb-4 mt-6 text-gray-700">{t("dashboard.tags")}</h2> */}
+                {/* <TagManager /> */}
               </div>
             </Tabs.Panel>
             
@@ -283,9 +285,9 @@ export default function BookmarkDashboard() {
           <div className="md:col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
             <h2 className="text-lg font-semibold mb-4 text-gray-700">{t("dashboard.collections")}</h2>
             <FolderTree />
-  
-            <h2 className="text-lg font-semibold mb-4 mt-6 text-gray-700">{t("dashboard.tags")}</h2>
-            <TagManager />
+            {/* 桌面端不再显示旧的 TagManager */}
+            {/* <h2 className="text-lg font-semibold mb-4 mt-6 text-gray-700">{t("dashboard.tags")}</h2> */}
+            {/* <TagManager /> */}
           </div>
   
           <div className="md:col-span-3 flex flex-col h-full">
@@ -313,8 +315,18 @@ export default function BookmarkDashboard() {
                   >
                     <IconAdjustments size={20} />
                   </ActionIcon>
+
+                  {/* 2. 标签管理按钮 */}
+                  <Button
+                    leftSection={<IconTags size={16} />}
+                    onClick={() => setIsTagPanelOpen(true)} // 打开 TagPanel
+                    variant="outline"
+                    size={isMobile ? "xs" : "sm"}
+                  >
+                    {t("dashboard.tagsButton")}
+                  </Button>
                   
-                  {/* 2. 添加书签按钮 */}
+                  {/* 3. 添加书签按钮 */}
                   <Button
                     leftSection={<IconPlus size={16} />}
                     onClick={() => setIsAddModalOpen(true)}
@@ -324,7 +336,7 @@ export default function BookmarkDashboard() {
                     {isMobile ? "+" : t("dashboard.addBookmark")}
                   </Button>
                   
-                  {/* 3. 设置齿轮按钮 */}
+                  {/* 4. 设置齿轮按钮 */}
                   <ActionIcon
                     variant="light"
                     onClick={() => setIsSettingsModalOpen(true)}
@@ -440,8 +452,10 @@ export default function BookmarkDashboard() {
         </div>
       )}
 
-      <AddBookmarkModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
-      <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />
-    </div>
-  )
-}
+      
+            <AddBookmarkModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+            <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />
+            <TagPanel opened={isTagPanelOpen} onClose={() => setIsTagPanelOpen(false)} /> {/* 添加 TagPanel 实例 */}
+          </div>
+        )
+      }
