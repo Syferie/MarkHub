@@ -91,7 +91,7 @@ export default function BookmarkDashboard() {
   const isMobile = useIsMobile();
   
   // 引入认证上下文以访问用户信息和退出功能
-  const { user, logout } = useAuth();
+  const { user, logoutAndRedirect } = useAuth();
 
   return (
     <div className="container mx-auto p-4 max-w-6xl h-screen overflow-auto">
@@ -106,7 +106,11 @@ export default function BookmarkDashboard() {
             <span className="text-sm text-gray-600 dark:text-gray-300">
               欢迎, {user.email || user.name || '用户'}
             </span>
-            <Button variant="default" onClick={logout} size="sm">
+            <Button
+              variant="default"
+              onClick={logoutAndRedirect}
+              size="sm"
+            >
               退出
             </Button>
           </div>

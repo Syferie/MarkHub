@@ -1,5 +1,7 @@
 import { UserSetting } from '../types'; // 新增导入
-const API_BASE_URL = 'http://127.0.0.1:8090';
+import { getApiBaseUrl } from './config'; // 导入配置
+
+const API_BASE_URL = getApiBaseUrl(); // 使用配置中的API基础URL
 
 interface FetchAPIOptions extends RequestInit {
   token?: string;
@@ -34,6 +36,10 @@ export async function fetchAPI<T = any>( // 添加 export
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ message: response.statusText }));
+    if (response.status === 401 || response.status === 403) {
+      // Dispatch a custom event to be caught by AuthContext
+      window.dispatchEvent(new CustomEvent('auth-error'));
+    }
     throw new Error(errorData.message || `API request failed with status ${response.status}`);
   }
 
@@ -78,6 +84,7 @@ export interface Bookmark {
   userId: string;
   createdAt: string;
   updatedAt: string;
+  faviconUrl?: string | null; // Add faviconUrl field to match backend
   // Add other bookmark properties based on your API response
   [key: string]: any; // Keep for flexibility if other fields exist
 }
@@ -107,7 +114,7 @@ export async function getFolders(token: string): Promise<Folder[]> {
 // New API functions for Bookmarks
 export async function createBookmark(
   token: string,
-  bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'> & { tags?: string[] }
+  bookmarkData: Omit<Bookmark, 'id' | 'created' | 'updatedAt' | 'userId'> & { tags?: string[] }
 ): Promise<Bookmark> {
   // 确保我们提供明确的tags数组，即使是空的
   const dataToSend = {
@@ -137,7 +144,7 @@ export async function createBookmark(
 export async function updateBookmark(
   token: string,
   bookmarkId: string,
-  bookmarkData: Partial<Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'>> & { tags?: string[] }
+  bookmarkData: Partial<Omit<Bookmark, 'id' | 'created' | 'updatedAt' | 'userId'>> & { tags?: string[] }
 ): Promise<Bookmark> {
   // 构造要发送的数据，只包含实际传入的字段
   const dataToSend: any = { ...bookmarkData };
@@ -217,7 +224,7 @@ export async function addTagsBatchToBookmark(
 // New API functions for Folders
 export async function createFolder(
   token: string,
-  folderData: Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
+  folderData: Omit<Folder, 'id' | 'created' | 'updatedAt' | 'userId'>
 ): Promise<Folder> {
   return fetchAPI<Folder>(
     '/api/collections/folders/records',
@@ -230,7 +237,7 @@ export async function createFolder(
 export async function updateFolder(
   token: string,
   folderId: string,
-  folderData: Partial<Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>
+  folderData: Partial<Omit<Folder, 'id' | 'created' | 'updatedAt' | 'userId'>>
 ): Promise<Folder> {
   return fetchAPI<Folder>(
     `/api/collections/folders/records/${folderId}`,

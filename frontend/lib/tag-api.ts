@@ -1,4 +1,5 @@
 import { fetchAPI } from './api-client'; // 导入 fetchAPI
+import { buildCustomApiUrl } from './config'; // 导入配置
 
 /**
  * 标签API接口
@@ -55,7 +56,7 @@ export async function generateTags(
     }
 
     // 由于fetchAPI没有导出，这里直接使用fetch调用API
-    const response = await fetch(`http://127.0.0.1:8090/api/custom/suggest-tags-for-bookmark`, {
+    const response = await fetch(buildCustomApiUrl('/api/custom/suggest-tags-for-bookmark'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

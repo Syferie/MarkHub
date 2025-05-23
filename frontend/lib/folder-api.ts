@@ -4,6 +4,8 @@
  * 提供与新的Go后端文件夹建议服务交互的TypeScript函数
  */
 
+import { getApiBaseUrl } from './config'; // 导入配置
+
 // API 错误类型
 export class ApiError extends Error {
   statusCode: number;
@@ -49,9 +51,8 @@ export async function suggestFolder(
   }
 
   try {
-    // PocketBase实例的API基础URL，通常是 http://127.0.0.1:8090
-    // 这个应该从一个统一的配置中获取，但为了简单起见，暂时硬编码
-    const POCKETBASE_URL = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
+    // 使用配置中的API基础URL
+    const POCKETBASE_URL = getApiBaseUrl();
     const endpoint = `${POCKETBASE_URL}/api/custom/suggest-folder`;
 
     const response = await fetch(endpoint, {

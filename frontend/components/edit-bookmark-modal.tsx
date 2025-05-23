@@ -21,12 +21,12 @@ interface EditBookmarkModalProps {
 }
 
 export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBookmarkModalProps) {
-  const { updateBookmark, tags, settings, folders } = useBookmarks()
+  const { updateBookmark, tags, folders } = useBookmarks()
   const { t } = useLanguage()
   const authContext = useContext(AuthContext)
   const [title, setTitle] = useState(bookmark.title)
   const [url, setUrl] = useState(bookmark.url)
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(bookmark.folderId)
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(bookmark.folderId || null)
   const [selectedTags, setSelectedTags] = useState<string[]>(bookmark.tags || [])
   const [isLoadingTags, setIsLoadingTags] = useState(false)
   const [isLoadingFolder, setIsLoadingFolder] = useState(false)
@@ -55,7 +55,7 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
     if (isOpen) {
       setTitle(bookmark.title)
       setUrl(bookmark.url)
-      setSelectedFolder(bookmark.folderId)
+      setSelectedFolder(bookmark.folderId || null)
       setSelectedTags(bookmark.tags || [])
       setTagError(null)
       setFolderError(null)

@@ -11,6 +11,41 @@
   --accent-rgb: 59, 130, 246;
   --accent-light: rgba(59, 130, 246, 0.1);
   --accent-dark: rgba(59, 130, 246, 0.2);
+
+  /* shadcn/ui CSS variables for light mode */
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 84% 4.9%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222.2 84% 4.9%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
+  --radius: 0.5rem;
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: 240 5.3% 26.1%;
+  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 240 4.8% 95.9%;
+  --sidebar-accent-foreground: 240 5.9% 10%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
 }
 
 .dark {
@@ -18,6 +53,40 @@
   --background-start-rgb: 20, 20, 20;
   --background-end-rgb: 30, 30, 30;
   color-scheme: dark;
+
+  /* shadcn/ui CSS variables for dark mode */
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217.2 91.2% 59.8%;
+  --primary-foreground: 222.2 84% 4.9%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 224.3 76.3% 94.1%;
+  --chart-1: 220 70% 50%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+  --sidebar-background: 240 5.9% 10%;
+  --sidebar-foreground: 240 4.8% 95.9%;
+  --sidebar-primary: 224.3 76.3% 94.1%;
+  --sidebar-primary-foreground: 240 5.9% 10%;
+  --sidebar-accent: 240 3.7% 15.9%;
+  --sidebar-accent-foreground: 240 4.8% 95.9%;
+  --sidebar-border: 240 3.7% 15.9%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
 }
 
 body {
@@ -897,4 +966,100 @@ body {
 /* 修复暗黑模式下的文本颜色 */
 .dark [color="dimmed"] {
   color: #a0a0a0 !important;
+}
+
+/* 登录页和注册页专用的黑暗模式样式 */
+.dark .mantine-Paper-root {
+  background-color: #1e1e1e !important;
+  border-color: #444444 !important;
+  color: #e0e0e0 !important;
+}
+
+.dark .mantine-Container-root {
+  color: #e0e0e0;
+}
+
+/* 修复登录/注册页面的标题和文本 */
+.dark .mantine-Title-root {
+  color: #e0e0e0 !important;
+}
+
+.dark .mantine-Text-root[data-variant="dimmed"],
+.dark .mantine-Text-root[c="dimmed"] {
+  color: #a0a0a0 !important;
+}
+
+/* 修复登录/注册页面的输入框样式 */
+.dark .mantine-TextInput-root .mantine-Input-input,
+.dark .mantine-PasswordInput-root .mantine-Input-input {
+  background-color: #2a2a2a !important;
+  border-color: #444444 !important;
+  color: #e0e0e0 !important;
+}
+
+.dark .mantine-TextInput-root .mantine-Input-input:focus,
+.dark .mantine-PasswordInput-root .mantine-Input-input:focus {
+  border-color: var(--accent-color) !important;
+}
+
+.dark .mantine-TextInput-root .mantine-Input-input::placeholder,
+.dark .mantine-PasswordInput-root .mantine-Input-input::placeholder {
+  color: #909090 !important;
+}
+
+/* 修复输入框标签 */
+.dark .mantine-InputWrapper-label {
+  color: #e0e0e0 !important;
+}
+
+/* 修复错误状态的输入框 */
+.dark .mantine-TextInput-root .mantine-Input-input[data-invalid],
+.dark .mantine-PasswordInput-root .mantine-Input-input[data-invalid] {
+  border-color: #ff6b6b !important;
+}
+
+/* 修复链接样式 */
+.dark .mantine-Anchor-root {
+  color: var(--accent-color) !important;
+}
+
+.dark .mantine-Anchor-root:hover {
+  color: #60a5fa !important;
+}
+
+/* 修复按钮在加载状态下的样式 */
+.dark .mantine-Button-root[data-loading] {
+  background-color: var(--accent-color) !important;
+  opacity: 0.8;
+}
+
+/* 修复成功消息文本颜色 */
+.dark .mantine-Text-root[c="green"] {
+  color: #4ade80 !important;
+}
+
+/* 修复错误消息文本颜色 */
+.dark .mantine-Text-root[c="red"] {
+  color: #f87171 !important;
+}
+
+/* 确保 Stack 和 Center 组件在暗黑模式下正常显示 */
+.dark .mantine-Stack-root,
+.dark .mantine-Center-root {
+  color: inherit;
+}
+
+/* 修复 Container 在暗黑模式下的样式 */
+.dark .mantine-Container-root {
+  background-color: transparent;
+}
+
+/* 为登录/注册页面的背景提供更好的对比度 */
+.dark body {
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+}
+
+/* 修复 Paper 组件的阴影在暗黑模式下的显示 */
+.dark .mantine-Paper-root[data-with-border] {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
 }

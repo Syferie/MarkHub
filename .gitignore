@@ -7,10 +7,28 @@ pnpm-debug.log*
 lerna-debug.log*
 .pnpm-store/
 
-# Next.js
+# Next.js (Frontend)
 .next/
 out/
 build/
+
+# Go (Backend)
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+vendor/
+
+# PocketBase specific (Backend)
+pb_data/
+pb_migrations/
+*.db
+*.db-journal
+pocketbase_docs_complete/
+backend/pocketbase_docs_complete/*
 
 # IDE / Editor specific
 .idea/
@@ -52,7 +70,24 @@ logs
 *.pid.lock
 lib-cov
 
-chrome-s*
+# Docker
+.dockerignore
+docker-compose.override.yml
 
-markhub-backend*
-mantine_*
+# Chrome Extension (Extension)
+chrome-s*
+*.crx
+*.pem
+web-ext-artifacts/
+
+# TypeScript
+*.tsbuildinfo
+
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+refactor_progress.md
+markhub_refactor_plan.md

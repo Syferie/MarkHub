@@ -5,6 +5,7 @@ export interface Bookmark {
   folderId?: string | null; // 明确标记为可选，并与 api-client.ts 保持一致
   tags?: string[]
   createdAt: string
+  updatedAt: string
   faviconUrl?: string | null;
   isFavorite?: boolean
 }
@@ -13,6 +14,8 @@ export interface Folder {
   id: string
   name: string
   parentId?: string | null; // 明确标记为可选，并与 api-client.ts 保持一致
+  createdAt: string
+  updatedAt: string
 }
 
 export interface SortOption {
@@ -47,7 +50,7 @@ export interface UserSetting {
   webdav_config?: WebDAVConfigType
   favoriteFolderIds?: string[]
   tagList?: string[]
-  sortOption?: string // 例如 'createdAt_desc', 'title_asc'
+  sortOption?: string // 例如 'created_desc', 'title_asc'
   searchFields?: string[] // 例如 ['title', 'url', 'tags']
   defaultView?: 'all' | 'favorites' | string // string for specific folder id
   geminiApiBaseUrl?: string

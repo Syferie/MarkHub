@@ -36,7 +36,6 @@ export default function RegisterPage() {
   const { register } = useAuth(); // 从 AuthContext 获取 register 函数
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const form = useForm<RegisterFormValues>({
     mode: "uncontrolled",
@@ -51,13 +50,10 @@ export default function RegisterPage() {
   async function handleSubmit(data: RegisterFormValues) {
     setIsSubmitting(true);
     setError(null);
-    setSuccessMessage(null);
     try {
       console.log("尝试注册 (AuthContext):", { email: data.email, password: data.password, passwordConfirm: data.passwordConfirm });
       await register(data.email, data.password, data.passwordConfirm);
-      setSuccessMessage("注册成功！请前往登录页面登录。");
-      form.reset(); // 注册成功后清空表单
-      // 导航或进一步操作由 AuthContext 中的 register 函数（或此处逻辑）处理
+      // 注册成功后会自动登录并跳转到首页，不需要显示成功消息或重置表单
     } catch (err: any) {
       console.error("注册失败 (AuthContext):", err);
       setError(err.message || "注册失败，请稍后重试。");
@@ -109,13 +105,8 @@ export default function RegisterPage() {
                 {error}
               </Text>
             )}
-            {successMessage && (
-              <Text c="green" size="sm" ta="center">
-                {successMessage}
-              </Text>
-            )}
             <Button type="submit" fullWidth mt="xl" radius="md" loading={isSubmitting}>
-              {isSubmitting ? "注册中..." : "注册"}
+              {isSubmitting ? "注册中..." : "注册并登录"}
             </Button>
           </Stack>
         </form>

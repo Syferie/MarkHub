@@ -399,11 +399,47 @@ ports:
 
 ### 环境变量配置
 
-项目使用环境变量来存储敏感信息。在直接部署时，请确保设置以下环境变量：
+项目使用环境变量来存储敏感信息和配置项。在直接部署时，请确保设置以下环境变量：
 
-- `REDIS_URL`: (必需) 用于AI功能异步任务状态管理的Redis数据库连接URL。例如: `redis://localhost:6379`
+#### 必需的环境变量
 
-> **注意**: 使用Docker Compose部署时，环境变量已在配置文件中预设，无需额外配置。
+- `NEXT_PUBLIC_API_BASE_URL`: (推荐) 后端API基础URL
+  - 开发环境: `http://127.0.0.1:8090`
+  - 生产环境: `https://your-production-api.com`
+
+#### 环境变量配置步骤
+
+1. **开发环境配置**
+   
+   复制项目根目录的 `.env.example` 文件为 `.env`：
+   ```bash
+   cp .env.example .env
+   ```
+   
+   然后根据需要修改其中的值，例如：
+   ```env
+   # 后端API基础URL - 开发环境
+   NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8090
+   ```
+
+2. **生产环境配置**
+   
+   根据您的实际后端服务地址设置：
+   ```env
+   # 后端API基础URL - 生产环境
+   NEXT_PUBLIC_API_BASE_URL=https://your-production-api.com
+   ```
+
+3. **验证配置**
+   
+   启动开发服务器后，在浏览器开发者工具的控制台中检查网络请求，确认API请求指向正确的后端地址。
+
+> **注意**: 
+> - `.env` 文件会被 Git 忽略，不会提交到版本控制系统
+> - 环境变量名以 `NEXT_PUBLIC_` 开头，可以在客户端代码中使用
+> - 如果不设置 `NEXT_PUBLIC_API_BASE_URL`，应用会默认使用 `http://127.0.0.1:8090`
+> - 修改环境变量后需要重启开发服务器
+> - 使用Docker Compose部署时，环境变量已在配置文件中预设，无需额外配置
 
 ## 许可证
 

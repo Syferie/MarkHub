@@ -1,17 +1,18 @@
-version: '3.8'
-
 services:
-  # MarkHub应用服务
-  app:
-    image: syferie/markhub:latest
-    container_name: markhub-app
+  # MarkHub 前端服务 (Next.js)
+  frontend:
+    # 使用云端预构建的前端镜像 - 用户需要替换为实际的镜像名称
+    image: your-repo/markhub-frontend:latest
+    container_name: markhub-frontend
     ports:
       - "3000:3000"
-    depends_on:
-      - redis
     environment:
       - NODE_ENV=production
-      - REDIS_URL=redis://redis:6379
+      - NEXT_TELEMETRY_DISABLED=1
+      # 前端需要连接到后端服务的API地址
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:8090
+    depends_on:
+      - backend
     restart: unless-stopped
     networks:
       - markhub-network
@@ -19,25 +20,45 @@ services:
       resources:
         limits:
           memory: 512M
+        reservations:
+          memory: 256M
 
-  # Redis服务 - 用于AI任务队列管理
-  redis:
-    image: redis:alpine
-    container_name: markhub-redis
+  # MarkHub 后端服务 (Go + PocketBase)
+  backend:
+    # 使用云端预构建的后端镜像 - 用户需要替换为实际的镜像名称
+    image: your-repo/markhub-backend:latest
+    container_name: markhub-backend
+    ports:
+      - "8090:8090"
+    environment:
+      - GO_ENV=production
+      # PocketBase 数据目录
+      - PB_DATA_DIR=/app/pb_data
+      # 可选：设置PocketBase的公开URL（用于邮件链接等）
+      - POCKETBASE_URL=http://localhost:8090
     volumes:
-      - redis-data:/data
+      # 持久化PocketBase数据库和文件
+      - pocketbase-data:/app/pb_data
     restart: unless-stopped
     networks:
       - markhub-network
-    command: redis-server --appendonly yes --save 60 1 --maxmemory 256mb --maxmemory-policy volatile-lru
     deploy:
       resources:
         limits:
+          memory: 512M
+        reservations:
           memory: 256M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/api/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 # 定义持久化存储
 volumes:
-  redis-data:
+  # PocketBase 数据持久化存储
+  pocketbase-data:
     driver: local
 
 # 定义网络

@@ -45,7 +45,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (identity: string, password: string) => Promise<void>;
   register: (email: string, password: string, passwordConfirm: string) => Promise<void>;
-  logout: () => void;
+  logoutAndRedirect: () => void; // Renamed from logout
   updateGlobalSettings: (newSettings: Partial<UserSetting>) => Promise<void>; // 新增
 }
 
@@ -57,6 +57,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [userSettings, setUserSettings] = useState<UserSetting | null>(null); // 新增
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  const logoutAndRedirect = React.useCallback(() => {
+    setUser(null);
+    setToken(null);
+    setUserSettings(null); // 新增：重置用户设置
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('authUser'); // 新增：移除用户对象
+    router.push('/login');
+  }, [router]);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');
@@ -93,13 +102,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .catch(err => {
           console.error('Failed to load or create user settings on init:', err);
           // 根据错误类型处理，例如 token 过期则登出
-          if (err.message.includes('401') || err.message.includes('403')) { // 简化错误处理
-            logout(); // 如果 token 无效或无权访问，则登出
-          }
+          // The actual logout is now handled by the 'auth-error' event
         });
     }
     setIsLoading(false);
-  }, []);
+
+    // Event listener for auth errors
+    const handleAuthError = () => {
+      logoutAndRedirect();
+    };
+    window.addEventListener('auth-error', handleAuthError);
+
+    return () => {
+      window.removeEventListener('auth-error', handleAuthError);
+    };
+  }, [logoutAndRedirect]); // logoutAndRedirect is now defined above and stable
 
   const login = async (identity: string, password: string) => {
     try {
@@ -138,23 +155,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (email: string, password: string, passwordConfirm: string) => {
     try {
+      // 先注册用户
       await apiClient.registerUser(email, password, passwordConfirm);
-      console.log('Registration successful. Please log in.');
-      // router.push('/login');
+      console.log('Registration successful. Now logging in automatically...');
+      
+      // 注册成功后自动登录
+      await login(email, password);
+      console.log('Auto-login successful. Redirecting to dashboard...');
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('Registration or auto-login error:', error);
       throw error;
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    setUserSettings(null); // 新增：重置用户设置
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('authUser'); // 新增：移除用户对象
-    router.push('/login');
-  };
 
   const updateGlobalSettings = async (newSettings: Partial<UserSetting>) => {
     if (!token || !userSettings || !userSettings.id) {
@@ -171,7 +184,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, userSettings, isLoading, login, register, logout, updateGlobalSettings }}>
+    <AuthContext.Provider value={{ user, token, userSettings, isLoading, login, register, logoutAndRedirect, updateGlobalSettings }}>
       {children}
     </AuthContext.Provider>
   );

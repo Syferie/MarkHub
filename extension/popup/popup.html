@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MarkHub Bookmarker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="popup-wrapper">
+    <div class="logo-container">
+      <img src="../icon.png" alt="MarkHub Logo" class="logo-icon">
+      <span class="logo-text">MarkHub</span>
+    </div>
+
+    <div class="info-field" id="pageUrl" title="当前页面 URL"></div>
+    <input type="text" class="info-field editable" id="pageTitle" placeholder="书签标题" title="点击编辑书签标题">
+
+    <button id="saveButton" class="btn"> <!-- Removed btn-primary -->
+      <span class="btn-icon"> <!-- Added span wrapper for consistency -->
+        <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px; height:16px;">
+          <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+        </svg>
+      </span>
+      添加书签
+    </button>
+
+    <button id="manageButton" class="btn">
+      <span class="btn-icon"> <!-- Added span wrapper for consistency -->
+        <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px; height:16px;">
+          <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v3a2 2 0 01-2 2H4a2 2 0 01-2-2v-3z" />
+        </svg>
+      </span>
+      管理书签
+    </button>
+
+    <div class="settings-btn-container">
+      <button id="settingsButton" class="settings-btn" title="设置">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.25 C14.34,2.04,14.13,1.88,13.89,1.88h-3.77c-0.24,0-0.44,0.15-0.5,0.36L9.26,4.71c-0.59,0.24-1.13,0.57-1.62,0.94L5.25,4.69 c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.24C2.63,8.44,2.68,8.7,2.86,8.84l2.03,1.58C4.84,10.72,4.83,11.03,4.83,11.35 c0,0.32,0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22 l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.46c0.06,0.21,0.26,0.36,0.5,0.36h3.77c0.24,0,0.44-0.15,0.5-0.36 l0.36-2.46c0.59-0.24,1.13-0.57,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32 C21.32,15.25,21.27,14.99,21.14,14.86L19.14,12.94z M12,15.62c-1.98,0-3.58-1.6-3.58-3.58s1.6-3.58,3.58-3.58 s3.58,1.6,3.58,3.58S13.98,15.62,12,15.62z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- 设置面板 -->
+  <div id="settingsPanel" class="settings-panel">
+    <div class="settings-content-wrapper">
+      <div class="settings-header">
+        <button id="backButton" class="back-btn" title="返回">
+          <svg viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+        </button>
+        <h2 class="settings-title">设置</h2>
+      </div>
+
+      <!-- 设置面板顶部Logo -->
+      <div class="settings-logo-container">
+        <img src="../icon.png" alt="MarkHub Logo" class="settings-logo-icon">
+      </div>
+
+      <!-- 配置部分 -->
+      <div class="settings-section">
+        <div class="settings-group">
+          <label for="sync-enabled" class="settings-label">
+            <input type="checkbox" id="sync-enabled" name="sync-enabled" class="settings-checkbox">
+            启用与MarkHub的同步
+          </label>
+        </div>
+        
+        <h3 class="settings-subtitle">AI服务配置</h3>
+        
+        <div class="settings-group">
+          <label for="api-key" class="settings-label">API Key</label>
+          <input type="password" id="api-key" name="api-key" class="settings-input" placeholder="输入您的AI服务API Key">
+        </div>
+        
+        <div class="settings-group">
+          <label for="api-base-url" class="settings-label">API Base URL (可选)</label>
+          <input type="text" id="api-base-url" name="api-base-url" class="settings-input" placeholder="例如: https://api.openai.com/v1">
+        </div>
+        
+        <div class="settings-group">
+          <label for="model-name" class="settings-label">模型名称 (可选)</label>
+          <input type="text" id="model-name" name="model-name" class="settings-input" placeholder="例如: gemini-pro">
+        </div>
+        
+        <div class="settings-group">
+          <label for="markhub-app-url" class="settings-label">MarkHub 应用 URL (可选)</label>
+          <input type="text" id="markhub-app-url" name="markhub-app-url" class="settings-input" placeholder="例如: https://markhub.app">
+        </div>
+        
+        <button id="save-config-btn" class="settings-save-btn">保存配置</button>
+        <p id="status-message" class="settings-status"></p>
+      </div>
+
+      <!-- 关于信息部分 - 简约居中设计 -->
+      <div class="about-section-centered">
+        <div class="about-item-centered">
+          <div class="about-label-centered">MarkHub</div>
+        </div>
+
+        <div class="about-item-centered">
+          <div class="about-label-centered">作者</div>
+          <div class="about-value-centered">Syferie</div>
+        </div>
+
+        <div class="about-item-centered">
+          <div class="about-label-centered">联系方式</div>
+          <div class="about-value-centered">
+            <a href="mailto:syferie@proton.me" class="about-link">syferie@proton.me</a>
+          </div>
+        </div>
+
+        <div class="about-item-centered">
+          <div class="about-label-centered">项目地址</div>
+          <div class="about-value-centered">
+            <a href="https://github.com/Syferie/MarkHub" target="_blank" class="about-link">github.com/Syferie/MarkHub</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
