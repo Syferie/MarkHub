@@ -7,21 +7,14 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - NEXT_TELEMETRY_DISABLED=1
       # 前端需要连接到后端服务的API地址
+      # 注意：在Docker网络中，前端容器通过服务名 'backend' 访问后端
       - NEXT_PUBLIC_API_BASE_URL=http://backend:8090
     depends_on:
       - backend
     restart: unless-stopped
     networks:
       - markhub-network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
 
   # MarkHub 后端服务 (Go + PocketBase)
   backend:
@@ -31,23 +24,26 @@ services:
     ports:
       - "8090:8090"
     environment:
-      - GO_ENV=production
-      # PocketBase 数据目录
-      - PB_DATA_DIR=/app/pb_data
       # 可选：设置PocketBase的公开URL（用于邮件链接等）
       - POCKETBASE_URL=http://localhost:8090
+      
+      # ⚠️ 【必须配置】JWT密钥 - 用于用户认证Token签名
+      # 🔐 强烈建议使用32字符以上的随机密钥，可以访问以下网址生成：
+      # 🌐 https://passwords-generator.org/32-character
+      # ❌ 如果检测到使用默认值，系统将自动生成新密钥
+      - JWT_SECRET=your_very_secure_jwt_secret_key_at_least_32_characters_long_change_this_in_production
+      
+      # ⚠️ 【必须配置】敏感信息加密密钥 - 用于加密API密钥等敏感配置
+      # 🔐 必须使用32字符的随机密钥，与JWT_SECRET使用不同的值
+      # 🌐 请访问 https://passwords-generator.org/32-character 生成
+      # ❌ 如果检测到使用默认值，系统将自动生成新密钥
+      - ENCRYPTION_KEY=your_32_character_encryption_key_change_this_in_production_env
     volumes:
       # 持久化PocketBase数据库和文件
       - pocketbase-data:/app/pb_data
     restart: unless-stopped
     networks:
       - markhub-network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/api/health", "||", "exit", "1"]
       interval: 30s

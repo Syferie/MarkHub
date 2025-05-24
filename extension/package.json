@@ -18,7 +18,8 @@
     "react-dom": "^18.2.0",
     "clsx": "^2.1.1",
     "i18next": "^23.7.6",
-    "react-i18next": "^13.5.0"
+    "react-i18next": "^13.5.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",

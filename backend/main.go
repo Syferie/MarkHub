@@ -2,7 +2,10 @@ package main
 
 import (
 	"bytes"
-	"crypto/rand"  // Added for JWT secret generation
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"  // Added for JWT secret generation and encryption
+	"encoding/base64"
 	"encoding/hex" // Added for JWT secret generation
 	"encoding/json"
 	"fmt"
@@ -83,12 +86,137 @@ type FolderBackup struct {
 	UpdatedAt  string `json:"updatedAt,omitempty"`
 }
 
-// 辅助函数：解密密码
+// 全局加密密钥变量
+var encryptionKey string
+
+// 初始化加密密钥
+func initEncryptionKey() {
+	encryptionKey = os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		log.Println("Warning: ENCRYPTION_KEY not set, generating random key for this session")
+		randomKeyBytes := make([]byte, 32)
+		if _, err := rand.Read(randomKeyBytes); err == nil {
+			encryptionKey = hex.EncodeToString(randomKeyBytes)[:32] // 确保32字符
+			log.Printf("Info: Generated temporary encryption key: %s...", encryptionKey[:8])
+		} else {
+			encryptionKey = "dev_encryption_key_32_chars_long" // 32字符的默认密钥
+			log.Printf("Warning: Using default encryption key for development")
+		}
+	} else if len(encryptionKey) < 32 {
+		log.Printf("Warning: ENCRYPTION_KEY too short (%d chars), padding to 32 chars", len(encryptionKey))
+		encryptionKey = (encryptionKey + "00000000000000000000000000000000")[:32]
+	} else if len(encryptionKey) > 32 {
+		encryptionKey = encryptionKey[:32] // 截取前32字符
+	}
+	log.Printf("Info: Encryption key initialized (length: %d)", len(encryptionKey))
+}
+
+// 检查默认密钥并警告用户
+func checkDefaultKeys() {
+	// 检查JWT密钥
+	jwtSecret := os.Getenv("JWT_SECRET")
+	defaultJWTSecrets := []string{
+		"your_very_secure_jwt_secret_key_at_least_32_characters_long_change_this_in_production",
+		"dev_jwt_secret_key_for_development_only_not_for_production_use",
+		"dev_jwt_secret_key_32_characters_long_for_development_only",
+	}
+	
+	for _, defaultSecret := range defaultJWTSecrets {
+		if jwtSecret == defaultSecret {
+			log.Println("🚨 SECURITY WARNING: You are using a default JWT_SECRET!")
+			log.Println("🔐 Please generate a secure 32-character key at: https://passwords-generator.org/32-character")
+			log.Println("⚠️  Using default keys in production is a serious security risk!")
+			break
+		}
+	}
+	
+	// 检查加密密钥
+	defaultEncryptionKeys := []string{
+		"your_32_character_encryption_key_change_this_in_production_env",
+		"dev_encryption_key_32_chars_long",
+	}
+	
+	for _, defaultKey := range defaultEncryptionKeys {
+		if encryptionKey == defaultKey {
+			log.Println("🚨 SECURITY WARNING: You are using a default ENCRYPTION_KEY!")
+			log.Println("🔐 Please generate a secure 32-character key at: https://passwords-generator.org/32-character")
+			log.Println("⚠️  Using default keys in production is a serious security risk!")
+			log.Println("💡 Make sure to use a DIFFERENT key than your JWT_SECRET!")
+			break
+		}
+	}
+	
+	// 检查是否两个密钥相同
+	if jwtSecret != "" && encryptionKey != "" && jwtSecret == encryptionKey {
+		log.Println("🚨 SECURITY WARNING: JWT_SECRET and ENCRYPTION_KEY are identical!")
+		log.Println("🔐 Please use different keys for JWT_SECRET and ENCRYPTION_KEY!")
+		log.Println("🌐 Generate different keys at: https://passwords-generator.org/32-character")
+	}
+}
+
+// 加密敏感数据
+func encryptSensitiveData(plaintext string) (string, error) {
+	if plaintext == "" {
+		return "", nil
+	}
+	
+	block, err := aes.NewCipher([]byte(encryptionKey))
+	if err != nil {
+		return "", fmt.Errorf("failed to create cipher: %w", err)
+	}
+	
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GCM: %w", err)
+	}
+	
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", fmt.Errorf("failed to generate nonce: %w", err)
+	}
+	
+	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+// 解密敏感数据
+func decryptSensitiveData(ciphertext string) (string, error) {
+	if ciphertext == "" {
+		return "", nil
+	}
+	
+	data, err := base64.StdEncoding.DecodeString(ciphertext)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64: %w", err)
+	}
+	
+	block, err := aes.NewCipher([]byte(encryptionKey))
+	if err != nil {
+		return "", fmt.Errorf("failed to create cipher: %w", err)
+	}
+	
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GCM: %w", err)
+	}
+	
+	nonceSize := gcm.NonceSize()
+	if len(data) < nonceSize {
+		return "", fmt.Errorf("ciphertext too short")
+	}
+	
+	nonce, ciphertextBytes := data[:nonceSize], data[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertextBytes, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt: %w", err)
+	}
+	
+	return string(plaintext), nil
+}
+
+// 辅助函数：解密密码（保持向后兼容）
 func decryptPassword(encrypted string) (string, error) {
-	// TODO: 实现实际的解密逻辑，这里仅为占位符
-	// 在真实实现中，应该使用加密密钥和合适的解密算法
-	// 目前简单返回加密的值
-	return encrypted, nil
+	return decryptSensitiveData(encrypted)
 }
 
 // suggestFolderHandler handles the API request for AI folder suggestions.
@@ -2236,6 +2364,12 @@ func main() {
 	}
 	log.Println("Info: PocketBase application bootstrapped successfully.")
 
+	// Initialize encryption key
+	initEncryptionKey()
+	
+	// 检查并警告默认密钥使用
+	checkDefaultKeys()
+
 	// --- Load configuration from environment variables and apply them AFTER bootstrap ---
 
 	// 1. POCKETBASE_URL (HTTP Listen Address)
@@ -2436,6 +2570,95 @@ func main() {
 	})
 	// --- End of Hooks ---
 	// --- Hook for 'user_settings' collection ---
+	
+	// 加密敏感字段的钩子 - 在创建和更新时
+	encryptSensitiveFields := func(e *core.RecordRequestEvent) error {
+		// 需要加密的字段列表
+		sensitiveFields := []string{"geminiApiKey", "geminiApiBaseUrl"}
+		
+		for _, field := range sensitiveFields {
+			if value := e.Record.GetString(field); value != "" {
+				// 检查是否已经是加密格式（base64编码的密文通常不包含明文特征）
+				if !strings.Contains(value, "://") && !strings.HasPrefix(value, "sk-") {
+					// 可能已经加密，跳过
+					continue
+				}
+				
+				encrypted, err := encryptSensitiveData(value)
+				if err != nil {
+					log.Printf("Error encrypting %s: %v", field, err)
+					return fmt.Errorf("failed to encrypt sensitive data")
+				}
+				e.Record.Set(field, encrypted)
+				log.Printf("Encrypted field %s for user %s", field, e.Record.GetString("userId"))
+			}
+		}
+		
+		// 加密WebDAV配置中的密码
+		if webdavConfigRaw := e.Record.Get("webdav_config"); webdavConfigRaw != nil {
+			// 尝试将其转换为字符串或字节数组
+			var webdavConfigBytes []byte
+			var err error
+			
+			switch v := webdavConfigRaw.(type) {
+			case string:
+				webdavConfigBytes = []byte(v)
+			case []byte:
+				webdavConfigBytes = v
+			default:
+				// 尝试JSON序列化
+				webdavConfigBytes, err = json.Marshal(v)
+				if err != nil {
+					log.Printf("Error marshaling webdav_config: %v", err)
+					return nil // 跳过加密，继续处理
+				}
+			}
+			
+			var webdavConfig map[string]interface{}
+			if err := json.Unmarshal(webdavConfigBytes, &webdavConfig); err == nil {
+				if password, exists := webdavConfig["Password"]; exists {
+					if passwordStr, ok := password.(string); ok && passwordStr != "" {
+						// 检查是否已经加密
+						if !strings.Contains(passwordStr, "://") && len(passwordStr) > 20 {
+							// 可能已经加密，跳过
+						} else {
+							encrypted, err := encryptSensitiveData(passwordStr)
+							if err != nil {
+								log.Printf("Error encrypting WebDAV password: %v", err)
+								return fmt.Errorf("failed to encrypt WebDAV password")
+							}
+							webdavConfig["Password"] = encrypted
+							
+							updatedConfig, err := json.Marshal(webdavConfig)
+							if err != nil {
+								return fmt.Errorf("failed to marshal WebDAV config")
+							}
+							e.Record.Set("webdav_config", string(updatedConfig))
+							log.Printf("Encrypted WebDAV password for user %s", e.Record.GetString("userId"))
+						}
+					}
+				}
+			}
+		}
+		
+		return nil
+	}
+	
+	// 创建用户设置时加密敏感字段
+	app.OnRecordCreateRequest("user_settings").BindFunc(func(e *core.RecordRequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return apis.NewForbiddenError("Only authenticated users can create settings.", nil)
+		}
+		
+		// 加密敏感字段
+		if err := encryptSensitiveFields(e); err != nil {
+			return err
+		}
+		
+		return e.Next()
+	})
+	
 	app.OnRecordUpdateRequest("user_settings").BindFunc(func(e *core.RecordRequestEvent) error {
 		authRecord := e.Auth
 		if authRecord == nil {
@@ -2444,6 +2667,11 @@ func main() {
 			return apis.NewForbiddenError("Only authenticated users can update their settings.", nil)
 		}
 		userId := authRecord.Id
+		
+		// 加密敏感字段
+		if err := encryptSensitiveFields(e); err != nil {
+			return err
+		}
 
 		// Get the current (old) state of the record
 		oldRecord, err := e.App.FindRecordById("user_settings", e.Record.Id)
@@ -2526,6 +2754,128 @@ func main() {
 		}
 
 		return e.Next()
+	})
+	
+	// 解密敏感字段的钩子 - 在读取时
+	app.OnRecordViewRequest("user_settings").BindFunc(func(e *core.RecordRequestEvent) error {
+		// 解密敏感字段
+		sensitiveFields := []string{"geminiApiKey", "geminiApiBaseUrl"}
+		
+		for _, field := range sensitiveFields {
+			if encryptedValue := e.Record.GetString(field); encryptedValue != "" {
+				decrypted, err := decryptSensitiveData(encryptedValue)
+				if err != nil {
+					log.Printf("Error decrypting %s: %v (keeping encrypted value)", field, err)
+					// 保持加密值，不返回错误
+					continue
+				}
+				e.Record.Set(field, decrypted)
+			}
+		}
+		
+		// 解密WebDAV配置中的密码
+		if webdavConfigRaw := e.Record.Get("webdav_config"); webdavConfigRaw != nil {
+			var webdavConfigBytes []byte
+			var err error
+			
+			switch v := webdavConfigRaw.(type) {
+			case string:
+				webdavConfigBytes = []byte(v)
+			case []byte:
+				webdavConfigBytes = v
+			default:
+				webdavConfigBytes, err = json.Marshal(v)
+				if err != nil {
+					log.Printf("Error marshaling webdav_config for decryption: %v", err)
+					return e.Next()
+				}
+			}
+			
+			var webdavConfig map[string]interface{}
+			if err := json.Unmarshal(webdavConfigBytes, &webdavConfig); err == nil {
+				if password, exists := webdavConfig["Password"]; exists {
+					if passwordStr, ok := password.(string); ok && passwordStr != "" {
+						decrypted, err := decryptSensitiveData(passwordStr)
+						if err != nil {
+							log.Printf("Error decrypting WebDAV password: %v (keeping encrypted value)", err)
+						} else {
+							webdavConfig["Password"] = decrypted
+							
+							updatedConfig, err := json.Marshal(webdavConfig)
+							if err == nil {
+								e.Record.Set("webdav_config", string(updatedConfig))
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		return e.Next()
+	})
+	
+	// 也为列表查询添加解密 - 在响应发送前处理
+	app.OnRecordsListRequest("user_settings").BindFunc(func(e *core.RecordsListRequestEvent) error {
+		// 先执行查询
+		if err := e.Next(); err != nil {
+			return err
+		}
+		
+		// 然后解密结果中的敏感字段
+		sensitiveFields := []string{"geminiApiKey", "geminiApiBaseUrl"}
+		
+		for _, record := range e.Records {
+			for _, field := range sensitiveFields {
+				if encryptedValue := record.GetString(field); encryptedValue != "" {
+					decrypted, err := decryptSensitiveData(encryptedValue)
+					if err != nil {
+						log.Printf("Error decrypting %s: %v (keeping encrypted value)", field, err)
+						continue
+					}
+					record.Set(field, decrypted)
+				}
+			}
+			
+			// 解密WebDAV配置中的密码
+			if webdavConfigRaw := record.Get("webdav_config"); webdavConfigRaw != nil {
+				var webdavConfigBytes []byte
+				var err error
+				
+				switch v := webdavConfigRaw.(type) {
+				case string:
+					webdavConfigBytes = []byte(v)
+				case []byte:
+					webdavConfigBytes = v
+				default:
+					webdavConfigBytes, err = json.Marshal(v)
+					if err != nil {
+						log.Printf("Error marshaling webdav_config for decryption: %v", err)
+						continue
+					}
+				}
+				
+				var webdavConfig map[string]interface{}
+				if err := json.Unmarshal(webdavConfigBytes, &webdavConfig); err == nil {
+					if password, exists := webdavConfig["Password"]; exists {
+						if passwordStr, ok := password.(string); ok && passwordStr != "" {
+							decrypted, err := decryptSensitiveData(passwordStr)
+							if err != nil {
+								log.Printf("Error decrypting WebDAV password: %v (keeping encrypted value)", err)
+							} else {
+								webdavConfig["Password"] = decrypted
+								
+								updatedConfig, err := json.Marshal(webdavConfig)
+								if err == nil {
+									record.Set("webdav_config", string(updatedConfig))
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		return nil
 	})
 
 	// Register all custom routes in a single OnServe handler to avoid conflicts

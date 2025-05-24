@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "MarkHub Chrome Sync",
-  "version": "0.1.0",
-  "description": "Intelligently categorizes new Chrome bookmarks into existing folders and syncs them to MarkHub.",
+  "name": "MarkHub",
+  "version": "1.0.0",
+  "description": "智能书签管理和同步工具，支持 AI 文件夹推荐和与 Markhub 应用同步",
   "permissions": [
     "bookmarks",
     "storage",
@@ -21,13 +21,13 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content_script.js"],
+      "js": ["content.js"],
       "run_at": "document_idle",
       "all_frames": false
     }
   ],
   "action": {
-    "default_popup": "popup/popup.html",
+    "default_popup": "popup/index.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -41,7 +41,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "tooltip.css"],
+      "resources": ["icons/*", "assets/*"],
       "matches": ["<all_urls>"]
     }
   ]

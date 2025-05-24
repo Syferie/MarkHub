@@ -8,6 +8,22 @@
  */
 
 import { getConfigManager } from './ConfigManager';
+import {
+  BookmarkSchema,
+  FolderSchema,
+  AuthResponseSchema,
+  BookmarkListResponseSchema,
+  FolderListResponseSchema,
+  CreateBookmarkInputSchema,
+  UpdateBookmarkInputSchema,
+  CreateFolderInputSchema,
+  UpdateFolderInputSchema,
+  safeValidateBookmark,
+  safeValidateFolder,
+  type Bookmark as ValidatedBookmark,
+  type Folder as ValidatedFolder,
+  type AuthResponse as ValidatedAuthResponse
+} from '../shared/schemas';
 
 // 自定义错误类型
 export class AIServiceNotAvailableError extends Error {
@@ -152,14 +168,39 @@ export class MarkhubAPIClient {
   }
 
   /**
+   * 带验证的 API 请求方法
+   */
+  private async fetchAPIWithValidation<T>(
+    endpoint: string,
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
+    body?: any,
+    useAuth: boolean = true,
+    validator?: (data: unknown) => T
+  ): Promise<T> {
+    const response = await this.fetchAPI<unknown>(endpoint, method, body, useAuth);
+    
+    if (validator) {
+      try {
+        return validator(response);
+      } catch (error: any) {
+        console.error('API Response validation failed:', error);
+        throw new Error(`API响应格式验证失败: ${error.message || '未知错误'}`);
+      }
+    }
+    
+    return response as T;
+  }
+
+  /**
    * 用户登录
    */
-  public async login(identity: string, password: string): Promise<AuthResponse> {
-    const response = await this.fetchAPI<AuthResponse>(
+  public async login(identity: string, password: string): Promise<ValidatedAuthResponse> {
+    const response = await this.fetchAPIWithValidation(
       '/api/collections/users/auth-with-password',
       'POST',
       { identity, password },
-      false // 登录时不需要认证
+      false, // 登录时不需要认证
+      (data) => AuthResponseSchema.parse(data)
     );
 
     // 保存认证 token
@@ -190,19 +231,30 @@ export class MarkhubAPIClient {
   /**
    * 获取所有书签
    */
-  public async getBookmarks(): Promise<Bookmark[]> {
-    const response = await this.fetchAPI<APIResponse<Bookmark>>('/api/collections/bookmarks/records');
+  public async getBookmarks(): Promise<ValidatedBookmark[]> {
+    const response = await this.fetchAPIWithValidation(
+      '/api/collections/bookmarks/records',
+      'GET',
+      undefined,
+      true,
+      (data) => BookmarkListResponseSchema.parse(data)
+    );
     return response.items || [];
   }
 
   /**
    * 创建书签
    */
-  public async createBookmark(bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'>): Promise<Bookmark> {
-    return this.fetchAPI<Bookmark>(
+  public async createBookmark(bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'>): Promise<ValidatedBookmark> {
+    // 验证输入数据
+    const validatedInput = CreateBookmarkInputSchema.parse(bookmarkData);
+    
+    return this.fetchAPIWithValidation(
       '/api/collections/bookmarks/records',
       'POST',
-      bookmarkData
+      validatedInput,
+      true,
+      (data) => BookmarkSchema.parse(data)
     );
   }
 

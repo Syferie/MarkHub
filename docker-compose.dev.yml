@@ -9,10 +9,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=development
-      - NEXT_TELEMETRY_DISABLED=1
       # 前端连接到后端服务的API地址
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8090
+      # 开发环境：前端容器通过服务名 'backend' 访问后端
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:8090
     volumes:
       # 挂载源代码以支持热重载
       - ./frontend:/app
@@ -23,12 +22,6 @@ services:
     restart: unless-stopped
     networks:
       - markhub-network
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
 
   # MarkHub 后端服务 (Go + PocketBase) - 开发环境
   backend:
@@ -40,11 +33,16 @@ services:
     ports:
       - "8090:8090"
     environment:
-      - GO_ENV=development
-      # PocketBase 数据目录
-      - PB_DATA_DIR=/app/pb_data
       # 开发环境的PocketBase URL
       - POCKETBASE_URL=http://0.0.0.0:8090
+      
+      # 🔧 开发环境JWT密钥 - 仅用于开发测试
+      # 生产环境请使用更强的密钥
+      - JWT_SECRET=dev_jwt_secret_key_32_characters_long_for_development_only
+      
+      # 🔧 开发环境加密密钥 - 仅用于开发测试  
+      # 生产环境请使用更强的密钥
+      - ENCRYPTION_KEY=dev_encryption_key_32_chars_long
     volumes:
       # 挂载源代码以支持热重载
       - ./backend:/app
@@ -53,12 +51,6 @@ services:
     restart: unless-stopped
     networks:
       - markhub-network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
     healthcheck:
       test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:8090/api/health || exit 1"]
       interval: 30s

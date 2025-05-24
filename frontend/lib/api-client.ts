@@ -1,5 +1,23 @@
 import { UserSetting } from '../types'; // 新增导入
 import { getApiBaseUrl } from './config'; // 导入配置
+import {
+  BookmarkSchema,
+  FolderSchema,
+  UserSettingSchema,
+  AuthResponseSchema,
+  BookmarkListResponseSchema,
+  FolderListResponseSchema,
+  CreateBookmarkInputSchema,
+  UpdateBookmarkInputSchema,
+  CreateFolderInputSchema,
+  UpdateFolderInputSchema,
+  safeValidateBookmark,
+  safeValidateFolder,
+  type Bookmark as ValidatedBookmark,
+  type Folder as ValidatedFolder,
+  type AuthResponse as ValidatedAuthResponse
+} from './schemas';
+import { z, ZodError } from 'zod';
 
 const API_BASE_URL = getApiBaseUrl(); // 使用配置中的API基础URL
 
@@ -51,24 +69,63 @@ export async function fetchAPI<T = any>( // 添加 export
   return response.json() as Promise<T>;
 }
 
+// 带验证的API请求函数
+export async function fetchAPIWithValidation<T>(
+  endpoint: string,
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
+  body?: any,
+  options?: FetchAPIOptions,
+  validator?: (data: unknown) => T
+): Promise<T> {
+  const response = await fetchAPI<unknown>(endpoint, method, body, options);
+  
+  if (validator) {
+    try {
+      return validator(response);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        console.error('API Response validation failed:', error.errors);
+        throw new Error(`API响应格式验证失败: ${error.errors.map(e => e.message).join(', ')}`);
+      }
+      throw error;
+    }
+  }
+  
+  return response as T;
+}
+
 interface AuthResponse {
   token: string;
   record: any; // Replace 'any' with a more specific user type if available
 }
 
-export async function loginUser(identity: string, password: string): Promise<AuthResponse> {
-  return fetchAPI<AuthResponse>(
+export async function loginUser(identity: string, password: string): Promise<ValidatedAuthResponse> {
+  return fetchAPIWithValidation(
     '/api/collections/users/auth-with-password',
     'POST',
-    { identity, password }
+    { identity, password },
+    undefined,
+    (data) => AuthResponseSchema.parse(data)
   );
 }
 
 export async function registerUser(email: string, password: string, passwordConfirm: string): Promise<any> {
+  // 验证输入参数
+  const inputSchema = z.object({
+    email: z.string().email('请输入有效的邮箱地址'),
+    password: z.string().min(6, '密码至少需要6个字符'),
+    passwordConfirm: z.string()
+  }).refine((data) => data.password === data.passwordConfirm, {
+    message: "密码确认不匹配",
+    path: ["passwordConfirm"],
+  });
+
+  const validatedInput = inputSchema.parse({ email, password, passwordConfirm });
+
   return fetchAPI<any>(
     '/api/collections/users/records',
     'POST',
-    { email, password, passwordConfirm }
+    validatedInput
   );
 }
 
@@ -101,13 +158,25 @@ export interface Folder {
 }
 
 
-export async function getBookmarks(token: string): Promise<Bookmark[]> {
-  const response = await fetchAPI<{ items: Bookmark[] }>('/api/collections/bookmarks/records', 'GET', undefined, { token });
+export async function getBookmarks(token: string): Promise<ValidatedBookmark[]> {
+  const response = await fetchAPIWithValidation(
+    '/api/collections/bookmarks/records',
+    'GET',
+    undefined,
+    { token },
+    (data) => BookmarkListResponseSchema.parse(data)
+  );
   return response.items || [];
 }
 
-export async function getFolders(token: string): Promise<Folder[]> {
-  const response = await fetchAPI<{ items: Folder[] }>('/api/collections/folders/records', 'GET', undefined, { token });
+export async function getFolders(token: string): Promise<ValidatedFolder[]> {
+  const response = await fetchAPIWithValidation(
+    '/api/collections/folders/records',
+    'GET',
+    undefined,
+    { token },
+    (data) => FolderListResponseSchema.parse(data)
+  );
   return response.items || [];
 }
 
@@ -115,29 +184,31 @@ export async function getFolders(token: string): Promise<Folder[]> {
 export async function createBookmark(
   token: string,
   bookmarkData: Omit<Bookmark, 'id' | 'created' | 'updatedAt' | 'userId'> & { tags?: string[] }
-): Promise<Bookmark> {
-  // 确保我们提供明确的tags数组，即使是空的
-  const dataToSend = {
+): Promise<ValidatedBookmark> {
+  // 验证输入数据
+  const validatedInput = CreateBookmarkInputSchema.parse({
     ...bookmarkData,
     tags: bookmarkData.tags || []
-  };
+  });
   
   // 过滤掉任何特殊控制标志
+  const dataToSend = { ...validatedInput };
   if ('_skipAiClassification' in dataToSend) {
-    delete dataToSend._skipAiClassification;
+    delete (dataToSend as any)._skipAiClassification;
   }
   if ('_preventAutoTagging' in dataToSend) {
-    delete dataToSend._preventAutoTagging;
+    delete (dataToSend as any)._preventAutoTagging;
   }
   
   // 记录调试信息
   console.log("创建书签: 发送到API的数据:", dataToSend);
   
-  return fetchAPI<Bookmark>(
+  return fetchAPIWithValidation(
     '/api/collections/bookmarks/records',
     'POST',
     dataToSend,
-    { token }
+    { token },
+    (data) => BookmarkSchema.parse(data)
   );
 }
 
@@ -145,23 +216,17 @@ export async function updateBookmark(
   token: string,
   bookmarkId: string,
   bookmarkData: Partial<Omit<Bookmark, 'id' | 'created' | 'updatedAt' | 'userId'>> & { tags?: string[] }
-): Promise<Bookmark> {
+): Promise<ValidatedBookmark> {
+  // 验证输入数据
+  const validatedInput = UpdateBookmarkInputSchema.parse(bookmarkData);
+  
   // 构造要发送的数据，只包含实际传入的字段
-  const dataToSend: any = { ...bookmarkData };
+  const dataToSend: any = { ...validatedInput };
 
   // 如果 bookmarkData 中没有显式提供 tags，则从 dataToSend 中删除它
-  // 以避免发送空的 tags: [] (除非明确就是要清空 tags)
   if (!('tags' in bookmarkData)) {
     delete dataToSend.tags;
   } else {
-    // 如果显式提供了 tags (即使是 null 或 undefined)，确保它被正确处理
-    // PocketBase 通常期望一个数组，或者完全不发送该字段
-    // 如果 bookmarkData.tags 是 null 或 undefined，但 'tags' in bookmarkData 为 true，
-    // 我们可能需要根据后端API的具体行为来决定是发送 null 还是 []
-    // 当前逻辑：如果 tags 存在于 bookmarkData，就使用它的值。
-    // 如果 bookmarkData.tags 是 undefined，则 dataToSend.tags 也是 undefined，JSON.stringify 会移除它
-    // 如果 bookmarkData.tags 是 null，则 dataToSend.tags 是 null
-    // 如果 bookmarkData.tags 是 [], 则 dataToSend.tags 是 []
     dataToSend.tags = bookmarkData.tags;
   }
   
@@ -173,15 +238,15 @@ export async function updateBookmark(
     delete dataToSend._preventAutoTagging;
   }
 
-  
   // 记录调试信息
   console.log("更新书签: 发送到API的数据:", dataToSend);
   
-  return fetchAPI<Bookmark>(
+  return fetchAPIWithValidation(
     `/api/collections/bookmarks/records/${bookmarkId}`,
     'PATCH',
     dataToSend,
-    { token }
+    { token },
+    (data) => BookmarkSchema.parse(data)
   );
 }
 
@@ -225,12 +290,16 @@ export async function addTagsBatchToBookmark(
 export async function createFolder(
   token: string,
   folderData: Omit<Folder, 'id' | 'created' | 'updatedAt' | 'userId'>
-): Promise<Folder> {
-  return fetchAPI<Folder>(
+): Promise<ValidatedFolder> {
+  // 验证输入数据
+  const validatedInput = CreateFolderInputSchema.parse(folderData);
+  
+  return fetchAPIWithValidation(
     '/api/collections/folders/records',
     'POST',
-    folderData,
-    { token }
+    validatedInput,
+    { token },
+    (data) => FolderSchema.parse(data)
   );
 }
 
@@ -238,12 +307,16 @@ export async function updateFolder(
   token: string,
   folderId: string,
   folderData: Partial<Omit<Folder, 'id' | 'created' | 'updatedAt' | 'userId'>>
-): Promise<Folder> {
-  return fetchAPI<Folder>(
+): Promise<ValidatedFolder> {
+  // 验证输入数据
+  const validatedInput = UpdateFolderInputSchema.parse(folderData);
+  
+  return fetchAPIWithValidation(
     `/api/collections/folders/records/${folderId}`,
     'PATCH',
-    folderData,
-    { token }
+    validatedInput,
+    { token },
+    (data) => FolderSchema.parse(data)
   );
 }
 
@@ -259,11 +332,12 @@ export async function deleteFolder(token: string, folderId: string): Promise<voi
 // User Settings API Functions
 export async function getUserSettings(token: string, userId: string): Promise<UserSetting | null> {
   const filter = `filter="userId='${userId}'"`;
-  const response = await fetchAPI<{ items: UserSetting[] }>(
+  const response = await fetchAPIWithValidation(
     `/api/collections/user_settings/records?${encodeURIComponent(filter)}`,
     'GET',
     undefined,
-    { token }
+    { token },
+    (data) => z.object({ items: z.array(UserSettingSchema) }).parse(data)
   );
   return response.items && response.items.length > 0 ? response.items[0] : null;
 }
@@ -273,11 +347,15 @@ export async function updateUserSettings(
   userSettingsId: string,
   settingsData: Partial<UserSetting>
 ): Promise<UserSetting> {
-  return fetchAPI<UserSetting>(
+  // 验证输入数据
+  const validatedInput = UserSettingSchema.partial().parse(settingsData);
+  
+  return fetchAPIWithValidation(
     `/api/collections/user_settings/records/${userSettingsId}`,
     'PATCH',
-    settingsData,
-    { token }
+    validatedInput,
+    { token },
+    (data) => UserSettingSchema.parse(data)
   );
 }
 
@@ -285,11 +363,16 @@ export async function createUserSettings(
   token: string,
   settingsData: Partial<UserSetting> & { userId: string }
 ): Promise<UserSetting> {
-  return fetchAPI<UserSetting>(
+  // 验证输入数据
+  const inputSchema = UserSettingSchema.omit({ id: true, createdAt: true, updatedAt: true });
+  const validatedInput = inputSchema.parse(settingsData);
+  
+  return fetchAPIWithValidation(
     '/api/collections/user_settings/records',
     'POST',
-    settingsData,
-    { token }
+    validatedInput,
+    { token },
+    (data) => UserSettingSchema.parse(data)
   );
 }
 
