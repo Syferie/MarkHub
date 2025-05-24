@@ -59,9 +59,9 @@
   "autoMoveDescription": "AI 推荐文件夹后自动移动书签",
   "showNotifications": "显示通知",
   "notificationsDescription": "显示同步和推荐相关的通知",
-  "initialDataSync": "首次数据同步",
+  "initialDataSync": "手动同步到 MarkHub",
   "initialSyncDescription": "将您现有的 Chrome 书签和文件夹结构同步到 Markhub。如果 Markhub 中已存在相同 URL 的书签，将会被覆盖。",
-  "startInitialSync": "开始首次同步",
+  "startInitialSync": "开始手动同步",
   "syncing": "正在同步...",
   "syncCompleted": "同步完成",
   "syncFailed": "同步失败",
@@ -140,5 +140,6 @@
   "loginErrorNetworkError": "登录失败：网络连接错误，请检查网络设置",
   "loginErrorServerError": "登录失败：服务器错误，请稍后重试",
   "loginErrorUnknown": "登录失败：未知错误",
-  "loginErrorConnectionRefused": "登录失败：无法连接到服务器，请检查服务器地址配置"
+  "loginErrorConnectionRefused": "登录失败：无法连接到服务器，请检查服务器地址配置",
+  "githubRepository": "GitHub 仓库"
 }

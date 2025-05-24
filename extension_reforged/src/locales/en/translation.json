@@ -59,9 +59,9 @@
   "autoMoveDescription": "Automatically move bookmarks after AI folder recommendation",
   "showNotifications": "Show notifications",
   "notificationsDescription": "Show sync and recommendation related notifications",
-  "initialDataSync": "Initial Data Sync",
+  "initialDataSync": "Manual Sync to MarkHub",
   "initialSyncDescription": "Sync your existing Chrome bookmarks and folder structure to Markhub. If bookmarks with the same URL already exist in Markhub, they will be overwritten.",
-  "startInitialSync": "Start Initial Sync",
+  "startInitialSync": "Start Manual Sync",
   "syncing": "Syncing...",
   "syncCompleted": "Sync Completed",
   "syncFailed": "Sync Failed",
@@ -140,5 +140,6 @@
   "loginErrorNetworkError": "Login failed: Network connection error, please check your network settings",
   "loginErrorServerError": "Login failed: Server error, please try again later",
   "loginErrorUnknown": "Login failed: Unknown error",
-  "loginErrorConnectionRefused": "Login failed: Cannot connect to server, please check server address configuration"
+  "loginErrorConnectionRefused": "Login failed: Cannot connect to server, please check server address configuration",
+  "githubRepository": "GitHub Repository"
 }

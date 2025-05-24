@@ -17,7 +17,6 @@ import {
   Paper
 } from '@mantine/core'
 import {
-  IconBookmark,
   IconSettings,
   IconExternalLink,
   IconRefresh,
@@ -26,7 +25,8 @@ import {
   IconCloud,
   IconCloudOff,
   IconUser,
-  IconUserOff
+  IconUserOff,
+  IconBrandGithub
 } from '@tabler/icons-react'
 import { getConfigManager } from '../core/ConfigManager'
 import { getMarkhubAPIClient } from '../core/MarkhubAPIClient'
@@ -49,6 +49,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [currentTab, setCurrentTab] = useState<chrome.tabs.Tab | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshLoading, setRefreshLoading] = useState(false)
 
   const configManager = getConfigManager()
   const apiClient = getMarkhubAPIClient()
@@ -104,8 +105,22 @@ function App() {
   }
 
   const handleRefreshSync = async () => {
-    // TODO: 实现同步刷新逻辑
-    console.log('Refreshing sync...')
+    try {
+      setRefreshLoading(true)
+      // TODO: 实现同步刷新逻辑
+      console.log('Refreshing sync...')
+      
+      // 模拟刷新过程
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // 这里可以添加实际的同步刷新逻辑
+      // 例如：await syncManager.refreshSync()
+      
+    } catch (error) {
+      console.error('Refresh sync failed:', error)
+    } finally {
+      setRefreshLoading(false)
+    }
   }
 
   const handleLogin = () => {
@@ -134,9 +149,27 @@ function App() {
       <Paper shadow="sm" p="md" radius={0} bg="white">
         <Group justify="space-between" align="center">
           <Group gap="sm">
-            <ThemeIcon size="lg" radius="md" variant="gradient" gradient={{ from: 'blue', to: 'cyan' }}>
-              <IconBookmark size={20} />
-            </ThemeIcon>
+            <Box
+              w={32}
+              h={32}
+              style={{
+                borderRadius: '8px',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <img
+                src="/icons/icon48.png"
+                alt="Markhub Logo"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain'
+                }}
+              />
+            </Box>
             <Box>
               <Title order={3} size="h4" fw={600} c="dark.8">
                 {t('appTitle')}
@@ -148,20 +181,45 @@ function App() {
           </Group>
           
           <Group gap="xs">
+            <Tooltip label={t('githubRepository')} position="bottom">
+              <ActionIcon
+                variant="light"
+                color="dark"
+                size="lg"
+                onClick={() => {
+                  if (typeof chrome !== 'undefined' && chrome.tabs) {
+                    chrome.tabs.create({ url: 'https://github.com/Syferie/MarkHub' })
+                  }
+                }}
+              >
+                <IconBrandGithub size={18} />
+              </ActionIcon>
+            </Tooltip>
             <Tooltip label={t('refreshSync')} position="bottom">
-              <ActionIcon 
-                variant="light" 
+              <ActionIcon
+                variant="light"
                 color="blue"
                 size="lg"
                 onClick={handleRefreshSync}
                 disabled={!isAuthenticated || !syncStatus.isEnabled}
+                loading={refreshLoading}
+                style={{
+                  transition: 'all 0.2s ease',
+                  transform: refreshLoading ? 'rotate(360deg)' : 'rotate(0deg)'
+                }}
               >
-                <IconRefresh size={18} />
+                <IconRefresh
+                  size={18}
+                  style={{
+                    transition: 'transform 0.6s ease',
+                    transform: refreshLoading ? 'rotate(360deg)' : 'rotate(0deg)'
+                  }}
+                />
               </ActionIcon>
             </Tooltip>
             <Tooltip label={t('settingsTitle')} position="bottom">
-              <ActionIcon 
-                variant="light" 
+              <ActionIcon
+                variant="light"
                 color="gray"
                 size="lg"
                 onClick={() => setSettingsOpen(true)}
