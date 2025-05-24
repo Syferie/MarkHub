@@ -511,6 +511,50 @@ export class MarkhubAPIClient {
       return this.ensureFolderPath(chromeFolderPath);
     }
   }
+
+  /**
+   * 获取同步导出数据（用于反向同步）
+   */
+  public async getSyncExportData(lastSyncTime?: string): Promise<{
+    folders: Array<{
+      id: string;
+      name: string;
+      parentId?: string;
+      path: string[];
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    bookmarks: Array<{
+      id: string;
+      title: string;
+      url: string;
+      folderId?: string;
+      folderPath: string[];
+      tags: string[];
+      isFavorite: boolean;
+      chromeBookmarkId?: string;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    syncMetadata: {
+      totalFolders: number;
+      totalBookmarks: number;
+      exportTime: string;
+      isIncremental: boolean;
+    };
+  }> {
+    const params = new URLSearchParams();
+    if (lastSyncTime) {
+      params.append('lastSyncTime', lastSyncTime);
+    }
+    
+    const response = await this.fetchAPI<{
+      success: boolean;
+      data: any;
+    }>(`/api/custom/sync/export-data?${params.toString()}`);
+    
+    return response.data;
+  }
 }
 
 // 导出工厂函数

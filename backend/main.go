@@ -382,6 +382,166 @@ func ensureFolderPathHandler(app *pocketbase.PocketBase) func(e *core.RequestEve
 	}
 }
 
+// syncExportDataHandler handles the API request for exporting sync data.
+// It returns all user's bookmarks and folders with optimized structure for reverse sync.
+func syncExportDataHandler(app *pocketbase.PocketBase) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return e.UnauthorizedError("Authentication required for sync export.", nil)
+		}
+		userId := authRecord.Id
+
+		// Parse optional query parameters
+		lastSyncTime := e.Request.URL.Query().Get("lastSyncTime")
+		
+		// Build filter for incremental sync if lastSyncTime is provided
+		bookmarkFilter := "userId = {:userId}"
+		folderFilter := "userId = {:userId}"
+		params := dbx.Params{"userId": userId}
+		
+		if lastSyncTime != "" {
+			// Add time filter for incremental sync
+			bookmarkFilter += " && updatedAt > {:lastSyncTime}"
+			folderFilter += " && updatedAt > {:lastSyncTime}"
+			params["lastSyncTime"] = lastSyncTime
+		}
+
+		// Fetch user's bookmarks
+		bookmarkRecords, err := app.FindRecordsByFilter(
+			"bookmarks",
+			bookmarkFilter,
+			"", // sort
+			0,  // limit
+			0,  // offset
+			params,
+		)
+		if err != nil {
+			return e.InternalServerError("Failed to fetch user's bookmarks for sync export.", err)
+		}
+
+		// Fetch user's folders
+		folderRecords, err := app.FindRecordsByFilter(
+			"folders",
+			folderFilter,
+			"", // sort
+			0,  // limit
+			0,  // offset
+			params,
+		)
+		if err != nil {
+			return e.InternalServerError("Failed to fetch user's folders for sync export.", err)
+		}
+
+		// Build folder path mapping for efficient lookup
+		folderMap := make(map[string]*core.Record)
+		for _, record := range folderRecords {
+			folderMap[record.Id] = record
+		}
+
+		// Helper function to build folder path recursively
+		var buildFolderPath func(folderId string) []string
+		buildFolderPath = func(folderId string) []string {
+			if folderId == "" {
+				return []string{}
+			}
+			
+			folder, exists := folderMap[folderId]
+			if !exists {
+				return []string{}
+			}
+			
+			parentId := folder.GetString("parentId")
+			if parentId == "" {
+				return []string{folder.GetString("name")}
+			}
+			
+			parentPath := buildFolderPath(parentId)
+			return append(parentPath, folder.GetString("name"))
+		}
+
+		// Prepare folders data with paths
+		folders := make([]map[string]interface{}, 0, len(folderRecords))
+		for _, record := range folderRecords {
+			folderPath := buildFolderPath(record.Id)
+			
+			folder := map[string]interface{}{
+				"id":        record.Id,
+				"name":      record.GetString("name"),
+				"parentId":  record.GetString("parentId"),
+				"path":      folderPath,
+				"createdAt": record.GetString("createdAt"),
+				"updatedAt": record.GetString("updatedAt"),
+			}
+			
+			// Handle empty parentId
+			if record.GetString("parentId") == "" {
+				folder["parentId"] = nil
+			}
+			
+			folders = append(folders, folder)
+		}
+
+		// Prepare bookmarks data with folder paths
+		bookmarks := make([]map[string]interface{}, 0, len(bookmarkRecords))
+		for _, record := range bookmarkRecords {
+			folderId := record.GetString("folderId")
+			var folderPath []string
+			
+			if folderId != "" {
+				folderPath = buildFolderPath(folderId)
+			} else {
+				folderPath = []string{}
+			}
+			
+			bookmark := map[string]interface{}{
+				"id":                record.Id,
+				"title":             record.GetString("title"),
+				"url":               record.GetString("url"),
+				"folderId":          record.GetString("folderId"),
+				"folderPath":        folderPath,
+				"tags":              record.GetStringSlice("tags"),
+				"isFavorite":        record.GetBool("isFavorite"),
+				"chromeBookmarkId":  record.GetString("chromeBookmarkId"),
+				"createdAt":         record.GetString("createdAt"),
+				"updatedAt":         record.GetString("updatedAt"),
+			}
+			
+			// Handle empty folderId
+			if record.GetString("folderId") == "" {
+				bookmark["folderId"] = nil
+			}
+			
+			// Handle empty chromeBookmarkId
+			if record.GetString("chromeBookmarkId") == "" {
+				bookmark["chromeBookmarkId"] = nil
+			}
+			
+			bookmarks = append(bookmarks, bookmark)
+		}
+
+		// Prepare sync metadata
+		syncMetadata := map[string]interface{}{
+			"totalFolders":   len(folders),
+			"totalBookmarks": len(bookmarks),
+			"exportTime":     time.Now().UTC().Format(time.RFC3339),
+			"isIncremental":  lastSyncTime != "",
+		}
+
+		// Prepare response
+		response := map[string]interface{}{
+			"success": true,
+			"data": map[string]interface{}{
+				"folders":      folders,
+				"bookmarks":    bookmarks,
+				"syncMetadata": syncMetadata,
+			},
+		}
+
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
 // webdavBackupHandler handles the WebDAV backup request.
 func webdavBackupHandler(app *pocketbase.PocketBase) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -2424,7 +2584,12 @@ func main() {
 			clearAllUserDataHandler(app),
 		).Bind(apis.RequireAuth("users"))
 
-		log.Println("Info: All custom API routes registered successfully, including ai-suggest-and-set-tags")
+		se.Router.GET(
+			"/api/custom/sync/export-data",
+			syncExportDataHandler(app),
+		).Bind(apis.RequireAuth("users"))
+
+		log.Println("Info: All custom API routes registered successfully, including sync export-data")
 		return se.Next()
 	})
 

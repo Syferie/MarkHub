@@ -17,10 +17,11 @@ import {
   ThemeIcon,
   Select
 } from '@mantine/core'
-import { IconInfoCircle, IconLogin, IconRefresh, IconCheck, IconX, IconTestPipe, IconWifi, IconSettings, IconLogout, IconUserCheck, IconExternalLink } from '@tabler/icons-react'
+import { IconInfoCircle, IconLogin, IconRefresh, IconCheck, IconX, IconTestPipe, IconWifi, IconSettings, IconLogout, IconUserCheck, IconExternalLink, IconDownload, IconShield } from '@tabler/icons-react'
 import { getConfigManager, type PluginConfig } from '../../core/ConfigManager'
 import { getMarkhubAPIClient } from '../../core/MarkhubAPIClient'
 import { getSyncManager } from '../../core/SyncManager'
+import { getReverseSyncManager } from '../../core/ReverseSyncManager'
 import { createAIServiceClient } from '../../core/AIServiceClient'
 import { changeLanguage } from '../../i18n'
 
@@ -55,10 +56,20 @@ function SettingsModal({ opened, onClose, onAuthSuccess }: SettingsModalProps) {
     message: string;
     details?: any;
   } | null>(null)
+  const [reverseSyncLoading, setReverseSyncLoading] = useState(false)
+  const [reverseSyncResult, setReverseSyncResult] = useState<{
+    success: boolean;
+    foldersCreated: number;
+    bookmarksCreated: number;
+    bookmarksUpdated: number;
+    skipped: number;
+    errors: string[];
+  } | null>(null)
 
   const configManager = getConfigManager()
   const apiClient = getMarkhubAPIClient()
   const syncManager = getSyncManager()
+  const reverseSyncManager = getReverseSyncManager()
 
   useEffect(() => {
     if (opened) {
@@ -274,6 +285,33 @@ function SettingsModal({ opened, onClose, onAuthSuccess }: SettingsModalProps) {
     }
   }
 
+  const handleReverseSync = async () => {
+    if (!reverseSyncManager.isReverseSyncAvailable()) {
+      setError(t('pleaseLoginFirst'))
+      return
+    }
+
+    try {
+      setReverseSyncLoading(true)
+      setError('')
+      setReverseSyncResult(null)
+      
+      const result = await reverseSyncManager.syncFromMarkhub()
+      setReverseSyncResult(result)
+      
+      if (result.success) {
+        setSuccess(t('reverseSyncCompleted'))
+      } else {
+        setError(t('reverseSyncFailed'))
+      }
+      
+    } catch (error) {
+      setError(t('reverseSyncFailed') + ': ' + (error as Error).message)
+    } finally {
+      setReverseSyncLoading(false)
+    }
+  }
+
   const handleTestAIService = async () => {
     if (!config) return
 
@@ -361,6 +399,7 @@ function SettingsModal({ opened, onClose, onAuthSuccess }: SettingsModalProps) {
           <Tabs.Tab value="auth">{t('accountAuth')}</Tabs.Tab>
           <Tabs.Tab value="ai">{t('aiService')}</Tabs.Tab>
           <Tabs.Tab value="sync">{t('syncSettings')}</Tabs.Tab>
+          <Tabs.Tab value="reverse-sync">{t('reverseSyncTab')}</Tabs.Tab>
           <Tabs.Tab value="language">{t('languageSettings')}</Tabs.Tab>
         </Tabs.List>
 
@@ -725,12 +764,61 @@ function SettingsModal({ opened, onClose, onAuthSuccess }: SettingsModalProps) {
 
             <Divider />
 
-            {/* 首次同步部分 */}
+            {/* 手动同步部分 */}
             <Stack gap="sm">
               <Text fw={500}>{t('initialDataSync')}</Text>
-              <Text size="sm" c="dimmed">
-                {t('initialSyncDescription')}
-              </Text>
+              
+              {/* 使用场景说明 */}
+              <Card withBorder radius="md" p="md" bg="yellow.0">
+                <Stack gap="sm">
+                  <Group gap="sm" align="center">
+                    <ThemeIcon size="sm" radius="xl" color="orange" variant="light">
+                      <IconInfoCircle size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={600} c="dark.7">
+                      {t('manualSyncUsageTitle')}
+                    </Text>
+                  </Group>
+                  
+                  <Stack gap="xs">
+                    <Text size="xs" c="dark.6">
+                      • {t('manualSyncUsage1')}
+                    </Text>
+                    <Text size="xs" c="dark.6">
+                      • {t('manualSyncUsage2')}
+                    </Text>
+                    <Text size="xs" c="dark.6">
+                      • {t('manualSyncUsage3')}
+                    </Text>
+                  </Stack>
+                </Stack>
+              </Card>
+
+              {/* 同步行为说明 */}
+              <Card withBorder radius="md" p="md" bg="blue.0">
+                <Stack gap="sm">
+                  <Group gap="sm" align="center">
+                    <ThemeIcon size="sm" radius="xl" color="blue" variant="light">
+                      <IconShield size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={600} c="dark.7">
+                      {t('manualSyncBehaviorTitle')}
+                    </Text>
+                  </Group>
+                  
+                  <Stack gap="xs">
+                    <Text size="xs" c="dark.6">
+                      • {t('manualSyncBehavior1')}
+                    </Text>
+                    <Text size="xs" c="dark.6">
+                      • {t('manualSyncBehavior2')}
+                    </Text>
+                    <Text size="xs" c="dark.6">
+                      • {t('manualSyncBehavior3')}
+                    </Text>
+                  </Stack>
+                </Stack>
+              </Card>
               
               <Button
                 leftSection={<IconRefresh size={16} />}
@@ -738,6 +826,8 @@ function SettingsModal({ opened, onClose, onAuthSuccess }: SettingsModalProps) {
                 loading={syncLoading}
                 disabled={!syncManager.isSyncAvailable()}
                 variant="light"
+                radius="md"
+                size="sm"
               >
                 {syncLoading ? t('syncing') : t('startInitialSync')}
               </Button>
@@ -781,6 +871,109 @@ function SettingsModal({ opened, onClose, onAuthSuccess }: SettingsModalProps) {
                   <Text size="sm">
                     {t('loginAndEnableSyncFirst')}
                   </Text>
+                </Alert>
+              )}
+            </Stack>
+          </Stack>
+        </Tabs.Panel>
+
+        {/* 反向同步标签页 */}
+        <Tabs.Panel value="reverse-sync" pt="md">
+          <Stack gap="md">
+            <Alert
+              icon={<IconInfoCircle size={16} />}
+              color="blue"
+              variant="light"
+            >
+              {t('reverseSyncDescription')}
+            </Alert>
+
+            {/* 同步行为说明 */}
+            <Card withBorder radius="md" p="md" bg="gray.0">
+              <Stack gap="sm">
+                <Group gap="sm" align="center">
+                  <ThemeIcon size="sm" radius="xl" color="green" variant="light">
+                    <IconShield size={14} />
+                  </ThemeIcon>
+                  <Text size="sm" fw={600} c="dark.7">
+                    {t('syncSafetyTitle')}
+                  </Text>
+                </Group>
+                
+                <Stack gap="xs">
+                  <Text size="xs" c="dark.6">
+                    • {t('syncSafetyPoint1')}
+                  </Text>
+                  <Text size="xs" c="dark.6">
+                    • {t('syncSafetyPoint2')}
+                  </Text>
+                  <Text size="xs" c="dark.6">
+                    • {t('syncSafetyPoint3')}
+                  </Text>
+                  <Text size="xs" c="dark.6">
+                    • {t('syncSafetyPoint4')}
+                  </Text>
+                </Stack>
+              </Stack>
+            </Card>
+
+            <Stack gap="sm">
+              <Text size="sm" fw={600} c="dark.7">
+                {t('reverseSyncFromMarkhub')}
+              </Text>
+              
+              <Button
+                leftSection={<IconDownload size={16} />}
+                onClick={handleReverseSync}
+                loading={reverseSyncLoading}
+                disabled={!reverseSyncManager.isReverseSyncAvailable()}
+                radius="md"
+                size="sm"
+              >
+                {reverseSyncLoading ? t('reverseSyncing') : t('startReverseSync')}
+              </Button>
+
+              {/* 反向同步结果显示 */}
+              {reverseSyncResult && (
+                <Alert
+                  icon={reverseSyncResult.success ? <IconCheck size={16} /> : <IconX size={16} />}
+                  color={reverseSyncResult.success ? "green" : "red"}
+                  variant="light"
+                  radius="md"
+                >
+                  <Stack gap="xs">
+                    <Text size="sm" fw={600}>
+                      {reverseSyncResult.success ? t('reverseSyncCompleted') : t('reverseSyncFailed')}
+                    </Text>
+                    {reverseSyncResult.success && (
+                      <Text size="xs">
+                        {t('reverseSyncResultMessage', {
+                          folders: reverseSyncResult.foldersCreated,
+                          created: reverseSyncResult.bookmarksCreated,
+                          updated: reverseSyncResult.bookmarksUpdated,
+                          skipped: reverseSyncResult.skipped
+                        })}
+                      </Text>
+                    )}
+                    {reverseSyncResult.errors.length > 0 && (
+                      <Stack gap="xs">
+                        <Text size="xs" fw={600}>{t('errorDetails')}</Text>
+                        {reverseSyncResult.errors.slice(0, 3).map((error, index) => (
+                          <Text key={index} size="xs" c="red.7">• {error}</Text>
+                        ))}
+                        {reverseSyncResult.errors.length > 3 && (
+                          <Text size="xs" c="red.6">{t('moreErrors', { count: reverseSyncResult.errors.length - 3 })}</Text>
+                        )}
+                      </Stack>
+                    )}
+                  </Stack>
+                </Alert>
+              )}
+
+              {/* 未启用同步时的提示 */}
+              {!reverseSyncManager.isReverseSyncAvailable() && (
+                <Alert color="yellow" icon={<IconInfoCircle size={16} />}>
+                  {t('loginAndEnableSyncFirst')}
                 </Alert>
               )}
             </Stack>
