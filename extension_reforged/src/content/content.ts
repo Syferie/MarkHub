@@ -1,11 +1,12 @@
 /**
- * Markhub Chrome Extension - 内容脚本
+ * Markhub Chrome Extension - 内容脚本 (Manifest V3 优化版)
  *
  * 该脚本负责:
  * 1. 在页面中注入 AI 文件夹推荐的悬浮气泡 UI
  * 2. 与背景脚本通信
  * 3. 处理用户在页面上的交互
  * 4. 提供现代化的 UI 和交互体验
+ * 5. 帮助维持 Service Worker 活跃状态
  */
 
 import { t } from '../utils/contentI18n'
@@ -18,6 +19,82 @@ if (!window.markhubExtensionInjected) {
   let currentToast: HTMLElement | null = null
   let isMouseOverToast = false
   let countdownAnimation: Animation | null = null
+  let serviceWorkerConnection: chrome.runtime.Port | null = null
+
+  // Service Worker 连接管理
+  function initializeServiceWorkerConnection() {
+    try {
+      console.log('Content Script: Initializing Service Worker connection...')
+      
+      // 建立与 Service Worker 的持久连接
+      serviceWorkerConnection = chrome.runtime.connect({ name: 'keepAlive' })
+      
+      serviceWorkerConnection.onDisconnect.addListener(() => {
+        console.log('Content Script: Service Worker connection lost, attempting reconnect...')
+        serviceWorkerConnection = null
+        
+        // 延迟重连
+        setTimeout(() => {
+          initializeServiceWorkerConnection()
+        }, 2000)
+      })
+      
+      serviceWorkerConnection.onMessage.addListener((message) => {
+        if (message.type === 'pong') {
+          console.log('Content Script: Received pong from Service Worker')
+        }
+      })
+      
+      // 定期发送 ping 保持连接
+      setInterval(() => {
+        if (serviceWorkerConnection) {
+          try {
+            serviceWorkerConnection.postMessage({
+              type: 'ping',
+              timestamp: Date.now(),
+              source: 'content-script'
+            })
+          } catch (error) {
+            console.log('Content Script: Failed to send ping, connection may be lost')
+          }
+        }
+      }, 25000) // 25秒间隔
+      
+      console.log('Content Script: Service Worker connection established')
+      
+    } catch (error) {
+      console.error('Content Script: Failed to initialize Service Worker connection:', error)
+    }
+  }
+
+  // 确保 Service Worker 处于活跃状态的辅助函数
+  async function ensureServiceWorkerActive(): Promise<boolean> {
+    try {
+      // 尝试发送 ping 消息
+      const response = await chrome.runtime.sendMessage({ type: 'PING' })
+      return response?.success || false
+    } catch (error) {
+      console.log('Content Script: Service Worker may be inactive:', error)
+      return false
+    }
+  }
+
+  // 增强的消息发送函数
+  async function sendMessageToServiceWorker(message: any): Promise<any> {
+    try {
+      // 确保 Service Worker 活跃
+      await ensureServiceWorkerActive()
+      
+      // 发送消息
+      return await chrome.runtime.sendMessage(message)
+    } catch (error) {
+      console.error('Content Script: Failed to send message to Service Worker:', error)
+      throw error
+    }
+  }
+
+  // 立即初始化 Service Worker 连接
+  initializeServiceWorkerConnection()
 
   // 监听来自背景脚本的消息
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -187,16 +264,20 @@ if (!window.markhubExtensionInjected) {
         
         if (action === 'accept') {
           // 用户确认推荐
-          chrome.runtime.sendMessage({
+          sendMessageToServiceWorker({
             type: 'ACCEPT_FOLDER_RECOMMENDATION',
             data: { bookmarkId }
+          }).catch(error => {
+            console.error('Content Script: Failed to send accept message:', error)
           })
           hideToast()
         } else if (action === 'dismiss') {
           // 用户取消推荐
-          chrome.runtime.sendMessage({
+          sendMessageToServiceWorker({
             type: 'DISMISS_FOLDER_RECOMMENDATION',
             data: { bookmarkId }
+          }).catch(error => {
+            console.error('Content Script: Failed to send dismiss message:', error)
           })
           hideToast()
         }
@@ -338,16 +419,20 @@ if (!window.markhubExtensionInjected) {
         
         if (action === 'accept') {
           // 用户确认推荐
-          chrome.runtime.sendMessage({
+          sendMessageToServiceWorker({
             type: 'ACCEPT_FOLDER_RECOMMENDATION',
             data: { bookmarkId }
+          }).catch(error => {
+            console.error('Content Script: Failed to send accept message:', error)
           })
           hideToast()
         } else if (action === 'dismiss') {
           // 用户取消推荐
-          chrome.runtime.sendMessage({
+          sendMessageToServiceWorker({
             type: 'DISMISS_FOLDER_RECOMMENDATION',
             data: { bookmarkId }
+          }).catch(error => {
+            console.error('Content Script: Failed to send dismiss message:', error)
           })
           hideToast()
         }
@@ -477,9 +562,11 @@ if (!window.markhubExtensionInjected) {
       countdownAnimation.addEventListener('finish', () => {
         if (!isMouseOverToast && currentToast) {
           // 超时自动同意
-          chrome.runtime.sendMessage({
+          sendMessageToServiceWorker({
             type: 'ACCEPT_FOLDER_RECOMMENDATION',
             data: { bookmarkId }
+          }).catch(error => {
+            console.error('Content Script: Failed to send auto-accept message:', error)
           })
           hideToast()
         }

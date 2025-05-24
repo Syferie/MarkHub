@@ -1,94 +1,226 @@
 /**
- * Markhub Chrome Extension - 背景脚本
- * 
+ * Markhub Chrome Extension - 背景脚本 (Manifest V3 优化版)
+ *
  * 该脚本负责:
  * 1. 监听 Chrome 书签事件
  * 2. 初始化配置管理器
  * 3. 处理插件生命周期事件
+ * 4. 管理 Service Worker 生命周期
  */
 
 import { getConfigManager } from '../core/ConfigManager'
 import { getEventManager } from '../core/EventManager'
 
-// 初始化插件
-async function initializeExtension() {
-  try {
-    console.log('Markhub Extension: Initializing...')
+// Service Worker 状态管理
+class ServiceWorkerManager {
+  private static instance: ServiceWorkerManager
+  private isInitialized = false
+  private keepAlivePort: chrome.runtime.Port | null = null
+  private lastActivity = Date.now()
+
+  static getInstance(): ServiceWorkerManager {
+    if (!ServiceWorkerManager.instance) {
+      ServiceWorkerManager.instance = new ServiceWorkerManager()
+    }
+    return ServiceWorkerManager.instance
+  }
+
+  async initialize() {
+    if (this.isInitialized) {
+      console.log('ServiceWorkerManager: Already initialized')
+      return
+    }
+
+    console.log('ServiceWorkerManager: Initializing...')
     
-    // 初始化配置管理器
-    const configManager = getConfigManager()
-    await configManager.initialize()
+    // 设置多重保活机制
+    this.setupKeepAlive()
+    this.setupEventListeners()
+    this.setupPortConnections()
     
-    // 初始化事件管理器
-    const eventManager = getEventManager()
-    await eventManager.initialize()
+    // 初始化核心组件
+    await this.initializeCore()
     
-    console.log('Markhub Extension: Initialized successfully')
-  } catch (error) {
-    console.error('Markhub Extension: Failed to initialize:', error)
+    this.isInitialized = true
+    console.log('ServiceWorkerManager: Initialized successfully')
+  }
+
+  private setupKeepAlive() {
+    // 方法1: 使用 alarms API (最可靠)
+    chrome.alarms.create('keepAlive', { periodInMinutes: 0.4 }) // 24秒间隔
+    
+    chrome.alarms.onAlarm.addListener((alarm) => {
+      if (alarm.name === 'keepAlive') {
+        this.updateActivity()
+        console.log('ServiceWorkerManager: Keep alive via alarm')
+      }
+    })
+
+    // 方法2: 使用 storage API 作为备用
+    setInterval(() => {
+      chrome.storage.local.set({
+        lastKeepAlive: Date.now(),
+        serviceWorkerActive: true
+      })
+      this.updateActivity()
+    }, 20000) // 20秒间隔
+  }
+
+  private setupEventListeners() {
+    // 监听所有可能重新激活 Service Worker 的事件
+    
+    // 书签事件 - 这些是我们最关心的
+    chrome.bookmarks.onCreated.addListener(() => this.ensureActive())
+    chrome.bookmarks.onChanged.addListener(() => this.ensureActive())
+    chrome.bookmarks.onMoved.addListener(() => this.ensureActive())
+    chrome.bookmarks.onRemoved.addListener(() => this.ensureActive())
+    
+    // 标签页事件
+    chrome.tabs.onActivated.addListener(() => this.ensureActive())
+    chrome.tabs.onUpdated.addListener(() => this.ensureActive())
+    
+    // 运行时事件
+    chrome.runtime.onMessage.addListener(() => this.ensureActive())
+    chrome.runtime.onConnect.addListener(() => this.ensureActive())
+  }
+
+  private setupPortConnections() {
+    // 监听来自 popup 和 content script 的连接
+    chrome.runtime.onConnect.addListener((port) => {
+      console.log('ServiceWorkerManager: Port connected:', port.name)
+      
+      if (port.name === 'keepAlive') {
+        this.keepAlivePort = port
+        
+        port.onDisconnect.addListener(() => {
+          console.log('ServiceWorkerManager: Keep alive port disconnected')
+          this.keepAlivePort = null
+        })
+        
+        port.onMessage.addListener((message) => {
+          if (message.type === 'ping') {
+            this.updateActivity()
+            port.postMessage({ type: 'pong', timestamp: Date.now() })
+          }
+        })
+      }
+      
+      this.ensureActive()
+    })
+  }
+
+  private async initializeCore() {
+    try {
+      console.log('ServiceWorkerManager: Initializing core components...')
+      
+      // 初始化配置管理器
+      const configManager = getConfigManager()
+      await configManager.initialize()
+      
+      // 初始化事件管理器
+      const eventManager = getEventManager()
+      await eventManager.initialize()
+      
+      console.log('ServiceWorkerManager: Core components initialized')
+    } catch (error) {
+      console.error('ServiceWorkerManager: Failed to initialize core:', error)
+      throw error
+    }
+  }
+
+  public ensureActive() {
+    this.updateActivity()
+    
+    // 如果核心组件未初始化，重新初始化
+    if (!this.isInitialized) {
+      console.log('ServiceWorkerManager: Re-initializing due to activity')
+      this.initialize().catch(error => {
+        console.error('ServiceWorkerManager: Re-initialization failed:', error)
+      })
+    }
+  }
+
+  private updateActivity() {
+    this.lastActivity = Date.now()
+  }
+
+  getStatus() {
+    return {
+      isInitialized: this.isInitialized,
+      lastActivity: this.lastActivity,
+      hasKeepAlivePort: !!this.keepAlivePort,
+      timeSinceLastActivity: Date.now() - this.lastActivity
+    }
   }
 }
 
-// 使用更轻量级的方式保持 Service Worker 活跃
-// 通过定期的轻量级操作来防止休眠
-chrome.alarms.create('keepAlive', { periodInMinutes: 0.5 }) // 每30秒
-
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'keepAlive') {
-    // 执行一个轻量级操作来保持活跃
-    console.log('Markhub Extension: Keep alive ping')
-  }
-})
+// 全局 Service Worker 管理器实例
+const swManager = ServiceWorkerManager.getInstance()
 
 // 监听插件安装/启动事件
 chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('Markhub Extension: onInstalled', details.reason)
   
   if (details.reason === 'install') {
-    // 首次安装
     console.log('Markhub Extension: First time installation')
+    // 设置初始配置
+    await chrome.storage.local.set({
+      extensionInstalled: true,
+      installTime: Date.now()
+    })
   } else if (details.reason === 'update') {
-    // 更新
     console.log('Markhub Extension: Updated to version', chrome.runtime.getManifest().version)
   }
   
-  await initializeExtension()
+  await swManager.initialize()
 })
 
 // 监听插件启动事件
 chrome.runtime.onStartup.addListener(async () => {
   console.log('Markhub Extension: onStartup')
-  await initializeExtension()
+  await swManager.initialize()
 })
-
-// 注意：所有书签事件（创建、变更、移动和删除）现在由 EventManager 统一处理
-// EventManager 在初始化时会设置这些监听器，避免重复监听导致的冲突
 
 // 监听来自弹出窗口或内容脚本的消息
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Markhub Extension: Message received', { message, sender })
   
+  // 确保 Service Worker 处于活跃状态
+  swManager.ensureActive()
+  
   // 处理不同类型的消息
   switch (message.type) {
     case 'GET_CONFIG':
-      // 获取配置
       getConfigManager().getConfig()
         .then(config => sendResponse({ success: true, data: config }))
         .catch((error: any) => sendResponse({ success: false, error: error.message }))
       return true
       
     case 'UPDATE_CONFIG':
-      // 更新配置
       getConfigManager().updateConfig(message.data)
         .then(() => sendResponse({ success: true }))
         .catch((error: any) => sendResponse({ success: false, error: error.message }))
       return true
       
+    case 'PING':
+      // 健康检查
+      sendResponse({
+        success: true,
+        timestamp: Date.now(),
+        status: swManager.getStatus()
+      })
+      return true
+      
+    case 'WAKE_UP':
+      // 强制唤醒
+      swManager.initialize()
+        .then(() => sendResponse({ success: true, message: 'Service Worker awakened' }))
+        .catch((error: any) => sendResponse({ success: false, error: error.message }))
+      return true
+      
     case 'DISMISS_FOLDER_RECOMMENDATION':
-      // EventManager 应该已经处理了这个消息
-      // 这个 case 主要是为了防止它落入 default 并打印 "Unknown message type"
-      console.log('Markhub Extension (background.ts): Received DISMISS_FOLDER_RECOMMENDATION, assuming EventManager handled it.')
-      // 不调用 sendResponse() 或 return true，避免与 EventManager 的响应冲突
+      // EventManager 处理这个消息
+      console.log('Markhub Extension: Received DISMISS_FOLDER_RECOMMENDATION')
       break
       
     default:
@@ -97,5 +229,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 })
 
+// 立即初始化（用于 Service Worker 重新激活时）
+swManager.initialize().catch(error => {
+  console.error('Markhub Extension: Initial initialization failed:', error)
+})
+
 // 导出用于测试的函数
-export { initializeExtension }
+export { ServiceWorkerManager }
