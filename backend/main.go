@@ -283,6 +283,105 @@ func suggestFolderHandler(app *pocketbase.PocketBase) func(e *core.RequestEvent)
 	}
 }
 
+// ensureFolderPathHandler handles the API request for ensuring a folder path exists.
+// It accepts a folder path array and returns the final folder ID, creating folders as needed.
+func ensureFolderPathHandler(app *pocketbase.PocketBase) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return e.UnauthorizedError("Authentication required for folder path operations.", nil)
+		}
+
+		var requestData struct {
+			FolderPath []string `json:"folderPath"`
+		}
+
+		if err := e.BindBody(&requestData); err != nil {
+			return e.BadRequestError("Invalid request body for folder path operation.", err)
+		}
+
+		if len(requestData.FolderPath) == 0 {
+			// Root folder case
+			return e.JSON(http.StatusOK, map[string]interface{}{
+				"folderId": nil,
+				"created":  []string{},
+			})
+		}
+
+		userId := authRecord.Id
+		createdFolders := []string{}
+		var currentParentId *string = nil
+
+		// Get all user's folders once
+		folderRecords, err := app.FindRecordsByFilter(
+			"folders",
+			"userId = {:userId}",
+			"", // sort
+			0,  // limit
+			0,  // offset
+			dbx.Params{"userId": userId},
+		)
+		if err != nil {
+			return e.InternalServerError("Failed to fetch user's folders.", err)
+		}
+
+		// Create a map for quick lookup: "name:parentId" -> folder record
+		folderMap := make(map[string]*core.Record)
+		for _, record := range folderRecords {
+			name := record.GetString("name")
+			parentId := record.GetString("parentId")
+			key := name + ":" + parentId
+			folderMap[key] = record
+		}
+
+		// Process each folder in the path
+		for _, folderName := range requestData.FolderPath {
+			parentIdStr := ""
+			if currentParentId != nil {
+				parentIdStr = *currentParentId
+			}
+			
+			lookupKey := folderName + ":" + parentIdStr
+			
+			if existingFolder, exists := folderMap[lookupKey]; exists {
+				// Folder exists, use its ID
+				currentParentId = &existingFolder.Id
+			} else {
+				// Folder doesn't exist, create it
+				collection, err := app.FindCollectionByNameOrId("folders")
+				if err != nil {
+					return e.InternalServerError("Failed to find folders collection.", err)
+				}
+
+				newFolder := core.NewRecord(collection)
+				newFolder.Set("userId", userId)
+				newFolder.Set("name", folderName)
+				if currentParentId != nil {
+					newFolder.Set("parentId", *currentParentId)
+				}
+
+				if err := app.Save(newFolder); err != nil {
+					return e.InternalServerError("Failed to create folder: "+folderName, err)
+				}
+
+				currentParentId = &newFolder.Id
+				createdFolders = append(createdFolders, folderName)
+				
+				// Add to map for subsequent lookups in this request
+				newKey := folderName + ":" + parentIdStr
+				folderMap[newKey] = newFolder
+				
+				log.Printf("EnsureFolderPath: Created folder '%s' with ID: %s", folderName, newFolder.Id)
+			}
+		}
+
+		return e.JSON(http.StatusOK, map[string]interface{}{
+			"folderId": currentParentId,
+			"created":  createdFolders,
+		})
+	}
+}
+
 // webdavBackupHandler handles the WebDAV backup request.
 func webdavBackupHandler(app *pocketbase.PocketBase) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -654,6 +753,295 @@ func suggestTagsForBookmarkHandler(app *pocketbase.PocketBase) func(e *core.Requ
 
 		return e.JSON(http.StatusOK, map[string]interface{}{
 			"suggested_tags": suggestedTags,
+		})
+	}
+}
+
+// aiSuggestAndSetTagsHandler 处理 AI 标签建议并设置到书签的请求
+func aiSuggestAndSetTagsHandler(app *pocketbase.PocketBase) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return apis.NewUnauthorizedError("User not authenticated.", nil)
+		}
+		userId := authRecord.Id
+
+		// 从路径参数获取 bookmarkId
+		bookmarkId := e.Request.PathValue("bookmarkId")
+		if bookmarkId == "" {
+			return e.BadRequestError("Bookmark ID is required", nil)
+		}
+
+		// 查找书签记录
+		bookmark, err := app.FindRecordById("bookmarks", bookmarkId)
+		if err != nil {
+			return e.NotFoundError("Bookmark not found", err)
+		}
+
+		// 验证书签属于当前用户
+		if bookmark.GetString("userId") != userId {
+			return apis.NewForbiddenError("Access denied to this bookmark.", nil)
+		}
+
+		// 获取书签的标题和URL
+		title := bookmark.GetString("title")
+		url := bookmark.GetString("url")
+
+		if title == "" || url == "" {
+			return e.BadRequestError("Bookmark title and URL are required for AI tag suggestion", nil)
+		}
+
+		// 获取用户设置中的 Gemini API 配置
+		userSettings, err := app.FindFirstRecordByFilter(
+			"user_settings",
+			"userId = {:userId}",
+			dbx.Params{"userId": userId},
+		)
+		if err != nil {
+			return e.NotFoundError("User settings not found", err)
+		}
+
+		geminiApiKey := userSettings.GetString("geminiApiKey")
+		geminiApiBaseUrl := userSettings.GetString("geminiApiBaseUrl")
+		geminiModelName := userSettings.GetString("geminiModelName")
+
+		if geminiApiKey == "" {
+			// AI 服务未配置，直接返回错误
+			log.Printf("AI API not configured for user %s", userId)
+			return e.JSON(http.StatusServiceUnavailable, map[string]interface{}{
+				"success": false,
+				"message": "AI service (Gemini API) is not configured on the server. Please contact the administrator.",
+				"aiUsed": false,
+			})
+		}
+
+		// 配置 AI API 参数
+		apiBaseUrl := geminiApiBaseUrl
+		if apiBaseUrl == "" {
+			apiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai/"
+		}
+
+		modelName := geminiModelName
+		if modelName == "" {
+			modelName = "gemini-2.0-flash"
+		}
+
+		// 获取用户现有的标签列表
+		existingUserTags := userSettings.GetStringSlice("tagList")
+
+		// 获取页面内容
+		pageData, err := fetchPageContent(url, app)
+		if err != nil {
+			log.Printf("Failed to fetch page content for URL %s: %v. Proceeding with title and URL only for tag suggestion.", url, err)
+		}
+
+		// 构造 AI 提示
+		systemMessage := "You are a professional bookmark tagging assistant. Your ONLY task is to select relevant tags from the user's existing tag collection. You MUST ONLY choose from the tags provided in the existing user tags list. DO NOT create new tags. If no existing tags are relevant, return an empty array in the format {\"tags\": []}. Return ONLY a JSON response in the format {\"tags\": [\"tag1\", \"tag2\"]}. Choose 2-3 tags maximum if relevant ones exist."
+
+		userPrompt := fmt.Sprintf("分析以下网页信息以生成相关标签。\n\n原始书签标题: %s\n网页URL: %s", title, url)
+
+		if pageData.MetaTitle != "" {
+			userPrompt += fmt.Sprintf("\n网页Meta标题: %s", pageData.MetaTitle)
+		}
+		if pageData.MetaDescription != "" {
+			userPrompt += fmt.Sprintf("\n网页Meta描述: %s", pageData.MetaDescription)
+		}
+		if pageData.OGTitle != "" {
+			userPrompt += fmt.Sprintf("\n网页OG标题: %s", pageData.OGTitle)
+		}
+		if pageData.OGDescription != "" {
+			userPrompt += fmt.Sprintf("\n网页OG描述: %s", pageData.OGDescription)
+		}
+
+		if pageData.Content != "" {
+			maxContentLength := 15000
+			content := pageData.Content
+			if len(content) > maxContentLength {
+				content = content[:maxContentLength]
+			}
+			userPrompt += fmt.Sprintf("\n\n网页主要内容摘要:\n%s", content)
+		}
+
+		if len(existingUserTags) > 0 {
+			userPrompt += fmt.Sprintf("\n\nCRITICAL INSTRUCTION: 您必须从用户现有的标签列表 %v 中选择标签。请勿创建任何新标签。如果没有相关的标签，请返回空数组 {\"tags\": []}。最多选择2-3个最相关的标签。创建新标签是严格禁止的，会导致系统错误。", existingUserTags)
+		} else {
+			userPrompt += "\n\n未提供现有用户标签。由于您只能从现有标签中选择，且没有提供标签，请返回空数组 {\"tags\": []}。"
+		}
+
+		// 构造 AI API 请求
+		requestBody, _ := json.Marshal(map[string]interface{}{
+			"model": modelName,
+			"messages": []map[string]interface{}{
+				{
+					"role":    "system",
+					"content": systemMessage,
+				},
+				{
+					"role":    "user",
+					"content": userPrompt,
+				},
+			},
+			"temperature": 0.3,
+			"max_tokens":  200,
+			"response_format": map[string]string{
+				"type": "json_object",
+			},
+		})
+
+		// 调用 AI API
+		client := &http.Client{
+			Timeout: time.Second * 30,
+		}
+
+		finalApiUrl := apiBaseUrl
+		if !strings.HasSuffix(finalApiUrl, "/") {
+			finalApiUrl += "/"
+		}
+
+		req, err := http.NewRequest("POST", finalApiUrl+"chat/completions", bytes.NewBuffer(requestBody))
+		if err != nil {
+			return e.InternalServerError("Failed to create AI HTTP request", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+geminiApiKey)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return e.JSON(http.StatusInternalServerError, map[string]interface{}{
+				"success": false,
+				"message": "Failed to get suggestions from AI service.",
+				"error_details": err.Error(),
+				"aiUsed": false,
+			})
+		}
+		defer resp.Body.Close()
+
+		responseBodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return e.InternalServerError("Failed to read AI API response", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			var errorResponse map[string]interface{}
+			if err := json.Unmarshal(responseBodyBytes, &errorResponse); err != nil {
+				return e.JSON(http.StatusBadGateway, map[string]interface{}{
+					"success": false,
+					"message": "Failed to get suggestions from AI service.",
+					"error_details": fmt.Sprintf("AI API returned status: %d", resp.StatusCode),
+					"aiUsed": false,
+				})
+			}
+			return e.JSON(http.StatusBadGateway, map[string]interface{}{
+				"success": false,
+				"message": "Failed to get suggestions from AI service.",
+				"error_details": fmt.Sprintf("AI API error: %v", errorResponse),
+				"aiUsed": false,
+			})
+		}
+
+		var result map[string]interface{}
+		if err := json.Unmarshal(responseBodyBytes, &result); err != nil {
+			return e.InternalServerError("Failed to parse AI API response", err)
+		}
+
+		// 解析 AI 响应中的标签
+		var suggestedTags []string
+
+		if choices, ok := result["choices"].([]interface{}); ok && len(choices) > 0 {
+			if choice, ok := choices[0].(map[string]interface{}); ok {
+				if message, ok := choice["message"].(map[string]interface{}); ok {
+					if content, ok := message["content"].(string); ok {
+						var tagsResponse map[string]interface{}
+
+						cleanContent := content
+						if strings.HasPrefix(cleanContent, "```json") {
+							cleanContent = strings.TrimPrefix(cleanContent, "```json")
+							cleanContent = strings.TrimSuffix(cleanContent, "```")
+						} else if strings.HasPrefix(cleanContent, "```") {
+							cleanContent = strings.TrimPrefix(cleanContent, "```")
+							cleanContent = strings.TrimSuffix(cleanContent, "```")
+						}
+
+						cleanContent = strings.TrimSpace(cleanContent)
+
+						if err := json.Unmarshal([]byte(cleanContent), &tagsResponse); err != nil {
+							log.Printf("Failed to parse AI response JSON content after cleaning: %v. Raw content: %s", err, cleanContent)
+						} else {
+							if tags, ok := tagsResponse["tags"].([]interface{}); ok {
+								for _, tag := range tags {
+									if tagStr, ok := tag.(string); ok {
+										suggestedTags = append(suggestedTags, tagStr)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// 如果 AI 没有返回有效标签，返回错误
+		if len(suggestedTags) == 0 {
+			log.Printf("AI did not return valid tags for bookmark %s", bookmarkId)
+			return e.JSON(http.StatusInternalServerError, map[string]interface{}{
+				"success": false,
+				"message": "AI service failed to generate valid tags for this bookmark.",
+				"error_details": "AI response did not contain valid tag suggestions",
+				"aiUsed": false,
+			})
+		}
+
+		// 更新书签的标签
+		bookmark.Set("tags", suggestedTags)
+		if err := app.Save(bookmark); err != nil {
+			return e.InternalServerError("Failed to update bookmark with AI suggested tags", err)
+		}
+
+		// 更新用户的标签列表，添加新的标签
+		tagList := userSettings.GetStringSlice("tagList")
+		newUniqueTags := make([]string, 0)
+		for _, tag := range suggestedTags {
+			isUnique := true
+			for _, existingTag := range tagList {
+				if existingTag == tag {
+					isUnique = false
+					break
+				}
+			}
+			if isUnique {
+				newUniqueTags = append(newUniqueTags, tag)
+			}
+		}
+
+		if len(newUniqueTags) > 0 {
+			updatedTagList := append(tagList, newUniqueTags...)
+			userSettings.Set("tagList", updatedTagList)
+			if err := app.Save(userSettings); err != nil {
+				log.Printf("Error saving user_settings during AI tag suggestion: %v", err)
+			}
+		}
+
+		// 重新获取更新后的书签
+		updatedBookmark, err := app.FindRecordById("bookmarks", bookmarkId)
+		if err != nil {
+			return e.InternalServerError("Failed to fetch updated bookmark", err)
+		}
+
+		return e.JSON(http.StatusOK, map[string]interface{}{
+			"success": true,
+			"message": "Tags suggested and set successfully",
+			"bookmark": map[string]interface{}{
+				"id":         updatedBookmark.Id,
+				"title":      updatedBookmark.GetString("title"),
+				"url":        updatedBookmark.GetString("url"),
+				"tags":       updatedBookmark.GetStringSlice("tags"),
+				"folderId":   updatedBookmark.GetString("folderId"),
+				"faviconUrl": updatedBookmark.GetString("faviconUrl"),
+				"createdAt":  updatedBookmark.GetString("createdAt"),
+				"updatedAt":  updatedBookmark.GetString("updatedAt"),
+			},
+			"aiUsed": true,
 		})
 	}
 }
@@ -1980,11 +2368,19 @@ func main() {
 		return e.Next()
 	})
 
-	// Register custom routes
+	// Register all custom routes in a single OnServe handler to avoid conflicts
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		// Add debug logging to confirm route registration
+		log.Println("Info: Registering custom API routes...")
+
 		se.Router.POST(
 			"/api/custom/suggest-folder",
 			suggestFolderHandler(app),
+		).Bind(apis.RequireAuth("users"))
+
+		se.Router.POST(
+			"/api/custom/ensure-folder-path",
+			ensureFolderPathHandler(app),
 		).Bind(apis.RequireAuth("users"))
 
 		se.Router.POST(
@@ -2003,7 +2399,7 @@ func main() {
 		).Bind(apis.RequireAuth("users"))
 
 		se.Router.POST(
-			"/api/custom/bookmarks/:bookmarkId/add-tags-batch",
+			"/api/custom/bookmarks/{bookmarkId}/add-tags-batch",
 			addTagsBatchHandler(app),
 		).Bind(apis.RequireAuth("users"))
 
@@ -2017,15 +2413,18 @@ func main() {
 			batchDeleteTagsHandler(app),
 		).Bind(apis.RequireAuth("users"))
 
-		return se.Next()
-	})
+		// The problematic route - ensure it's registered correctly
+		se.Router.POST(
+			"/api/custom/bookmarks/{bookmarkId}/ai-suggest-and-set-tags",
+			aiSuggestAndSetTagsHandler(app),
+		).Bind(apis.RequireAuth("users"))
 
-	// Register clear all user data route
-	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.POST(
 			"/api/custom/user-data/clear-all",
 			clearAllUserDataHandler(app),
 		).Bind(apis.RequireAuth("users"))
+
+		log.Println("Info: All custom API routes registered successfully, including ai-suggest-and-set-tags")
 		return se.Next()
 	})
 
