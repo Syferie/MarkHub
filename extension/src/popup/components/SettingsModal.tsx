@@ -14,8 +14,7 @@ import {
   Tabs,
   Loader,
   Card,
-  ThemeIcon,
-  Select
+  ThemeIcon
 } from '@mantine/core'
 import { IconInfoCircle, IconLogin, IconRefresh, IconCheck, IconX, IconTestPipe, IconWifi, IconSettings, IconLogout, IconUserCheck, IconExternalLink, IconDownload, IconShield } from '@tabler/icons-react'
 import { getConfigManager, type PluginConfig } from '../../core/ConfigManager'
@@ -23,7 +22,6 @@ import { getMarkhubAPIClient } from '../../core/MarkhubAPIClient'
 import { getSyncManager } from '../../core/SyncManager'
 import { getReverseSyncManager } from '../../core/ReverseSyncManager'
 import { createAIServiceClient } from '../../core/AIServiceClient'
-import { changeLanguage } from '../../i18n'
 
 interface SettingsModalProps {
   opened: boolean
@@ -354,21 +352,6 @@ function SettingsModal({ opened, onClose, onAuthSuccess }: SettingsModalProps) {
     }
   }
 
-  // 处理语言切换
-  const handleLanguageChange = async (language: 'auto' | 'en' | 'zh') => {
-    try {
-      const configManager = getConfigManager()
-      await configManager.set('language', language)
-      await changeLanguage(language)
-      
-      // 重新获取完整配置
-      const updatedConfig = await configManager.getConfig()
-      setConfig(updatedConfig)
-      setSuccess(t('configSaved'))
-    } catch (error) {
-      setError(t('saveConfigFailed') + (error as Error).message)
-    }
-  }
 
   if (!config) {
     return null
@@ -400,7 +383,6 @@ function SettingsModal({ opened, onClose, onAuthSuccess }: SettingsModalProps) {
           <Tabs.Tab value="ai">{t('aiService')}</Tabs.Tab>
           <Tabs.Tab value="sync">{t('syncSettings')}</Tabs.Tab>
           <Tabs.Tab value="reverse-sync">{t('reverseSyncTab')}</Tabs.Tab>
-          <Tabs.Tab value="language">{t('languageSettings')}</Tabs.Tab>
         </Tabs.List>
 
         {/* 账户认证标签页 */}
@@ -980,31 +962,6 @@ function SettingsModal({ opened, onClose, onAuthSuccess }: SettingsModalProps) {
           </Stack>
         </Tabs.Panel>
 
-        {/* 语言设置标签页 */}
-        <Tabs.Panel value="language" pt="md">
-          <Stack gap="md">
-            <Alert icon={<IconInfoCircle size={16} />} color="blue" variant="light">
-              {t('languageSettings')}
-            </Alert>
-
-            <Card withBorder radius="md" p="md">
-              <Stack gap="md">
-                <Text fw={500}>{t('language')}</Text>
-                
-                <Select
-                  value={config.language}
-                  onChange={(value) => handleLanguageChange(value as 'auto' | 'en' | 'zh')}
-                  data={[
-                    { value: 'auto', label: t('languageAuto') },
-                    { value: 'en', label: t('languageEnglish') },
-                    { value: 'zh', label: t('languageChinese') }
-                  ]}
-                  placeholder={t('language')}
-                />
-              </Stack>
-            </Card>
-          </Stack>
-        </Tabs.Panel>
       </Tabs>
 
       {/* 错误和成功消息 */}

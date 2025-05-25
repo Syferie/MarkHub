@@ -26,7 +26,8 @@ import {
   IconCloudOff,
   IconUser,
   IconUserOff,
-  IconBrandGithub
+  IconBrandGithub,
+  IconLanguage
 } from '@tabler/icons-react'
 import { getConfigManager } from '../core/ConfigManager'
 import { getMarkhubAPIClient } from '../core/MarkhubAPIClient'
@@ -40,7 +41,7 @@ interface SyncStatus {
 }
 
 function App() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isEnabled: false,
@@ -50,6 +51,7 @@ function App() {
   const [currentTab, setCurrentTab] = useState<chrome.tabs.Tab | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshLoading, setRefreshLoading] = useState(false)
+  const [currentLanguage, setCurrentLanguage] = useState<string>('zh')
 
   const configManager = getConfigManager()
   const apiClient = getMarkhubAPIClient()
@@ -68,12 +70,17 @@ function App() {
       const authenticated = apiClient.isAuthenticated()
       setIsAuthenticated(authenticated)
       
-      // 获取同步状态
+      // 获取同步状态和语言设置
       const config = await configManager.getConfig()
       setSyncStatus({
         isEnabled: config.syncEnabled,
         pendingCount: 0 // TODO: 实际计算待同步数量
       })
+      
+      // 初始化语言设置
+      const language = config.language || 'zh'
+      setCurrentLanguage(language)
+      await i18n.changeLanguage(language)
       
       // 获取当前标签页信息
       getCurrentTab()
@@ -132,6 +139,25 @@ function App() {
     setIsAuthenticated(false)
   }
 
+  const handleLanguageToggle = async () => {
+    const newLanguage = currentLanguage === 'zh' ? 'en' : 'zh'
+    setCurrentLanguage(newLanguage)
+    
+    // 更新i18n语言
+    await i18n.changeLanguage(newLanguage)
+    
+    // 保存到配置
+    try {
+      const config = await configManager.getConfig()
+      await configManager.updateConfig({
+        ...config,
+        language: newLanguage
+      })
+    } catch (error) {
+      console.error('Failed to save language setting:', error)
+    }
+  }
+
   if (loading) {
     return (
       <Box w={380} h={600} bg="gray.0">
@@ -147,8 +173,8 @@ function App() {
     <Box w={400} h={600} bg="gray.0">
       {/* 现代化头部设计 */}
       <Paper shadow="sm" p="md" radius={0} bg="white">
-        <Group justify="space-between" align="center">
-          <Group gap="sm">
+        <Group justify="space-between" align="flex-start">
+          <Group gap="sm" style={{ flex: 1, maxWidth: 'calc(100% - 140px)' }}>
             <Box
               w={32}
               h={32}
@@ -157,7 +183,8 @@ function App() {
                 overflow: 'hidden',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                flexShrink: 0
               }}
             >
               <img
@@ -170,17 +197,25 @@ function App() {
                 }}
               />
             </Box>
-            <Box>
-              <Title order={3} size="h4" fw={600} c="dark.8">
+            <Box style={{ flex: 1, minWidth: 0 }}>
+              <Title order={3} size="h4" fw={600} c="dark.8" style={{ lineHeight: 1.2 }}>
                 {t('appTitle')}
               </Title>
-              <Text size="xs" c="dimmed">
+              <Text
+                size="xs"
+                c="dimmed"
+                style={{
+                  lineHeight: 1.3,
+                  wordBreak: 'break-word',
+                  hyphens: 'auto'
+                }}
+              >
                 {t('appSubtitle')}
               </Text>
             </Box>
           </Group>
           
-          <Group gap="xs">
+          <Group gap="xs" style={{ flexShrink: 0 }}>
             <Tooltip label={t('githubRepository')} position="bottom">
               <ActionIcon
                 variant="light"
@@ -215,6 +250,16 @@ function App() {
                     transform: refreshLoading ? 'rotate(360deg)' : 'rotate(0deg)'
                   }}
                 />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label={currentLanguage === 'zh' ? 'Switch to English' : '切换到中文'} position="bottom">
+              <ActionIcon
+                variant="light"
+                color="orange"
+                size="lg"
+                onClick={handleLanguageToggle}
+              >
+                <IconLanguage size={18} />
               </ActionIcon>
             </Tooltip>
             <Tooltip label={t('settingsTitle')} position="bottom">

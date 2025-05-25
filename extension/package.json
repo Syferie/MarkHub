@@ -1,5 +1,5 @@
 {
-  "name": "markhub-chrome-extension-reforged",
+  "name": "markhub",
   "version": "0.1.0",
   "description": "Markhub Chrome Extension - Reforged with React + Mantine + Tailwind CSS",
   "private": true,
