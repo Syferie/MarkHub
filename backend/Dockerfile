@@ -9,7 +9,9 @@ RUN apk add --no-cache \
     git \
     ca-certificates \
     tzdata \
-    wget
+    wget \
+    gcc \
+    musl-dev
 
 # 依赖阶段
 FROM base AS deps
@@ -47,7 +49,8 @@ RUN mkdir -p /app/pb_data
 EXPOSE 8090
 
 # 开发模式启动命令（使用go run以支持热重载）
-CMD ["go", "run", ".", "serve", "--http=0.0.0.0:8090"]
+# 不指定--http参数，让应用从环境变量POCKETBASE_URL中读取配置
+CMD ["go", "run", ".", "serve"]
 
 # 构建阶段
 FROM base AS builder
@@ -68,7 +71,7 @@ COPY . .
 # 设置构建环境变量
 ENV CGO_ENABLED=1
 ENV GOOS=linux
-ENV GOARCH=amd64
+ENV GOARCH=arm64
 
 # 构建应用
 RUN go build -ldflags="-w -s" -o markhub-backend .
@@ -111,4 +114,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 EXPOSE 8090
 
 # 启动应用
-CMD ["./markhub-backend", "serve", "--http=0.0.0.0:8090"]
+# 不指定--http参数，让应用从环境变量POCKETBASE_URL中读取配置
+CMD ["./markhub-backend", "serve"]

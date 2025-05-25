@@ -14,7 +14,7 @@ import { Button, Modal, TextInput, PasswordInput, Group, Text, Switch, Alert, Pr
 import { IconCloud, IconCloudUpload, IconCloudDownload, IconAlertCircle } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
-import { UserSetting, WebDAVConfigType } from "@/types"
+import { UserSetting, WebDAVConfigType } from "@/lib/schemas"
 import { webdavBackup, webdavRestore } from "@/lib/api-client"
 import { useAuth } from "@/context/auth-context"
 

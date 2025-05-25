@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Badge, Button, Text } from "@mantine/core";
-import { Folder } from "@/types";
+import { Folder } from "@/lib/schemas";
 
 interface ActiveFiltersDisplayProps {
   selectedFolderId: string | null;

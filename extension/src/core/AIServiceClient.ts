@@ -195,13 +195,20 @@ ${folderList}
 
     if (!response.ok) {
       let errorDetails = ''
+      // 先克隆响应，以防需要多次读取
+      const responseClone = response.clone()
+      
       try {
         // 尝试解析错误响应为JSON
         const errorJson = await response.json()
         errorDetails = JSON.stringify(errorJson)
       } catch (e) {
-        // 如果解析失败，获取文本响应
-        errorDetails = await response.text()
+        try {
+          // 如果JSON解析失败，使用克隆的响应获取文本
+          errorDetails = await responseClone.text()
+        } catch (textError) {
+          errorDetails = `无法读取错误响应: ${textError}`
+        }
       }
       throw new Error(`AI 服务请求失败: ${response.status} - ${errorDetails}`)
     }

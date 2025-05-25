@@ -28,7 +28,7 @@ import { toast } from "sonner"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
 import EditBookmarkModal from "./edit-bookmark-modal"
-import type { Bookmark } from "@/types"
+import type { Bookmark } from "@/lib/schemas"
 import { generateTags } from "@/lib/tag-api"
 import { suggestFolder } from "@/lib/folder-api"
 // import { getOptimalFaviconUrl } from "@/lib/utils" // Removed
@@ -1545,7 +1545,7 @@ export default function BookmarkList({
               <div className="flex flex-wrap gap-2 mt-1">
                 <Tooltip label="Added date" withArrow>
                   <Badge size="xs" color="gray" variant="outline" leftSection={<IconClock size={10} />}>
-                    {formatDate(bookmark.createdAt)}
+                    {formatDate(bookmark.createdAt || bookmark.created || new Date().toISOString())}
                   </Badge>
                 </Tooltip>
 

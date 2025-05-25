@@ -18,7 +18,7 @@ import {
 } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
-import type { Folder } from "@/types"
+import type { Folder } from "@/lib/schemas"
 
 export default function FolderTree() {
   const isMobile = useIsMobile();

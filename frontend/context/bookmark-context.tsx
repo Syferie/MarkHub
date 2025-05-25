@@ -16,9 +16,8 @@ import {
   deleteFolder as apiDeleteFolder,
   setBookmarkFavoriteStatus, // Added import
   fetchFaviconForUrlAPI, // Updated import for new favicon API
-  type Bookmark,
-  type Folder,
 } from "@/lib/api-client" // Added API client and types
+import { type Bookmark, type Folder } from "@/lib/schemas" // Import types from schemas
 import { updateGlobalBookmarkData } from "@/components/webdav-sync" // 导入全局数据更新函数
 
 // Types
@@ -45,7 +44,7 @@ interface BookmarkContextType {
   toggleFavoriteBookmark: (id: string) => void
   // Updated signatures for CRUD operations
   addBookmark: (bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'tags'>) => Promise<void>
-  updateBookmark: (bookmarkId: string, updatedFields: Partial<Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'tags'>>) => Promise<void>
+  updateBookmark: (bookmarkId: string, updatedFields: Partial<Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>) => Promise<void>
   deleteBookmark: (id: string) => Promise<void>
   addFolder: (folderData: Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>
   updateFolder: (folderId: string, updatedFields: Partial<Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>) => Promise<void>
@@ -361,9 +360,9 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
  
     switch (currentSortOption) {
       case "newest":
-        return sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        return sorted.sort((a, b) => new Date(b.created || '').getTime() - new Date(a.created || '').getTime())
       case "oldest":
-        return sorted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        return sorted.sort((a, b) => new Date(a.created || '').getTime() - new Date(b.created || '').getTime())
       case "title-asc":
         return sorted.sort((a, b) => a.title.localeCompare(b.title))
       case "title-desc":
@@ -516,7 +515,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     // }
  
     try {
-      const newBookmark = await apiCreateBookmark(token, dataToSend as Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'tags'>) // Cast as Omit type
+      const newBookmark = await apiCreateBookmark(token, dataToSend as Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) // Cast as Omit type
       setBookmarks((prev) => [...prev, newBookmark])
       bookmarkUpdateCounter.current += 1
       

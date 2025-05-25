@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import * as apiClient from '@/lib/api-client'; // 修改导入方式以使用 apiClient 命名空间
-import { UserSetting } from '@/types'; // 导入 UserSetting 类型
+import { UserSetting } from '@/lib/schemas'; // 导入 UserSetting 类型
 
 // PocketBase 用户记录通常包含 id, email, name 等字段
 // 为了更强的类型安全，可以定义一个更具体的 User 类型
@@ -16,7 +16,7 @@ interface User {
   [key: string]: any; // 允许其他动态属性
 }
 
-const defaultSettings: Partial<UserSetting> = {
+const defaultSettings = {
   darkMode: false,
   language: 'en',
   accentColor: '#007bff',
@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       apiClient.getUserSettings(storedToken, storedUser.id)
         .then(settings => {
           if (settings) {
-            setUserSettings(settings);
+            setUserSettings(settings as UserSetting);
           } else {
             // 如果没有设置，为用户创建默认设置
             console.log(`No settings found for user ${storedUser?.id}, creating default settings.`);
@@ -96,7 +96,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         })
         .then(createdSettings => {
           if (createdSettings) {
-            setUserSettings(createdSettings);
+            setUserSettings(createdSettings as UserSetting);
           }
         })
         .catch(err => {
@@ -135,7 +135,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             console.log(`No settings found for user ${loggedInUser.id}, creating default settings.`);
             settings = await apiClient.createUserSettings(response.token, { ...defaultSettings, userId: loggedInUser.id });
           }
-          setUserSettings(settings);
+          setUserSettings(settings as UserSetting);
         } catch (settingsError) {
           console.error('Failed to load or create user settings on login:', settingsError);
           // 即使设置失败，也允许登录，但 userSettings 将为 null
@@ -176,7 +176,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
     try {
       const updatedSettings = await apiClient.updateUserSettings(token, userSettings.id, newSettings);
-      setUserSettings(updatedSettings);
+      setUserSettings(updatedSettings as UserSetting);
     } catch (error) {
       console.error('Failed to update user settings:', error);
       throw error;

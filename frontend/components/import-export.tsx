@@ -318,7 +318,7 @@ export default function ImportExport() {
                 url: b.url,
                 folderId: b.folderId || null, // 确保是 null 而不是 undefined
                 tags: b.tags || [],
-                createdAt: b.createdAt,
+                createdAt: b.created || b.createdAt || new Date().toISOString(),
                 favicon: b.favicon || "",
                 isFavorite: b.isFavorite || false,
               })),

@@ -4,7 +4,7 @@ import { forwardRef } from "react"
 import { Select, type SelectProps } from "@mantine/core"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
-import type { Folder } from "@/lib/api-client"; // 导入统一的 Folder 类型
+import type { Folder } from "@/lib/schemas"; // 导入统一的 Folder 类型
 
 // 内部 Folder 类型定义已移除，使用导入的类型
 

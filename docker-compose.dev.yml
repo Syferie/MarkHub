@@ -10,8 +10,9 @@ services:
       - "3000:3000"
     environment:
       # 前端连接到后端服务的API地址
-      # 开发环境：前端容器通过服务名 'backend' 访问后端
-      - NEXT_PUBLIC_API_BASE_URL=http://backend:8090
+      # 开发环境：浏览器通过宿主机端口访问后端容器
+      # 注意：NEXT_PUBLIC_ 变量会暴露给浏览器，浏览器无法解析Docker内部服务名
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8090
     volumes:
       # 挂载源代码以支持热重载
       - ./frontend:/app

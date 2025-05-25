@@ -13,12 +13,18 @@ export const BookmarkSchema = z.object({
   folderId: z.string().nullable().optional(),
   favicon: z.string().optional(),
   faviconUrl: z.string().nullable().optional(),
-  isFavorite: z.boolean().optional().default(false),
-  tags: z.array(z.string()).optional().default([]),
+  isFavorite: z.boolean().default(false),
+  tags: z.array(z.string()).default([]),
   userId: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
   chromeBookmarkId: z.string().optional(),
+  // PocketBase 字段
+  collectionId: z.string().optional(),
+  collectionName: z.string().optional(),
+  // 兼容性字段
+  created: z.string().optional(),
+  updated: z.string().optional(),
 });
 
 // 文件夹Schema
@@ -27,9 +33,15 @@ export const FolderSchema = z.object({
   name: z.string().min(1, "文件夹名不能为空"),
   parentId: z.string().nullable().optional(),
   userId: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
   chromeParentId: z.string().optional(),
+  // PocketBase 字段
+  collectionId: z.string().optional(),
+  collectionName: z.string().optional(),
+  // 兼容性字段
+  created: z.string().optional(),
+  updated: z.string().optional(),
 });
 
 // 用户设置Schema
@@ -54,8 +66,23 @@ export const UserSettingSchema = z.object({
   tagList: z.array(z.string()).optional().default([]),
   sortOption: z.string().optional().default('createdAt_desc'),
   searchFields: z.array(z.string()).optional().default(['title', 'url', 'tags']),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  // PocketBase 字段
+  collectionId: z.string().optional(),
+  collectionName: z.string().optional(),
+  // 兼容性字段
+  created: z.string().optional(),
+  updated: z.string().optional(),
+});
+
+// WebDAV配置类型
+export const WebDAVConfigSchema = z.object({
+  Url: z.string().optional().default(''),
+  Username: z.string().optional().default(''),
+  Password: z.string().optional().default(''),
+  Path: z.string().optional().default('/bookmarks/'),
+  AutoSync: z.boolean().optional().default(false),
 });
 
 // API响应Schema
@@ -65,10 +92,18 @@ export const APIResponseSchema = z.object({
 
 export const BookmarkListResponseSchema = z.object({
   items: z.array(BookmarkSchema),
+  page: z.number().optional(),
+  perPage: z.number().optional(),
+  totalItems: z.number().optional(),
+  totalPages: z.number().optional(),
 });
 
 export const FolderListResponseSchema = z.object({
   items: z.array(FolderSchema),
+  page: z.number().optional(),
+  perPage: z.number().optional(),
+  totalItems: z.number().optional(),
+  totalPages: z.number().optional(),
 });
 
 // 认证响应Schema
@@ -88,6 +123,8 @@ export const CreateBookmarkInputSchema = BookmarkSchema.omit({
   createdAt: true,
   updatedAt: true,
   userId: true,
+  collectionId: true,
+  collectionName: true,
 });
 
 // 更新书签输入Schema（所有字段都是可选的）
@@ -96,6 +133,8 @@ export const UpdateBookmarkInputSchema = BookmarkSchema.omit({
   createdAt: true,
   updatedAt: true,
   userId: true,
+  collectionId: true,
+  collectionName: true,
 }).partial();
 
 // 创建文件夹输入Schema
@@ -104,6 +143,8 @@ export const CreateFolderInputSchema = FolderSchema.omit({
   createdAt: true,
   updatedAt: true,
   userId: true,
+  collectionId: true,
+  collectionName: true,
 });
 
 // 更新文件夹输入Schema
@@ -112,12 +153,15 @@ export const UpdateFolderInputSchema = FolderSchema.omit({
   createdAt: true,
   updatedAt: true,
   userId: true,
+  collectionId: true,
+  collectionName: true,
 }).partial();
 
 // 导出类型
 export type Bookmark = z.infer<typeof BookmarkSchema>;
 export type Folder = z.infer<typeof FolderSchema>;
 export type UserSetting = z.infer<typeof UserSettingSchema>;
+export type WebDAVConfigType = z.infer<typeof WebDAVConfigSchema>;
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 export type CreateBookmarkInput = z.infer<typeof CreateBookmarkInputSchema>;
 export type UpdateBookmarkInput = z.infer<typeof UpdateBookmarkInputSchema>;

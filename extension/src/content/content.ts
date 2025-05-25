@@ -26,6 +26,12 @@ if (!window.markhubExtensionInjected) {
     try {
       console.log('Content Script: Initializing Service Worker connection...')
       
+      // 检查扩展上下文是否有效
+      if (!chrome.runtime?.id) {
+        console.log('Content Script: Extension context invalidated, skipping connection')
+        return
+      }
+      
       // 建立与 Service Worker 的持久连接
       serviceWorkerConnection = chrome.runtime.connect({ name: 'keepAlive' })
       
@@ -33,9 +39,17 @@ if (!window.markhubExtensionInjected) {
         console.log('Content Script: Service Worker connection lost, attempting reconnect...')
         serviceWorkerConnection = null
         
+        // 检查是否是扩展上下文失效
+        if (chrome.runtime.lastError?.message?.includes('Extension context invalidated')) {
+          console.log('Content Script: Extension context invalidated, stopping reconnection attempts')
+          return
+        }
+        
         // 延迟重连
         setTimeout(() => {
-          initializeServiceWorkerConnection()
+          if (chrome.runtime?.id) {
+            initializeServiceWorkerConnection()
+          }
         }, 2000)
       })
       
@@ -47,7 +61,7 @@ if (!window.markhubExtensionInjected) {
       
       // 定期发送 ping 保持连接
       setInterval(() => {
-        if (serviceWorkerConnection) {
+        if (serviceWorkerConnection && chrome.runtime?.id) {
           try {
             serviceWorkerConnection.postMessage({
               type: 'ping',
@@ -70,10 +84,20 @@ if (!window.markhubExtensionInjected) {
   // 确保 Service Worker 处于活跃状态的辅助函数
   async function ensureServiceWorkerActive(): Promise<boolean> {
     try {
+      // 检查扩展上下文是否有效
+      if (!chrome.runtime?.id) {
+        console.log('Content Script: Extension context invalidated')
+        return false
+      }
+      
       // 尝试发送 ping 消息
       const response = await chrome.runtime.sendMessage({ type: 'PING' })
       return response?.success || false
     } catch (error) {
+      if (error instanceof Error && error.message?.includes('Extension context invalidated')) {
+        console.log('Content Script: Extension context invalidated during ping')
+        return false
+      }
       console.log('Content Script: Service Worker may be inactive:', error)
       return false
     }
@@ -82,12 +106,25 @@ if (!window.markhubExtensionInjected) {
   // 增强的消息发送函数
   async function sendMessageToServiceWorker(message: any): Promise<any> {
     try {
+      // 检查扩展上下文是否有效
+      if (!chrome.runtime?.id) {
+        console.log('Content Script: Extension context invalidated, cannot send message')
+        return { success: false, error: 'Extension context invalidated' }
+      }
+      
       // 确保 Service Worker 活跃
-      await ensureServiceWorkerActive()
+      const isActive = await ensureServiceWorkerActive()
+      if (!isActive) {
+        console.log('Content Script: Service Worker is not active, message may fail')
+      }
       
       // 发送消息
       return await chrome.runtime.sendMessage(message)
     } catch (error) {
+      if (error instanceof Error && error.message?.includes('Extension context invalidated')) {
+        console.log('Content Script: Extension context invalidated during message send')
+        return { success: false, error: 'Extension context invalidated' }
+      }
       console.error('Content Script: Failed to send message to Service Worker:', error)
       throw error
     }

@@ -5,7 +5,7 @@ import { Modal, TextInput, Button, Group, Tooltip, ActionIcon, Alert, Text, Comb
 import { IconWand, IconAlertCircle, IconCheck, IconSparkles, IconLoader2, IconFolder } from "@tabler/icons-react"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
-import type { Bookmark } from "@/types"
+import type { Bookmark } from "@/lib/schemas"
 import { HierarchicalFolderSelect } from "./hierarchical-folder-select"
 import { generateTags } from "@/lib/tag-api"
 import { suggestFolder } from "@/lib/folder-api"

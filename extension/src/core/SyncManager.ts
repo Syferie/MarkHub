@@ -247,7 +247,7 @@ export class SyncManager {
   private async findMarkhubBookmarkByChromeId(chromeBookmarkId: string): Promise<Bookmark | null> {
     try {
       const bookmarks = await this.apiClient.getBookmarks();
-      return bookmarks.find(b => b.chromeBookmarkId === chromeBookmarkId) || null;
+      return (bookmarks.find(b => b.chromeBookmarkId === chromeBookmarkId) as Bookmark) || null;
     } catch (error) {
       console.error('SyncManager: Error finding Markhub bookmark:', error);
       return null;

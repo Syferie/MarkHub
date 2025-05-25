@@ -10,18 +10,10 @@
 import { getConfigManager } from './ConfigManager';
 import {
   BookmarkSchema,
-  FolderSchema,
   AuthResponseSchema,
   BookmarkListResponseSchema,
-  FolderListResponseSchema,
   CreateBookmarkInputSchema,
-  UpdateBookmarkInputSchema,
-  CreateFolderInputSchema,
-  UpdateFolderInputSchema,
-  safeValidateBookmark,
-  safeValidateFolder,
   type Bookmark as ValidatedBookmark,
-  type Folder as ValidatedFolder,
   type AuthResponse as ValidatedAuthResponse
 } from '../shared/schemas';
 
@@ -39,15 +31,6 @@ interface APIResponse<T = any> {
   [key: string]: any;
 }
 
-// 认证响应接口
-interface AuthResponse {
-  token: string;
-  record: {
-    id: string;
-    email: string;
-    [key: string]: any;
-  };
-}
 
 // 书签接口
 export interface Bookmark {

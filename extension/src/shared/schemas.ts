@@ -16,8 +16,8 @@ export const BookmarkSchema = z.object({
   isFavorite: z.boolean().optional().default(false),
   tags: z.array(z.string()).optional().default([]),
   userId: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
   chromeBookmarkId: z.string().optional(),
 });
 
@@ -27,8 +27,8 @@ export const FolderSchema = z.object({
   name: z.string().min(1, "文件夹名不能为空"),
   parentId: z.string().nullable().optional(),
   userId: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
   chromeParentId: z.string().optional(),
 });
 

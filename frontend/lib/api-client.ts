@@ -13,9 +13,9 @@ import {
   UpdateFolderInputSchema,
   safeValidateBookmark,
   safeValidateFolder,
-  type Bookmark as ValidatedBookmark,
-  type Folder as ValidatedFolder,
-  type AuthResponse as ValidatedAuthResponse
+  type Bookmark,
+  type Folder,
+  type AuthResponse
 } from './schemas';
 import { z, ZodError } from 'zod';
 
@@ -94,12 +94,7 @@ export async function fetchAPIWithValidation<T>(
   return response as T;
 }
 
-interface AuthResponse {
-  token: string;
-  record: any; // Replace 'any' with a more specific user type if available
-}
-
-export async function loginUser(identity: string, password: string): Promise<ValidatedAuthResponse> {
+export async function loginUser(identity: string, password: string): Promise<AuthResponse> {
   return fetchAPIWithValidation(
     '/api/collections/users/auth-with-password',
     'POST',
@@ -129,53 +124,50 @@ export async function registerUser(email: string, password: string, passwordConf
   );
 }
 
-// Updated Bookmark and Folder types
-export interface Bookmark {
-  id: string;
-  title: string;
-  url: string;
-  folderId?: string | null; // Pocketbase might return null for empty optional relations
-  favicon?: string;
-  isFavorite?: boolean;
-  tags?: string[]; // Assuming tags are an array of strings (tag IDs or names)
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-  faviconUrl?: string | null; // Add faviconUrl field to match backend
-  // Add other bookmark properties based on your API response
-  [key: string]: any; // Keep for flexibility if other fields exist
-}
-
-export interface Folder {
-  id: string;
-  name: string;
-  parentId?: string | null; // Pocketbase might return null for empty optional relations
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-  // Add other folder properties based on your API response
-  [key: string]: any; // Keep for flexibility if other fields exist
-}
+// Import types from schemas instead of defining them here
+export type { Bookmark, Folder } from '@/lib/schemas';
 
 
-export async function getBookmarks(token: string): Promise<ValidatedBookmark[]> {
+export async function getBookmarks(token: string): Promise<Bookmark[]> {
   const response = await fetchAPIWithValidation(
     '/api/collections/bookmarks/records',
     'GET',
     undefined,
     { token },
-    (data) => BookmarkListResponseSchema.parse(data)
+    (data) => {
+      // 处理null或undefined的情况
+      if (data === null || data === undefined) {
+        return { items: [] };
+      }
+      
+      // PocketBase 可能返回 {items: [...]} 或直接返回数组
+      if (Array.isArray(data)) {
+        return { items: z.array(BookmarkSchema).parse(data) };
+      }
+      return BookmarkListResponseSchema.parse(data);
+    }
   );
   return response.items || [];
 }
 
-export async function getFolders(token: string): Promise<ValidatedFolder[]> {
+export async function getFolders(token: string): Promise<Folder[]> {
   const response = await fetchAPIWithValidation(
     '/api/collections/folders/records',
     'GET',
     undefined,
     { token },
-    (data) => FolderListResponseSchema.parse(data)
+    (data) => {
+      // 处理null或undefined的情况
+      if (data === null || data === undefined) {
+        return { items: [] };
+      }
+      
+      // PocketBase 可能返回 {items: [...]} 或直接返回数组
+      if (Array.isArray(data)) {
+        return { items: z.array(FolderSchema).parse(data) };
+      }
+      return FolderListResponseSchema.parse(data);
+    }
   );
   return response.items || [];
 }
@@ -183,8 +175,8 @@ export async function getFolders(token: string): Promise<ValidatedFolder[]> {
 // New API functions for Bookmarks
 export async function createBookmark(
   token: string,
-  bookmarkData: Omit<Bookmark, 'id' | 'created' | 'updatedAt' | 'userId'> & { tags?: string[] }
-): Promise<ValidatedBookmark> {
+  bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'> & { tags?: string[] }
+): Promise<Bookmark> {
   // 验证输入数据
   const validatedInput = CreateBookmarkInputSchema.parse({
     ...bookmarkData,
@@ -215,8 +207,8 @@ export async function createBookmark(
 export async function updateBookmark(
   token: string,
   bookmarkId: string,
-  bookmarkData: Partial<Omit<Bookmark, 'id' | 'created' | 'updatedAt' | 'userId'>> & { tags?: string[] }
-): Promise<ValidatedBookmark> {
+  bookmarkData: Partial<Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'>> & { tags?: string[] }
+): Promise<Bookmark> {
   // 验证输入数据
   const validatedInput = UpdateBookmarkInputSchema.parse(bookmarkData);
   
@@ -289,8 +281,8 @@ export async function addTagsBatchToBookmark(
 // New API functions for Folders
 export async function createFolder(
   token: string,
-  folderData: Omit<Folder, 'id' | 'created' | 'updatedAt' | 'userId'>
-): Promise<ValidatedFolder> {
+  folderData: Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
+): Promise<Folder> {
   // 验证输入数据
   const validatedInput = CreateFolderInputSchema.parse(folderData);
   
@@ -306,8 +298,8 @@ export async function createFolder(
 export async function updateFolder(
   token: string,
   folderId: string,
-  folderData: Partial<Omit<Folder, 'id' | 'created' | 'updatedAt' | 'userId'>>
-): Promise<ValidatedFolder> {
+  folderData: Partial<Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>
+): Promise<Folder> {
   // 验证输入数据
   const validatedInput = UpdateFolderInputSchema.parse(folderData);
   
@@ -337,7 +329,27 @@ export async function getUserSettings(token: string, userId: string): Promise<Us
     'GET',
     undefined,
     { token },
-    (data) => z.object({ items: z.array(UserSettingSchema) }).parse(data)
+    (data) => {
+      // 处理null或undefined的情况
+      if (data === null || data === undefined) {
+        return { items: [] };
+      }
+      
+      // PocketBase 可能返回 {items: [...]} 或直接返回数组
+      if (Array.isArray(data)) {
+        return { items: z.array(UserSettingSchema).parse(data) };
+      }
+      
+      // 创建一个临时的UserSettingListResponseSchema
+      const UserSettingListResponseSchema = z.object({
+        items: z.array(UserSettingSchema),
+        page: z.number().optional(),
+        perPage: z.number().optional(),
+        totalItems: z.number().optional(),
+        totalPages: z.number().optional(),
+      });
+      return UserSettingListResponseSchema.parse(data);
+    }
   );
   return response.items && response.items.length > 0 ? response.items[0] : null;
 }

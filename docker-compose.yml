@@ -1,31 +1,30 @@
 services:
-  # MarkHub 前端服务 (Next.js)
   frontend:
-    # 使用云端预构建的前端镜像 - 用户需要替换为实际的镜像名称
-    image: your-repo/markhub-frontend:latest
+    image: syferie/markhub-frontend:latest
     container_name: markhub-frontend
     ports:
       - "3000:3000"
     environment:
       # 前端需要连接到后端服务的API地址
-      # 注意：在Docker网络中，前端容器通过服务名 'backend' 访问后端
-      - NEXT_PUBLIC_API_BASE_URL=http://backend:8090
+      # 生产环境：使用实际的域名，并配置 https
+      # 请将 your-domain.com 替换为您的实际域名
+      - NEXT_PUBLIC_API_BASE_URL=https://your-domain.com
     depends_on:
       - backend
     restart: unless-stopped
     networks:
       - markhub-network
 
-  # MarkHub 后端服务 (Go + PocketBase)
   backend:
-    # 使用云端预构建的后端镜像 - 用户需要替换为实际的镜像名称
-    image: your-repo/markhub-backend:latest
+    image: syferie/markhub-backend:latest
     container_name: markhub-backend
     ports:
       - "8090:8090"
     environment:
       # 可选：设置PocketBase的公开URL（用于邮件链接等）
-      - POCKETBASE_URL=http://localhost:8090
+      # 生产环境：使用实际的域名，用于邮件链接和公开访问
+      # 请将 your-domain.com 替换为您的实际域名
+      - POCKETBASE_URL=https://your-domain.com
       
       # ⚠️ 【必须配置】JWT密钥 - 用于用户认证Token签名
       # 🔐 强烈建议使用32字符以上的随机密钥，可以访问以下网址生成：
