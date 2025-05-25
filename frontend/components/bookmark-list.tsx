@@ -1734,22 +1734,38 @@ export default function BookmarkList({
   const MemoizedCardGrid = React.memo(({ bookmarks }: { bookmarks: Bookmark[] }) => {
     return (
       <div className="h-full overflow-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 p-4">
+        <div
+          className="p-4"
+          style={{
+            columnCount: 3,
+            columnGap: '16px',
+            columnFill: 'balance',
+          }}
+        >
           {bookmarks.map((bookmark) => (
-            <BookmarkCardItem
+            <div
               key={bookmark.id}
-              bookmark={bookmark}
-              isSelected={selectedBookmarks.includes(bookmark.id)}
-              bulkMode={bulkMode}
-              onToggleSelection={toggleBookmarkSelection}
-              onEdit={setEditingBookmark}
-              onDelete={handleDeleteBookmark}
-              onToggleFavorite={handleToggleFavorite}
-              onTagClick={handleTagClick}
-              onFolderClick={handleFolderClick}
-              getFolderName={getFolderName}
-              formatDate={formatDate}
-            />
+              style={{
+                breakInside: 'avoid',
+                marginBottom: '16px',
+                display: 'inline-block',
+                width: '100%',
+              }}
+            >
+              <BookmarkCardItem
+                bookmark={bookmark}
+                isSelected={selectedBookmarks.includes(bookmark.id)}
+                bulkMode={bulkMode}
+                onToggleSelection={toggleBookmarkSelection}
+                onEdit={setEditingBookmark}
+                onDelete={handleDeleteBookmark}
+                onToggleFavorite={handleToggleFavorite}
+                onTagClick={handleTagClick}
+                onFolderClick={handleFolderClick}
+                getFolderName={getFolderName}
+                formatDate={formatDate}
+              />
+            </div>
           ))}
         </div>
       </div>

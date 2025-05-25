@@ -294,9 +294,17 @@ export default function BookmarkDashboard() {
           </Tabs>
         </div>
       ) : (
-        // 桌面端使用原来的网格布局
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 h-[calc(100vh-100px)]">
-          <div className="md:col-span-1 bg-white rounded-lg shadow p-4 overflow-auto">
+        // 桌面端使用调整后的网格布局 - 卡片模式下左侧栏更窄，右侧更宽
+        <div className={`grid grid-cols-1 gap-6 h-[calc(100vh-100px)] ${
+          viewMode === 'card'
+            ? 'md:grid-cols-5' // 卡片模式：1:4 比例
+            : 'md:grid-cols-4'  // 列表模式：1:3 比例
+        }`}>
+          <div className={`bg-white rounded-lg shadow p-4 overflow-auto ${
+            viewMode === 'card'
+              ? 'md:col-span-1' // 卡片模式：占1列
+              : 'md:col-span-1' // 列表模式：占1列
+          }`}>
             <h2 className="text-lg font-semibold mb-4 text-gray-700">{t("dashboard.collections")}</h2>
             <FolderTree />
             {/* 在 FolderTree 下方添加 ActiveFiltersDisplay */}
@@ -316,7 +324,11 @@ export default function BookmarkDashboard() {
             {/* <TagManager /> */}
           </div>
   
-          <div className="md:col-span-3 flex flex-col h-full">
+          <div className={`flex flex-col h-full ${
+            viewMode === 'card'
+              ? 'md:col-span-4' // 卡片模式：占4列
+              : 'md:col-span-3' // 列表模式：占3列
+          }`}>
             <div className="bg-white rounded-lg shadow p-4 mb-4">
               <div className="flex items-center space-x-2 mb-4">
                 {/* 搜索框 */}

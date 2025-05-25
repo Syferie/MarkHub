@@ -178,10 +178,20 @@ export async function createBookmark(
   bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'> & { tags?: string[] }
 ): Promise<Bookmark> {
   // 验证输入数据
-  const validatedInput = CreateBookmarkInputSchema.parse({
+  console.log("API客户端接收到的原始数据:", bookmarkData);
+  
+  const inputData = {
     ...bookmarkData,
-    tags: bookmarkData.tags || []
-  });
+    tags: bookmarkData.tags || [],
+    description: bookmarkData.description || "",
+    img: bookmarkData.img || ""
+  };
+  
+  console.log("准备验证的数据:", inputData);
+  
+  const validatedInput = CreateBookmarkInputSchema.parse(inputData);
+  
+  console.log("Zod验证后的数据:", validatedInput);
   
   // 过滤掉任何特殊控制标志
   const dataToSend = { ...validatedInput };

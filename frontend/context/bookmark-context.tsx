@@ -43,7 +43,7 @@ interface BookmarkContextType {
   toggleFavoriteFolder: (id: string) => Promise<void>
   toggleFavoriteBookmark: (id: string) => void
   // Updated signatures for CRUD operations
-  addBookmark: (bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'tags'>) => Promise<void>
+  addBookmark: (bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'> & { tags?: string[] }) => Promise<void>
   updateBookmark: (bookmarkId: string, updatedFields: Partial<Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>) => Promise<void>
   deleteBookmark: (id: string) => Promise<void>
   addFolder: (folderData: Omit<Folder, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>
@@ -473,7 +473,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
   }
  
   // Bookmark operations
-  const addBookmark = async (bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'tags'>) => {
+  const addBookmark = async (bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'> & { tags?: string[] }) => {
     if (!token) {
       console.error("用户未认证，无法添加书签。")
       return
@@ -486,12 +486,14 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
       folderId?: string | null;
       favicon?: string;
       isFavorite?: boolean;
-      // Ensure other client-settable fields are included if they exist in Bookmark type (excluding Omit ones)
+      description?: string;
+      img?: string;
+      tags?: string[];
     } = {
       title: bookmarkData.title,
       url: bookmarkData.url,
     };
- 
+
     if (bookmarkData.folderId !== undefined && bookmarkData.folderId !== null) {
       dataToSend.folderId = bookmarkData.folderId;
     }
@@ -501,7 +503,15 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
     if (bookmarkData.isFavorite !== undefined) {
       dataToSend.isFavorite = bookmarkData.isFavorite;
     }
-    // Note: 'tags' are handled by the backend hook for bookmarks.
+    if (bookmarkData.description !== undefined) {
+      dataToSend.description = bookmarkData.description;
+    }
+    if (bookmarkData.img !== undefined) {
+      dataToSend.img = bookmarkData.img;
+    }
+    if (bookmarkData.tags !== undefined) {
+      dataToSend.tags = bookmarkData.tags;
+    }
  
     // If favicon is not provided, fetch it (or prepare for backend to handle it)
     // For now, we assume favicon is part of bookmarkData or handled by backend.

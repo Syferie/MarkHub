@@ -15,8 +15,8 @@ export const BookmarkSchema = z.object({
   faviconUrl: z.string().nullable().optional(),
   isFavorite: z.boolean().default(false),
   tags: z.array(z.string()).default([]),
-  description: z.string().optional(), // 书签描述信息
-  img: z.string().optional(), // 书签图片 URL 或路径
+  description: z.string().default(""), // 书签描述信息
+  img: z.string().default(""), // 书签图片 URL 或路径
   userId: z.string(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
