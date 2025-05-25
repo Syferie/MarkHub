@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Tabs, ActionIcon, TextInput, Button, Badge, Checkbox, Anchor, Text } from "@mantine/core"
-import { IconSearch, IconPlus, IconAdjustments, IconFolder, IconSettings, IconStar, IconX, IconTags } from "@tabler/icons-react"
+import { IconSearch, IconPlus, IconAdjustments, IconFolder, IconSettings, IconStar, IconX, IconTags, IconList, IconLayoutGrid } from "@tabler/icons-react"
 import { useAuth } from "@/context/auth-context" // 导入认证上下文
 import Link from "next/link" // 导入Link组件用于导航
 import BookmarkList from "./bookmark-list"
@@ -16,6 +16,7 @@ import ActiveFiltersDisplay from "./ActiveFiltersDisplay" // 导入新的筛选�
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
 import { uploadBookmarksToWebDAV } from "./webdav-sync"
+import { getBookmarkLayout, saveBookmarkLayout, BookmarkLayoutType } from "@/lib/config-storage" // 导入 localStorage 工具函数
 
 export default function BookmarkDashboard() {
   // Re-evaluating types
@@ -39,10 +40,18 @@ export default function BookmarkDashboard() {
     toggleSearchField,
     // settings, // settings is now managed by AuthContext
   } = useBookmarks()
-  const { userSettings } = useAuth() // Get userSettings from AuthContext
+  const { userSettings } = useAuth() // 只需要 userSettings，不再需要 updateGlobalSettings
   const { t } = useLanguage()
   const [folderName, setFolderName] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState(userSettings?.defaultView || "all")
+  
+  // 视图模式状态管理 - 避免 Hydration 错误
+  const [viewMode, setViewMode] = useState<BookmarkLayoutType>('list')
+  
+  // 在客户端初始化时从 localStorage 读取
+  useEffect(() => {
+    setViewMode(getBookmarkLayout('list'))
+  }, [])
 
   // Update active tab when default view setting changes from AuthContext
   useEffect(() => {
@@ -50,6 +59,12 @@ export default function BookmarkDashboard() {
       setActiveTab(userSettings.defaultView)
     }
   }, [userSettings?.defaultView])
+
+  // 视图模式切换函数 - 保存到 localStorage
+  const handleViewModeChange = (newViewMode: BookmarkLayoutType) => {
+    setViewMode(newViewMode)
+    saveBookmarkLayout(newViewMode)
+  }
 
   // 当用户通过文件夹树选择文件夹时，自动切换到"All bookmarks"标签
   // 这解决了用户在收藏文件夹标签激活时点击左侧文件夹树导致的显示问题
@@ -160,6 +175,17 @@ export default function BookmarkDashboard() {
                     leftSection={<IconSearch size={16} />}
                   />
                   <div className="flex items-center space-x-2">
+                    {/* 视图切换按钮 */}
+                    <ActionIcon
+                      variant="light"
+                      color="gray"
+                      aria-label={viewMode === 'list' ? 'Switch to card view' : 'Switch to list view'}
+                      onClick={() => handleViewModeChange(viewMode === 'list' ? 'card' : 'list')}
+                      size="md"
+                    >
+                      {viewMode === 'list' ? <IconLayoutGrid size={18} /> : <IconList size={18} />}
+                    </ActionIcon>
+                    
                     {/* 筛选按钮 */}
                     <ActionIcon
                       variant={showSearchFilters ? "filled" : "light"}
@@ -261,6 +287,7 @@ export default function BookmarkDashboard() {
                   sortOptions={sortOptions}
                   currentSortOption={currentSortOption}
                   setCurrentSortOption={setCurrentSortOption}
+                  viewMode={viewMode}
                 />
               </div>
             </Tabs.Panel>
@@ -301,8 +328,20 @@ export default function BookmarkDashboard() {
                   leftSection={<IconSearch size={16} />}
                 />
                 
-                {/* 工具栏按钮，按照顺序：筛选、添加书签、设置 */}
+                {/* 工具栏按钮，按照顺序：视图切换、筛选、添加书签、设置 */}
                 <div className="flex items-center space-x-2">
+                  {/* 0. 视图切换按钮 */}
+                  <ActionIcon
+                    variant="light"
+                    color="gray"
+                    aria-label={viewMode === 'list' ? 'Switch to card view' : 'Switch to list view'}
+                    onClick={() => handleViewModeChange(viewMode === 'list' ? 'card' : 'list')}
+                    size="lg"
+                    className="h-[36px] w-[36px] flex items-center justify-center"
+                  >
+                    {viewMode === 'list' ? <IconLayoutGrid size={20} /> : <IconList size={20} />}
+                  </ActionIcon>
+
                   {/* 1. 筛选按钮 */}
                   <ActionIcon
                     variant={showSearchFilters ? "filled" : "light"}
@@ -418,6 +457,7 @@ export default function BookmarkDashboard() {
                 sortOptions={sortOptions}
                 currentSortOption={currentSortOption}
                 setCurrentSortOption={setCurrentSortOption}
+                viewMode={viewMode}
               />
             </div>
           </div>

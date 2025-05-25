@@ -4,6 +4,8 @@ export interface Bookmark {
   url: string
   folderId?: string | null; // 明确标记为可选，并与 api-client.ts 保持一致
   tags?: string[]
+  description?: string; // 书签描述信息
+  img?: string; // 书签图片 URL 或路径
   createdAt: string
   updatedAt: string
   faviconUrl?: string | null;

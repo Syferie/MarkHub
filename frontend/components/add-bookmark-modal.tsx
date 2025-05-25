@@ -23,6 +23,8 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
   const authContext = useContext(AuthContext)
   const [title, setTitle] = useState("")
   const [url, setUrl] = useState("")
+  const [description, setDescription] = useState("")
+  const [img, setImg] = useState("")
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [isLoadingTags, setIsLoadingTags] = useState(false)
@@ -53,6 +55,8 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
       // For demo purposes:
       setTitle("")
       setUrl("")
+      setDescription("")
+      setImg("")
       setSelectedFolder(null)
       setSelectedTags([])
       setTagError(null)
@@ -79,6 +83,8 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           id: `bookmark-${Date.now()}`,
           title,
           url: urlObj.toString(),
+          description: description.trim() || undefined,
+          img: img.trim() || undefined,
           folderId: selectedFolder,
           tags: selectedTags,
           createdAt: new Date().toISOString(),
@@ -410,6 +416,20 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           required
+        />
+
+        <TextInput
+          label="描述"
+          placeholder="输入书签描述（可选）"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+
+        <TextInput
+          label="图片 URL"
+          placeholder="https://example.com/image.jpg（可选）"
+          value={img}
+          onChange={(e) => setImg(e.target.value)}
         />
 
         <div>

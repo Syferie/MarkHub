@@ -58,6 +58,36 @@ export function removeConfig(key: string): void {
   }
 }
 
+/**
+ * 布局偏好类型定义
+ */
+export type BookmarkLayoutType = 'list' | 'card';
+
+/**
+ * 保存书签布局偏好到 localStorage
+ * @param layout 布局类型
+ */
+export function saveBookmarkLayout(layout: BookmarkLayoutType): void {
+  saveConfig('preferredBookmarkLayout', layout);
+}
+
+/**
+ * 从 localStorage 获取书签布局偏好
+ * @param defaultLayout 默认布局类型
+ * @returns 布局类型
+ */
+export function getBookmarkLayout(defaultLayout: BookmarkLayoutType = 'list'): BookmarkLayoutType {
+  const layout = getConfig<BookmarkLayoutType>('preferredBookmarkLayout', defaultLayout);
+  return layout || defaultLayout;
+}
+
+/**
+ * 移除书签布局偏好
+ */
+export function removeBookmarkLayout(): void {
+  removeConfig('preferredBookmarkLayout');
+}
+
 // saveAppConfig, getAppConfig, 和 migrateConfigFromIndexedDB 函数已移除，
 // 因为它们处理的配置项大部分已迁移到后端，
 // 并且 migrateConfigFromIndexedDB 依赖于已废弃的 IndexedDB (lib/db.ts)。

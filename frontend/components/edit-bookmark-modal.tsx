@@ -26,6 +26,8 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
   const authContext = useContext(AuthContext)
   const [title, setTitle] = useState(bookmark.title)
   const [url, setUrl] = useState(bookmark.url)
+  const [description, setDescription] = useState(bookmark.description || "")
+  const [img, setImg] = useState(bookmark.img || "")
   const [selectedFolder, setSelectedFolder] = useState<string | null>(bookmark.folderId || null)
   const [selectedTags, setSelectedTags] = useState<string[]>(bookmark.tags || [])
   const [isLoadingTags, setIsLoadingTags] = useState(false)
@@ -55,6 +57,8 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
     if (isOpen) {
       setTitle(bookmark.title)
       setUrl(bookmark.url)
+      setDescription(bookmark.description || "")
+      setImg(bookmark.img || "")
       setSelectedFolder(bookmark.folderId || null)
       setSelectedTags(bookmark.tags || [])
       setTagError(null)
@@ -73,6 +77,8 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
         const dataToUpdate = {
           title,
           url: urlObj.toString(),
+          description: description.trim() || undefined,
+          img: img.trim() || undefined,
           folderId: selectedFolder,
           tags: selectedTags, // 明确使用用户选择的标签
         } as Partial<Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'>>;
@@ -405,6 +411,20 @@ export default function EditBookmarkModal({ bookmark, isOpen, onClose }: EditBoo
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           required
+        />
+
+        <TextInput
+          label="描述"
+          placeholder="输入书签描述（可选）"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+
+        <TextInput
+          label="图片 URL"
+          placeholder="https://example.com/image.jpg（可选）"
+          value={img}
+          onChange={(e) => setImg(e.target.value)}
         />
 
         <div>

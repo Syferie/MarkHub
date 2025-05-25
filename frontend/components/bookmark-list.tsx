@@ -28,6 +28,7 @@ import { toast } from "sonner"
 import { useBookmarks } from "@/context/bookmark-context"
 import { useLanguage } from "@/context/language-context"
 import EditBookmarkModal from "./edit-bookmark-modal"
+import BookmarkCardItem from "./BookmarkCardItem"
 import type { Bookmark } from "@/lib/schemas"
 import { generateTags } from "@/lib/tag-api"
 import { suggestFolder } from "@/lib/folder-api"
@@ -83,6 +84,7 @@ interface BookmarkListProps {
   sortOptions?: { value: string; label: string }[]
   currentSortOption?: string
   setCurrentSortOption?: (option: string) => void
+  viewMode?: 'list' | 'card'
 }
 
 export default function BookmarkList({
@@ -91,6 +93,7 @@ export default function BookmarkList({
   sortOptions = [],
   currentSortOption = "newest",
   setCurrentSortOption,
+  viewMode = 'list',
 }: BookmarkListProps) {
   const isMobile = useIsMobile();
   const { deleteBookmark, updateBookmark, folders, tags, setSelectedFolderId, setSelectedTags, toggleFavoriteBookmark, refreshFavicon } =
@@ -1727,6 +1730,34 @@ export default function BookmarkList({
     return true;
   });
 
+  // 卡片网格组件，使用 React.memo 优化
+  const MemoizedCardGrid = React.memo(({ bookmarks }: { bookmarks: Bookmark[] }) => {
+    return (
+      <div className="h-full overflow-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 p-4">
+          {bookmarks.map((bookmark) => (
+            <BookmarkCardItem
+              key={bookmark.id}
+              bookmark={bookmark}
+              isSelected={selectedBookmarks.includes(bookmark.id)}
+              bulkMode={bulkMode}
+              onToggleSelection={toggleBookmarkSelection}
+              onEdit={setEditingBookmark}
+              onDelete={handleDeleteBookmark}
+              onToggleFavorite={handleToggleFavorite}
+              onTagClick={handleTagClick}
+              onFolderClick={handleFolderClick}
+              getFolderName={getFolderName}
+              formatDate={formatDate}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }, (prevProps, nextProps) => {
+    return prevProps.bookmarks === nextProps.bookmarks;
+  });
+
   if (!Array.isArray(bookmarks) || bookmarks.length === 0) {
     return (
       <div className="text-center py-10 fade-in">
@@ -2271,8 +2302,13 @@ export default function BookmarkList({
       )}
 
       <div className={`${isMobile ? 'h-[calc(100vh-200px)]' : 'h-[calc(100vh-300px)]'} w-full`}>
-        {/* 使用React.memo优化组件渲染 */}
-        <MemoizedVirtualList bookmarks={bookmarks} />
+        {viewMode === 'list' ? (
+          /* 列表视图：使用React.memo优化组件渲染 */
+          <MemoizedVirtualList bookmarks={bookmarks} />
+        ) : (
+          /* 卡片视图：使用优化的卡片网格组件 */
+          <MemoizedCardGrid bookmarks={bookmarks} />
+        )}
       </div>
 
       {editingBookmark && (
