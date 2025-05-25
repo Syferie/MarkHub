@@ -2372,22 +2372,8 @@ func main() {
 
 	// --- Load configuration from environment variables and apply them AFTER bootstrap ---
 
-	// 1. POCKETBASE_URL (HTTP Listen Address)
-	pocketbaseUrlEnv := os.Getenv("POCKETBASE_URL")
-	defaultPocketbaseAddr := "127.0.0.1:8090" // PocketBase's --http flag expects host:port
-	pocketbaseAddr := defaultPocketbaseAddr
-
-	if pocketbaseUrlEnv != "" {
-		parsedUrl, err := url.Parse(pocketbaseUrlEnv)
-		if err == nil && parsedUrl.Host != "" {
-			pocketbaseAddr = parsedUrl.Host // Host includes hostname:port
-			log.Printf("Info: Using POCKETBASE_URL from environment: %s (parsed as %s)\n", pocketbaseUrlEnv, pocketbaseAddr)
-		} else {
-			log.Printf("Warning: POCKETBASE_URL ('%s') is set but could not be parsed as a valid URL or does not contain a host. Using default: %s. Error: %v\n", pocketbaseUrlEnv, defaultPocketbaseAddr, err)
-		}
-	} else {
-		log.Printf("Info: POCKETBASE_URL not set, using default PocketBase address: %s\n", defaultPocketbaseAddr)
-	}
+	// POCKETBASE_URL will be read by PocketBase core for app.Settings().Meta.AppUrl if set.
+	// The actual HTTP listen address should be controlled by the --http flag passed to the serve command.
 
 	// 2. JWT_SECRET
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -2943,22 +2929,11 @@ func main() {
 		return se.Next()
 	})
 
-	// --- Prepare arguments for the serve command ---
-	serveArgs := []string{"serve"} // Default command is serve
-
-	// Add --http flag if pocketbaseAddr was set from POCKETBASE_URL and is not the default
-	if pocketbaseAddr != defaultPocketbaseAddr {
-		serveArgs = append(serveArgs, "--http="+pocketbaseAddr)
-		log.Printf("Info: Will start serve command with --http=%s\n", pocketbaseAddr)
-	} else {
-		log.Printf("Info: Will start serve command with default http address: %s\n", defaultPocketbaseAddr)
-	}
-	
-	// You might want to pass other flags like --dev if needed, e.g.:
-	// serveArgs = append(serveArgs, "--dev") // Or control this via another env var
-
-	app.RootCmd.SetArgs(serveArgs)
-	log.Printf("Info: PocketBase root command arguments set to: %v\n", serveArgs)
+	// PocketBase's app.Start() will internally use os.Args to find and execute
+	// the appropriate command (e.g., "serve") and its flags (e.g., "--http").
+	// We don't need to manually construct serveArgs or set them with app.RootCmd.SetArgs()
+	// if we want the command line arguments passed to this compiled binary to be used directly.
+	log.Printf("Info: Starting PocketBase with arguments from OS: %v\n", os.Args)
 
 	if err := app.Start(); err != nil {
 		log.Fatal(err)

@@ -5,11 +5,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # 前端应用连接后端API服务时使用的基础URL。
-      # 在生产环境中，这应该是你后端服务最终的、通过反向代理暴露的公共HTTPS地址。
-      # 例如：https://your-domain.com 或 https://api.your-domain.com
-      # 浏览器中运行的前端代码将使用此URL向后端发起API请求。
-      - NEXT_PUBLIC_API_BASE_URL=https://your-domain.com
+      # 前端需要连接到后端服务的API地址
+      # 生产环境：使用实际的域名，并配置 https
+      # 请将 your-domain.com 替换为您的实际域名
+      - NEXT_PUBLIC_API_BASE_URL=https://db.markhub.app
     depends_on:
       - backend
     restart: unless-stopped
@@ -22,29 +21,28 @@ services:
     ports:
       - "8090:8090"
     environment:
-      # PocketBase 服务自身的公开URL。
-      # 主要用于PocketBase生成指向自身的绝对链接（例如，在邮件验证、密码重置链接中）。
-      # 在生产环境中，这应该是你的后端服务最终的、通过反向代理暴露的公共HTTPS域名。
-      # 例如：https://your-domain.com 或 https://api.your-domain.com
-      # 注意：此设置不改变PocketBase在容器内监听的地址和端口（默认为HTTP 0.0.0.0:8090）。
-      # HTTPS的终止和域名访问应由外部反向代理处理。
-      - POCKETBASE_URL=https://your-domain.com
-      
+      # 可选：设置PocketBase的公开URL（用于邮件链接等）
+      # 生产环境：使用实际的域名，用于邮件链接和公开访问
+      # 请将 your-domain.com 替换为您的实际域名
+      - POCKETBASE_URL=https://db.markhub.app # 更正为 HTTPS，确保指向公共域名
       # ⚠️ 【必须配置】JWT密钥 - 用于用户认证Token签名
       # 🔐 强烈建议使用32字符以上的随机密钥，可以访问以下网址生成：
       # 🌐 https://passwords-generator.org/32-character
       # ❌ 如果检测到使用默认值，系统将自动生成新密钥
-      - JWT_SECRET=your_very_secure_jwt_secret_key_at_least_32_characters_long_change_this_in_production
+      - JWT_SECRET=t2~wNNnv?J$dLah[1"_wTgymec_NdJ)4gtdfse
       
       # ⚠️ 【必须配置】敏感信息加密密钥 - 用于加密API密钥等敏感配置
       # 🔐 必须使用32字符的随机密钥，与JWT_SECRET使用不同的值
       # 🌐 请访问 https://passwords-generator.org/32-character 生成
       # ❌ 如果检测到使用默认值，系统将自动生成新密钥
-      - ENCRYPTION_KEY=your_32_character_encryption_key_change_this_in_production_env
+      - ENCRYPTION_KEY=g,/BE"`(TA+:d8*?[Da.ily}a&Swr*CPggtwrg
     # 通过显式传递 --http 参数，确保 PocketBase 在容器内部监听正确的地址和端口，
-    # 而不受 POCKETBASE_URL 环境变量对监听地址的意外影响。
+    # 而不受 POCKETBASE_URL 环境变量对监听地址的意外影响（理想情况下）。
     # POCKETBASE_URL 仍将用于生成外部可访问的链接。
-    command: ["go", "run", "main.go", "serve", "--http=0.0.0.0:8090"]
+    # 执行编译后的二进制文件。
+    # backend/main.go 已修改为直接使用传递给此命令的参数。
+    # 因此，--http=0.0.0.0:8090 将被 PocketBase 核心用于设置监听地址。
+    command: ["./markhub-backend", "serve", "--http=0.0.0.0:8090"]
     volumes:
       # 持久化PocketBase数据库和文件
       - pocketbase-data:/app/pb_data
