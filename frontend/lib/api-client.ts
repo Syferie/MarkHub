@@ -130,7 +130,7 @@ export type { Bookmark, Folder } from '@/lib/schemas';
 
 export async function getBookmarks(token: string): Promise<Bookmark[]> {
   const response = await fetchAPIWithValidation(
-    '/api/collections/bookmarks/records',
+    '/api/collections/bookmarks/records?perPage=5000',
     'GET',
     undefined,
     { token },
@@ -152,7 +152,7 @@ export async function getBookmarks(token: string): Promise<Bookmark[]> {
 
 export async function getFolders(token: string): Promise<Folder[]> {
   const response = await fetchAPIWithValidation(
-    '/api/collections/folders/records',
+    '/api/collections/folders/records?perPage=5000',
     'GET',
     undefined,
     { token },
@@ -177,9 +177,6 @@ export async function createBookmark(
   token: string,
   bookmarkData: Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'> & { tags?: string[] }
 ): Promise<Bookmark> {
-  // 验证输入数据
-  console.log("API客户端接收到的原始数据:", bookmarkData);
-  
   const inputData = {
     ...bookmarkData,
     tags: bookmarkData.tags || [],
@@ -187,11 +184,7 @@ export async function createBookmark(
     img: bookmarkData.img || ""
   };
   
-  console.log("准备验证的数据:", inputData);
-  
   const validatedInput = CreateBookmarkInputSchema.parse(inputData);
-  
-  console.log("Zod验证后的数据:", validatedInput);
   
   // 过滤掉任何特殊控制标志
   const dataToSend = { ...validatedInput };
@@ -202,8 +195,7 @@ export async function createBookmark(
     delete (dataToSend as any)._preventAutoTagging;
   }
   
-  // 记录调试信息
-  console.log("创建书签: 发送到API的数据:", dataToSend);
+  console.log("创建书签:", { title: dataToSend.title, url: dataToSend.url, tags: dataToSend.tags });
   
   return fetchAPIWithValidation(
     '/api/collections/bookmarks/records',
@@ -219,7 +211,6 @@ export async function updateBookmark(
   bookmarkId: string,
   bookmarkData: Partial<Omit<Bookmark, 'id' | 'createdAt' | 'updatedAt' | 'userId'>> & { tags?: string[] }
 ): Promise<Bookmark> {
-  // 验证输入数据
   const validatedInput = UpdateBookmarkInputSchema.parse(bookmarkData);
   
   // 构造要发送的数据，只包含实际传入的字段
@@ -240,8 +231,7 @@ export async function updateBookmark(
     delete dataToSend._preventAutoTagging;
   }
 
-  // 记录调试信息
-  console.log("更新书签: 发送到API的数据:", dataToSend);
+  console.log("更新书签:", { id: bookmarkId, changes: Object.keys(dataToSend) });
   
   return fetchAPIWithValidation(
     `/api/collections/bookmarks/records/${bookmarkId}`,

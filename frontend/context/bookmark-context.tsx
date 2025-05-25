@@ -551,7 +551,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-      console.log("书签已创建:", newBookmark)
+      console.log("书签创建成功:", newBookmark.title)
     } catch (error) {
       console.error("创建书签失败:", error)
       // Optionally, re-throw or set an error state for the UI
@@ -609,7 +609,7 @@ export function BookmarkProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-      console.log("书签已更新:", updatedBookmark)
+      console.log("书签更新成功:", updatedBookmark.title)
     } catch (error) {
       console.error(`更新书签失败 (ID: ${bookmarkId}):`, error)
     }
