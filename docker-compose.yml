@@ -5,10 +5,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # 前端需要连接到后端服务的API地址
-      # 生产环境：使用实际的域名，并配置 https
-      # 请将 your-domain.com 替换为您的实际域名
-      - NEXT_PUBLIC_API_BASE_URL=https://db.markhub.app
+      # 配置前端连接的后端API地址
+      - APP_API_BASE_URL=https://db.markhub.app
     depends_on:
       - backend
     restart: unless-stopped

@@ -13,9 +13,6 @@ const nextConfig = {
   trailingSlash: false,
   // 添加自定义 headers 配置，包括内容安全策略
   async headers() {
-    // 从环境变量获取API基础URL，如果没有则使用默认值
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8090';
-    
     return [
       {
         source: '/(.*)',
@@ -26,7 +23,8 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' ${apiBaseUrl}; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none';`
+            // 使用更宽泛的CSP策略：允许连接到任何HTTPS URL和本地开发地址
+            value: `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: http://127.0.0.1:* http://localhost:*; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none';`
           },
           {
             key: 'X-Content-Type-Options',

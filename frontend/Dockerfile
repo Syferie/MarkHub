@@ -74,16 +74,18 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# 复制构建产物和必要文件
-COPY --from=builder /app/public ./public
-
 # 安装pnpm
 RUN npm install -g pnpm
 
-# 复制.next目录和所有必要文件
+# 复制构建产物和必要文件
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+# 复制入口点脚本
+COPY frontend/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # 切换到非root用户
 USER nextjs
@@ -98,6 +100,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 # 暴露应用端口
 EXPOSE 3000
+
+# 设置入口点
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # 启动应用
 CMD ["pnpm", "start"]

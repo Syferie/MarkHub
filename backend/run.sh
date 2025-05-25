@@ -9,5 +9,7 @@ fi
 set +a
 
 # Run the Go application
-echo "Starting Go application (main.go)..."
-go run main.go
+echo "Starting Go application (main.go) with 'serve' command..."
+# Run the Go application with the 'serve' command and listen on all interfaces
+# Add --dev for more verbose logging during development
+go run main.go serve --http="0.0.0.0:8090" --dev

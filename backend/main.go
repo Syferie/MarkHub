@@ -2351,8 +2351,7 @@ func fetchAndValidateFavicon(client *http.Client, serviceURL string) (string, er
 	return serviceURL, nil
 }
 
-// clearAllUserDataHandler handles the request to clear all data for the authenticated user.
-// This entire duplicated function block will be removed.
+
 
 func main() {
 	app := pocketbase.New()

@@ -63,6 +63,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <ColorSchemeScript defaultColorScheme="auto" />
+        {/* Script to load runtime environment variables - removed async to ensure synchronous loading */}
+        <script src="/env-config.js"></script>
         <link rel="canonical" href="https://markhub.app" />
         <script
           type="application/ld+json"

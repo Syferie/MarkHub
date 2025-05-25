@@ -49,8 +49,8 @@ RUN mkdir -p /app/pb_data
 EXPOSE 8090
 
 # 开发模式启动命令（使用go run以支持热重载）
-# 不指定--http参数，让应用从环境变量POCKETBASE_URL中读取配置
-CMD ["go", "run", ".", "serve"]
+# 明确指定 --http 和 --dev 以获得更详细的日志和确定的监听地址
+CMD ["go", "run", ".", "serve", "--http=0.0.0.0:8090", "--dev"]
 
 # 构建阶段
 FROM base AS builder

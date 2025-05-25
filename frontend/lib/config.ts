@@ -4,10 +4,23 @@
  * 统一管理环境变量和应用配置
  */
 
+// 动态获取API基础URL的函数
+const getApiBaseUrl = (): string => {
+  // 优先从运行时注入的 window._env_ 对象中获取
+  if (typeof window !== 'undefined' && (window as any)._env_ && (window as any)._env_.APP_API_BASE_URL) {
+    return (window as any)._env_.APP_API_BASE_URL;
+  }
+  
+  // 回退到环境变量或默认值
+  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8090';
+};
+
 // API基础URL配置
 export const API_CONFIG = {
-  // 从环境变量获取API基础URL，如果没有则使用默认的开发环境地址
-  BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8090',
+  // 使用getter确保每次访问时都是最新的值
+  get BASE_URL() {
+    return getApiBaseUrl();
+  },
   
   // API端点前缀
   ENDPOINTS: {
@@ -45,7 +58,7 @@ export const APP_CONFIG = {
 };
 
 // 导出完整的API基础URL，方便其他模块使用
-export const getApiBaseUrl = () => API_CONFIG.BASE_URL;
+export { getApiBaseUrl };
 
 // 构建完整的API端点URL
 export const buildApiUrl = (endpoint: keyof typeof API_CONFIG.ENDPOINTS) => {
@@ -64,4 +77,4 @@ export const ENV_CONFIG = {
   isDevelopment: process.env.NODE_ENV === 'development',
   isProduction: process.env.NODE_ENV === 'production',
   isClient: typeof window !== 'undefined',
-}; 
+};
